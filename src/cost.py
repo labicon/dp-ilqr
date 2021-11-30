@@ -12,9 +12,12 @@ class QuadraticCost(object):
     
     def __init__(self, xf, Q, R):
         self.xf = xf
-        self.Q = Q
-        self.R = R
-            
+        # Q: Should normalize here?
+        self.Q = Q / np.sum(Q) * Q.shape[0]
+        self.R = R / np.sum(R) * R.shape[0]
+        # self.Q = Q
+        # self.R = R
+        
     def __call__(self, x, u, terminal=False):
         """Return the quadratic cost around the operating point assuming identity Q & R."""
         if not terminal:
@@ -36,3 +39,5 @@ class QuadraticCost(object):
         # L_xu = L_ux.T
         
         return L_x, L_u, L_xx, L_uu, L_ux
+    
+    
