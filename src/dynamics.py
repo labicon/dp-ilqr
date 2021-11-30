@@ -18,21 +18,21 @@ class DynamicalModel(ABC):
         self.dt = dt
     
     def __call__(self, x, u):
-        """Advance the model in time assuming linear dynamics"""
+        """Advance the model in time by integrating the ODE."""
         
         # u = self.constrain(u)
 
         # Approximate linearization
-        # A, B = self.linearize(x, u)
-        # return A@x + B@u
+        A, B = self.linearize(x, u)
+        return A@x + B@u
         
         # Euler integration - NOTE: not consistent for CarDynamics
         # x_dot = self.f(x, self.dt, u)
         # return x + x_dot * self.dt
         
         # Adams/BDF method with automatic stiffness detection and switching
-        args = tuple([u.flatten()]) # ensure u is passed off properly
-        return odeint(self.f, x, (0, self.dt), args=args)[-1]
+        # args = tuple([u.flatten()]) # ensure u is passed off properly
+        # return odeint(self.f, x, (0, self.dt), args=args)[-1]
     
     @staticmethod
     @abstractmethod
@@ -50,7 +50,7 @@ class DynamicalModel(ABC):
         """Apply physical constraints to the control input u."""
         pass
     
-    def plot(self, X, xf):
+    def plot(self, X, xf=None, do_headings=False):
         """Visualizes a state evolution over time."""
         assert X.shape[1] >= 3, 'Must at least have x and y states for this to make sense.'
         
@@ -72,6 +72,9 @@ class DynamicalModel(ABC):
         ax.set_title('Car')
         ax.legend()
         ax.grid()
+        
+        if do_headings:
+            annotate_headings(X)
         
 
 class DoubleIntegratorDynamics(DynamicalModel):
@@ -164,8 +167,8 @@ class CarDynamics(DynamicalModel):
              np.cos(theta)
         ]) * v * self.dt
         B = np.array([
-            [np.cos(theta), -self.dt*v*np.sin(theta)],
-            [np.sin(theta),  self.dt*v*np.cos(theta)],
+            [np.cos(theta), -v*self.dt*np.sin(theta)],
+            [np.sin(theta),  v*self.dt*np.cos(theta)],
             [            0,                        1]
         ]) * self.dt
         
@@ -175,11 +178,29 @@ class CarDynamics(DynamicalModel):
         u[0] = np.clip(u[0], *self.V_LIMS)
         u[1] = np.clip(u[1], *self.OMEGA_LIMS)
         return u
-        
-    def plot(self, X, xf=None):
-        super().plot(X, xf)
-        # annotate_headings(X)
+    
 
+class CarDynamics2(CarDynamics):
+    """Modified CarDynamics adapted from different examples.
+        state := [x position, y position, heading angle]
+        control := [linear velocity, angular velocity]
+    """
+    
+    def linearize(self, x, u):
+        n_x = x.shape[0]
+        theta = x[2]
+        v = u[0]
+        
+        A = np.eye(n_x)
+        B = np.array([
+            [np.cos(theta), 0],
+            [np.sin(theta), 0],
+            [              0, 1]
+        ]) * self.dt
+    
+        return A, B
+
+    
 class UnicycleDynamics(DynamicalModel):
     """Simplified unicycle model for 2D trajectory planning.
         state := [x position, y position, linear velocity, heading angle]
@@ -218,10 +239,10 @@ class UnicycleDynamics(DynamicalModel):
         ]) * self.dt
 
         B = np.array([
-            [self.dt*np.cos(theta), -self.dt*v*np.sin(theta)],
-            [self.dt*np.sin(theta),  self.dt*v*np.cos(theta)],
-            [                       1,                     0],
-            [                       0,                     1]
+            [self.dt*np.cos(theta), -v*self.dt*np.sin(theta)],
+            [self.dt*np.sin(theta),  v*self.dt*np.cos(theta)],
+            [                     1,                       0],
+            [                     0,                       1]
         ]) * self.dt
 
         return A, B
@@ -230,10 +251,6 @@ class UnicycleDynamics(DynamicalModel):
         u[0] = np.clip(u[0], *self.ACC_LIMS)
         u[1] = np.clip(u[1], *self.OMEGA_LIMS)
         return u
-    
-    def plot(self, X, xf=None):
-        super().plot(X, xf)
-        # annotate_headings(X)
         
 
 def annotate_headings(X):
@@ -242,7 +259,10 @@ def annotate_headings(X):
     N = X.shape[0]
     bases = np.vstack([X[:-1,0], X[:-1,1]]).T
     dists = np.linalg.norm(np.diff(X[:,:2], axis=0), axis=1)
-    ends = np.vstack([X[:-1,0] + dists*np.cos(X[:-1,2]), X[:-1,1] + dists*np.sin(X[:-1,2])]).T
+    ends = np.vstack([
+        X[:-1,0] + dists*np.cos(X[:-1,-1]), 
+        X[:-1,1] + dists*np.sin(X[:-1,-1])
+    ]).T
 
     for i in range(N-1):
         plt.annotate('', ends[i], bases[i], arrowprops=dict(
