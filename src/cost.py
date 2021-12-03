@@ -8,7 +8,7 @@ class QuadraticCost(object):
        reference trajectory.
     """
     
-    TERM_PENALTY = 100.0 # terminal state penalty
+    TERM_PENALTY = 10.0 # terminal state penalty
     
     def __init__(self, xf, Q, R):
         self.xf = xf
@@ -24,7 +24,7 @@ class QuadraticCost(object):
             return (x - self.xf).T @ self.Q @ (x - self.xf) + u.T @ self.R @ u
         return self.TERM_PENALTY * (x - self.xf).T @ self.Q @ (x - self.xf) 
         
-    def quadraticize(self, x, u):
+    def quadraticize(self, x, u, terminal=False):
         """Compute the jacobians and hessians around the current control and state."""
         
         n_x = x.shape[0]
@@ -38,20 +38,12 @@ class QuadraticCost(object):
         L_ux = np.zeros((n_u, n_x))
         # L_xu = L_ux.T
         
-        return L_x, L_u, L_xx, L_uu, L_ux
-    
-    def alt_quadraticize(self, x, u):
-        """Cost as defined in Maulik's code."""
-        
-        n_x = x.shape[0]
-        n_u = u.shape[0]
-        
-        L_x = self.Q @ x
-        L_u = self.R @ u
-        L_xx = self.Q
-        L_uu = self.R
-        L_ux = np.zeros((n_u, n_x))
+        if terminal:
+            L_x *= self.TERM_PENALTY
+            L_xx *= self.TERM_PENALTY
+            L_u = np.zeros((n_u))
+            L_uu = np.zeros((n_u, n_u))
         
         return L_x, L_u, L_xx, L_uu, L_ux
     
-    
+ 

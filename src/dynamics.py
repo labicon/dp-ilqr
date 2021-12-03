@@ -23,16 +23,16 @@ class DynamicalModel(ABC):
         # u = self.constrain(u)
 
         # Approximate linearization
-        A, B = self.linearize(x, u)
-        return A@x + B@u
+        # A, B = self.linearize(x, u)
+        # return A@x + B@u
         
         # Euler integration - NOTE: not consistent for CarDynamics
         # x_dot = self.f(x, self.dt, u)
         # return x + x_dot * self.dt
         
         # Adams/BDF method with automatic stiffness detection and switching
-        # args = tuple([u.flatten()]) # ensure u is passed off properly
-        # return odeint(self.f, x, (0, self.dt), args=args)[-1]
+        args = tuple([u.flatten()]) # ensure u is passed off properly
+        return odeint(self.f, x, (0, self.dt), args=args)[-1]
     
     @staticmethod
     @abstractmethod
@@ -115,7 +115,7 @@ class DoubleIntegratorDynamics(DynamicalModel):
         u = np.clip(u, *self.F_LIMS)
         return u
     
-    def plot(self, X, xf=None):
+    def plot(self, X, xf=None, _=None):
         plt.clf()
         ax = plt.gca()
         t = np.arange(X.shape[0]) * self.dt
