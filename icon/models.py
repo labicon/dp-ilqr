@@ -1,102 +1,17 @@
-# dynamics.py
-
-import abc
+# models.py
+# Module for various implementations of dynamical models.
 
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.integrate import odeint
+
+from dynamics import DynamicalModel, LinearModel, NumericalDiffModel
 
 
-class DynamicalModel(abc.ABC):
-    """Representation of a discretized dynamical model to be applied as constraints 
-       in the OCP.
-    """
-    
-    ACC_LIMS = [-1.0, 1.0] # [m/s**2]
-    V_LIMS = [-3.0, 3.0] # [m/s]
-    OMEGA_LIMS = [-np.pi/2, np.pi/2] # [rads/s]
-    
-    def __init__(self, n_x, n_u, dt):
-        self.n_x = n_x
-        self.n_u = n_u
-        self.dt = dt
-    
-    def __call__(self, x, u):
-        """Advance the model in time by integrating the ODE, no assumption of linearity."""
-        
-        # Euler integration - also works for linear models
-        # x_dot = self.f(x, self.dt, u)
-        # return x + x_dot * self.dt
+ACC_LIMS = [-1.0, 1.0] # [m/s**2]
+V_LIMS = [-3.0, 3.0] # [m/s]
+OMEGA_LIMS = [-np.pi/2, np.pi/2] # [rads/s]
+STEER_LIMS = OMEGA_LIMS
 
-        # Adams/BDF method with automatic stiffness detection and switching
-        args = tuple([u.flatten()]) # ensure u is passed off properly
-        return odeint(self.f, x, (0, self.dt), args=args)[-1]
-    
-    @staticmethod
-    @abc.abstractmethod
-    def f(*args):
-        """Continuous derivative of dynamics with respect to time."""
-        pass
-    
-    @abc.abstractmethod
-    def linearize(self, *args, **kwargs):
-        """Returns the discretized and linearized dynamics A and B."""
-        pass
-    
-    @abc.abstractmethod
-    def constrain(self, u):
-        """Apply physical constraints to the control input u."""
-        pass
-    
-    def plot(self, X, xf=None, do_headings=False):
-        """Visualizes a state evolution over time."""
-        assert X.shape[1] >= 3, 'Must at least have x and y states for this to make sense.'
-        
-        if xf is None:
-            xf = X[-1]
-
-        plt.clf()
-        ax = plt.gca()
-        N = X.shape[0]
-        t = np.arange(N) * self.dt
-
-        h_scat = ax.scatter(X[:,0], X[:,1], c=t)
-        ax.scatter(X[0,0], X[0,1], 80, 'g', 'x', label='$x_0$: ' + str(X[0]))
-        ax.scatter(xf[0], xf[1], 80, 'r', 'x', label='$x_f$: ' + str(xf))
-
-        plt.colorbar(h_scat, label='Time [s]')
-        ax.set_xlabel('x [m]')
-        ax.set_ylabel('y [m]')
-        ax.set_title('Car')
-        ax.legend()
-        ax.grid()
-        
-        if do_headings:
-            N = X.shape[0]
-            bases = np.vstack([X[:-1,0], X[:-1,1]]).T
-            dists = np.linalg.norm(np.diff(X[:,:2], axis=0), axis=1)
-            ends = bases + dists[:,np.newaxis]*np.vstack([
-                np.cos(X[:-1,-1]), 
-                np.sin(X[:-1,-1])
-            ]).T
-
-            for i in range(N-1):
-                plt.annotate('', ends[i], bases[i], arrowprops=dict(
-                    facecolor='black', headwidth=5, width=1, shrink=0))
-                
-                
-class LinearModel(DynamicalModel):
-    """Dynamical model where the system can be fully integrated via its 
-       discretized linearizations, i.e. x_{k+1} = A x_k + B u_k.
-    """
-    
-    def __call__(self, x, u):
-        # u = self.constrain(u)
-
-        # Approximate linearization
-        A, B = self.linearize(x, u)
-        return A@x + B@u
-    
 
 class DoubleInt1dDynamics(LinearModel):
     """Canonical 2nd Order System used to demonstrate control principles.
@@ -105,7 +20,7 @@ class DoubleInt1dDynamics(LinearModel):
     """
     
     def __init__(self, dt=1.0):
-        super().__init__(2, 1, dt)
+        super(DoubleInt1dDynamics, self).__init__(2, 1, dt)
     
     @staticmethod
     def f(x, dt, u):
@@ -130,8 +45,9 @@ class DoubleInt1dDynamics(LinearModel):
 
         return A, B
     
-    def constrain(self, u):
-        return np.clip(u, *self.ACC_LIMS)
+    def constrain(self, x, u):
+        # u = np.clip(u, *ACC_LIMS)
+        return x, u
     
     def plot(self, X, xf=None, _=None):
         plt.clf()
@@ -157,7 +73,7 @@ class DoubleInt2dDynamics(LinearModel):
     """
     
     def __init__(self, dt=1.0):
-        super().__init__(4, 2, dt)
+        super(DoubleInt2dDynamics, self).__init__(4, 2, dt)
     
     @staticmethod
     def f(x, dt, u):
@@ -191,8 +107,9 @@ class DoubleInt2dDynamics(LinearModel):
 
         return A, B
     
-    def constrain(self, u):
-        return np.clip(u, *self.ACC_LIMS)
+    def constrain(self, x, u):
+        # u = np.clip(u, *ACC_LIMS)
+        return x, u
     
     def plot(self, X, xf=None, do_headings=False):
         # Augment the state with headings defined from the velocities.
@@ -202,7 +119,7 @@ class DoubleInt2dDynamics(LinearModel):
         plt.gca().set_title('Double Integrator 2D')
     
     
-class CarDynamics(DynamicalModel):
+class CarDynamics(LinearModel):
     """Simplified UnicycleModel for modeling a car.
         state := [x position, y position, heading angle]
         control := [linear velocity, angular velocity]
@@ -212,13 +129,13 @@ class CarDynamics(DynamicalModel):
     """
     
     def __init__(self, dt=1.0):
-        super().__init__(3, 2, dt)
+        super(CarDynamics, self).__init__(3, 2, dt)
         
     @staticmethod
     def f(x, _, u):
         v = u[0]
         omega = u[1]
-        theta = x[2] % (2*np.pi)
+        theta = x[2]
         
         return np.array([
             v * np.cos(theta),
@@ -229,25 +146,60 @@ class CarDynamics(DynamicalModel):
     def linearize(self, x, u):
         
         v = u[0]
-        theta = x[2] % (2*np.pi)
+        theta = x[2]
         
+        # Analytical derivations ain't right.
+        # A = np.array([
+        #     [1, 0, -v*self.dt*np.sin(theta)],
+        #     [0, 1,  v*self.dt*np.cos(theta)],
+        #     [0, 0,                        1]
+        # ])
+        # B = np.array([
+        #     [np.cos(theta), -v*self.dt*np.sin(theta)],
+        #     [np.sin(theta),  v*self.dt*np.cos(theta)],
+        #     [            0,                        1]
+        # ]) * self.dt
+
         A = np.eye(3)
-        A[:2,-1] = np.array([
-            -np.sin(theta),
-             np.cos(theta)
-        ]) * v * self.dt
         B = np.array([
-            [np.cos(theta), -v*self.dt*np.sin(theta)],
-            [np.sin(theta),  v*self.dt*np.cos(theta)],
-            [            0,                        1]
+            [np.cos(theta), 0],
+            [np.sin(theta), 0],
+            [            0, 1]
         ]) * self.dt
         
         return A, B
     
-    def constrain(self, u):
-        u[0] = np.clip(u[0], *self.V_LIMS)
-        u[1] = np.clip(u[1], *self.OMEGA_LIMS)
-        return u
+    def constrain(self, x, u):
+        x[2] %= 2*np.pi
+        # x[2] -= int(x[2]/np.pi)*2*np.pi
+        # u[0] = np.clip(u[0], *V_LIMS)
+        # u[1] = np.clip(u[1], *OMEGA_LIMS)
+        return x, u
+    
+    
+class CarDynamicsDiff(NumericalDiffModel):
+    """Car Dynamics for finite difference."""
+    
+    def __init__(self, dt):
+        
+        def f(x, u):
+            x_ = x[..., 0]
+            y = x[..., 1]
+            theta = x[..., 2]
+            v = u[..., 0]
+            omega = u[..., 1]
+            
+            theta_next = theta + omega*dt
+            x_dot = v*np.cos(theta_next)
+            y_dot = v*np.sin(theta_next)
+            
+            return np.stack([
+                x_ + x_dot*dt,
+                y + y_dot*dt,
+                theta_next
+            ]).T
+        
+        super(CarDynamicsDiff, self).__init__(f, 3, 2, dt)
     
     
 class UnicycleDynamics(DynamicalModel):
@@ -257,12 +209,12 @@ class UnicycleDynamics(DynamicalModel):
     """
     
     def __init__(self, dt):
-        super().__init__(4, 2, dt)
+        super(UnicycleDynamics, self).__init__(4, 2, dt)
         
     @staticmethod
     def f(x, _, u):
         v = x[2]
-        theta = x[3] % (2*np.pi)
+        theta = x[3]
         a = u[0]
         omega = u[1]
         
@@ -276,7 +228,7 @@ class UnicycleDynamics(DynamicalModel):
     def linearize(self, x, _):
 
         v = x[2]
-        theta = x[3] % (2*np.pi)
+        theta = x[3]
 
         A = np.array([
             [1, 0, self.dt*np.cos(theta), -self.dt*v*np.sin(theta)],
@@ -285,14 +237,13 @@ class UnicycleDynamics(DynamicalModel):
             [0, 0,                     0,                        1]
         ])
 
-        # NOTE: dynamics in risk_sensitive disagree with analytical derivation, 
-        # so use theirs instead.
         # B = np.array([
-        #     [self.dt*np.cos(theta), -v*self.dt*np.sin(theta)],
-        #     [self.dt*np.sin(theta),  v*self.dt*np.cos(theta)],
-        #     [                     1,                       0],
-        #     [                     0,                       1]
+        #     [self.dt*np.cos(theta), 0],
+        #     [self.dt*np.sin(theta), 0],
+        #     [                    1, 0],
+        #     [                    0, 1]
         # ]) * self.dt
+        
         B = np.array([
             [0, 0],
             [0, 0],
@@ -302,15 +253,59 @@ class UnicycleDynamics(DynamicalModel):
         
         return A, B
     
-    def constrain(self, u):
-        u[0] = np.clip(u[0], *self.ACC_LIMS)
-        u[1] = np.clip(u[1], *self.OMEGA_LIMS)
-        return u
+    def constrain(self, x, u):
+        x[3] %= 2*np.pi
+        # x[3] -= int(x[3]/np.pi)*2*np.pi
+        # u[0] = np.clip(u[0], *ACC_LIMS)
+        # u[1] = np.clip(u[1], *OMEGA_LIMS)
+        return x, u
     
     def plot(self, *args, **kwargs):
         super().plot(*args, **kwargs)
         plt.gca().set_title('Unicycle')
+        
+    
+class UnicycleDynamicsDiff(NumericalDiffModel):
+    """Unicycle with numerical difference."""
+    
+    def __init__(self, dt):
+        
+        def f(x, u):
+            """Discretized dynamics."""
+            
+            mm = np
+            
+            x_ = x[..., 0]
+            y = x[..., 1]
+            v = x[..., 2]
+            theta = x[..., 3]
+            a = u[..., 0]
+            omega = u[..., 1]
 
+            next_theta = theta + omega*dt
+            # x_dot = (v + 0.5*a*dt)*mm.cos(next_theta)
+            # y_dot = (v + 0.5*a*dt)*mm.sin(next_theta)
+            x_dot = v*mm.cos(next_theta)
+            y_dot = v*mm.sin(next_theta)
+            
+            return mm.stack([
+                x_ + x_dot*dt,
+                y + y_dot*dt,
+                v + a*dt,
+                next_theta
+            ]).T
+        
+        super(UnicycleDynamicsDiff, self).__init__(f, 4, 2, dt)
+    
+    def constrain(self, x, u):
+        u[0] = np.clip(u[0], *ACC_LIMS)
+        u[1] = np.clip(u[1], *OMEGA_LIMS)
+        return x, u
+    
+    def plot(self, *args, **kwargs):
+        super().plot(*args, **kwargs)
+        plt.gca().set_title('Unicycle')
+    
         
 class BicycleDynamics(DynamicalModel):
     """Unicycle with steering component for front wheel.
@@ -319,7 +314,7 @@ class BicycleDynamics(DynamicalModel):
     """
     
     def __init__(self, dt=1.0):
-        super().__init__(5, 2, dt)
+        super(BicycleDynamics, self).__init__(5, 2, dt)
         
     def __call__(self, x, u):
         # Forward Euler Method, since odeint isn't able to consistently 
@@ -330,9 +325,9 @@ class BicycleDynamics(DynamicalModel):
     
     @staticmethod
     def f(x, _, u):
-        theta = x[2] % (2*np.pi)
+        theta = x[2]
         v = x[3]
-        phi = x[4] % (2*np.pi)
+        phi = x[4]
         
         return np.array([
             v * np.cos(theta),
@@ -370,7 +365,6 @@ class BicycleDynamics(DynamicalModel):
             [0, 0,                   0,    0,    1]
         ])
 
-        # Same thing here in using experimentally derived jacobian.
         # B = A[:,3:] * dt
         B = np.array([
             [0, 0],
@@ -382,12 +376,61 @@ class BicycleDynamics(DynamicalModel):
         
         return A, B
     
-    def constrain(self, u):
-        pass
+    def constrain(self, x, u):
+        x[2] %= 2*np.pi
+        x[4] %= 2*np.pi
+        # x[2] -= int(x[2]/np.pi)*2*np.pi
+        # x[4] -= int(x[4]/np.pi)*2*np.pi
+        return x, u
         
     def plot(self, X, xf=None, do_headings=None):
         # Augment the state with in the last column.
         X = np.c_[X, X[:,2]]
-        super().plot(X, xf, do_headings=do_headings)
+        super(BicycleDynamics, self).plot(X, xf, do_headings=do_headings)
+        plt.gca().set_title('Bicycle')
+        
+
+class BicycleDynamicsDiff(NumericalDiffModel):
+    """Bicycle Dynamics for numerical difference."""
+    
+    def __init__(self, dt):
+    
+        def f(x, u):
+            
+            mm = np
+            
+            x_ = x[..., 0]
+            y = x[..., 1]
+            theta = x[..., 2]
+            v = x[..., 3]
+            phi = x[..., 4]
+            a = u[..., 0]
+            phi_dot = u[..., 1]            
+            
+            theta_dot = mm.tan(phi)
+            next_theta = theta + theta_dot*dt
+
+            x_dot = v*mm.cos(next_theta)
+            y_dot = v*mm.sin(next_theta)
+            
+            return mm.stack([
+                x_ + x_dot*dt,
+                y + y_dot*dt,
+                theta + theta_dot*dt,
+                v + a*dt,
+                phi + phi_dot*dt
+            ]).T
+        
+        super(BicycleDynamicsDiff, self).__init__(f, 5, 2, dt)
+    
+    def constrain(self, x, u):
+        u[0] = np.clip(u[0], *ACC_LIMS)
+        u[1] = np.clip(u[1], *STEER_LIMS)
+        return x, u
+    
+    def plot(self, X, xf=None, do_headings=None):
+        # Augment the state with in the last column.
+        X = np.c_[X, X[:,2]]
+        super(BicycleDynamicsDiff, self).plot(X, xf, do_headings=do_headings)
         plt.gca().set_title('Bicycle')
         

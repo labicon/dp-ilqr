@@ -8,18 +8,20 @@ class QuadraticCost(object):
        reference trajectory.
     """
     
-    def __init__(self, xf, Q, R, term_penalty=10.0):
+    def __init__(self, xf, Q, R, Qf=None):
         self.xf = xf.astype(float)
-        # NOTE: don't normalize here to maintain relative cost of state and control.
         self.Q = Q.astype(float)
         self.R = R.astype(float)
-        self.term_penalty = term_penalty
+        
+        if Qf is None:
+            Qf = np.eye(Q.shape)
+        self.Qf = Qf.astype(float)
         
     def __call__(self, x, u, terminal=False):
-        """Return the quadratic cost around the operating point assuming identity Q & R."""
+        """Return the quadratic cost around the operating point."""
         if not terminal:
             return (x - self.xf).T @ self.Q @ (x - self.xf) + u.T @ self.R @ u
-        return self.term_penalty * (x - self.xf).T @ self.Q @ (x - self.xf)
+        return (x - self.xf).T @ self.Qf @ (x - self.xf)
         
     def quadraticize(self, x, u, terminal=False):
         """Compute the jacobians and hessians around the current control and state."""
@@ -35,8 +37,8 @@ class QuadraticCost(object):
         # L_xu = L_ux.T
         
         if terminal:
-            L_x *= self.term_penalty
-            L_xx *= self.term_penalty
+            L_x = (x - self.xf).T @ (self.Qf + self.Qf.T)
+            L_xx = self.Qf + self.Qf.T
             L_u = np.zeros((n_u))
             L_uu = np.zeros((n_u, n_u))
         
