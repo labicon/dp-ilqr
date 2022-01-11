@@ -24,8 +24,8 @@ class DynamicalModel(abc.ABC):
         x, u = self.constrain(x, u)
         
         # Euler integration - works for linear models.
-        # x_dot = self.f(x, self.dt, u)
-        # return x + x_dot * self.dt
+        x_dot = self.f(x, self.dt, u)
+        return x + x_dot*self.dt
 
         # Integration of ODE using lsoda from FORTRAN library odepack.
         args = tuple([u.flatten()]) # ensure u is passed off properly
@@ -47,12 +47,16 @@ class DynamicalModel(abc.ABC):
         """Apply physical constraints to the control input u."""
         pass
     
-    def plot(self, X, xf=None, do_headings=False):
+    def plot(self, X, xf=None, Jf=None, do_headings=False):
         """Visualizes a state evolution over time."""
         assert X.shape[1] >= 3, 'Must at least have x and y states for this to make sense.'
         
         if xf is None:
             xf = X[-1]
+        
+        title = 'Car'
+        if Jf is not None:
+            title += f': $J_f$ = {Jf:.3g}'
 
         plt.clf()
         ax = plt.gca()
@@ -66,7 +70,7 @@ class DynamicalModel(abc.ABC):
         plt.colorbar(h_scat, label='Time [s]')
         ax.set_xlabel('x [m]')
         ax.set_ylabel('y [m]')
-        ax.set_title('Car')
+        ax.set_title(title)
         ax.legend()
         ax.grid()
         

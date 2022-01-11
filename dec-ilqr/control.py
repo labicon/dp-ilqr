@@ -34,7 +34,7 @@ class BaseController(abc.ABC):
 
     @abc.abstractmethod
     def run(self, x0):
-        """Implements functionality to solve the OCP at the current state."""
+        """Implements functionality to solve the OCP at the current state x0."""
         pass
     
     def rollout(self, x0, U):
@@ -111,12 +111,9 @@ class LQR(BaseController):
 class iLQR(BaseController):
     """iLQR solver."""
     
-    # -- Backard Pass --
     DELTA_0 = 2.0 # initial regularization scaling
     MU_MIN = 1e-6 # regularization floor, below which is 0.0
     MU_MAX = 1e3 # regularization ceiling
-    
-    # -- iLQR --
     N_LS_ITER = 10 # number of line search iterations
     
     def __init__(self, dynamics, cost, N=10):
@@ -124,7 +121,7 @@ class iLQR(BaseController):
         
         self.cost_hist = None
         self.μ = 1.0 # regularization
-        self.Δ = self.DELTA_0
+        self.Δ = self.DELTA_0 # regularization scaling
     
     def forward_pass(self, X, U, K, d, α):
         """Forward pass to rollout the control gains K and d."""
@@ -165,6 +162,11 @@ class iLQR(BaseController):
             L_x, L_u, L_xx, L_uu, L_ux = self.cost.quadraticize(X[t], U[t])
             A, B = self.dynamics.linearize(X[t], U[t])
             
+            # if t in [self.N-1, 0]:
+                # print(f'{t=}', P, p)
+                # print(f'{t=}', L_x, L_u, L_xx, L_uu, L_ux)
+                # print(f'{t=}', X[t], U[t], A, B)
+                
             Q_x = L_x + A.T @ p
             Q_u = L_u + B.T @ p
             Q_xx = L_xx + A.T @ P @ A
@@ -200,14 +202,27 @@ class iLQR(BaseController):
         for i in range(n_lqr_iter):
             accept = False
             
+            # if i == 1:
+            #     print(X[:5], X[-5:], U[:5], U[-5:])
+            #     break
+            
             # Backward recurse to compute gain matrices.
             K, d = self.backward_pass(X, U)
-        
+            
+            # if i == 1:
+            #     print(K[:5], K[-5:], d[:5], d[-5:])
+            #     break
+            
             # Conduct a line search to find a satisfactory trajectory where we continually
             # decrease α. We're effectively getting closer to the linear approximation in
             # the LQR case.
             for α in alphas:
                 X_next, U_next, J = self.forward_pass(X, U, K, d, α)
+                
+                # if i == 1:
+                #     print(X_next[:5], X_next[-5:], U_next[:5], U_next[-5:])
+                #     converged = True
+                #     break
                 
                 if J < J_star:
                     if np.abs((J_star - J) / J_star) < tol:
@@ -224,6 +239,7 @@ class iLQR(BaseController):
                     if self.μ <= self.MU_MIN:
                         self.μ = 0.0
                     
+                    # print(f'[run] {α=}')
                     accept = True
                     break
 
@@ -242,7 +258,7 @@ class iLQR(BaseController):
 
             if is_converged:
                 break
-
+            
             print(f'[run] {i+1}/{n_lqr_iter}\tJ: {J_star:g}\tμ: {self.μ:g}\tΔ: {self.Δ:g}')
 
         return X, U, J

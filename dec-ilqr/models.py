@@ -1,6 +1,8 @@
 # models.py
 # Module for various implementations of dynamical models.
 
+import re
+
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -19,7 +21,7 @@ class DoubleInt1dDynamics(LinearModel):
         control := [acceleration]
     """
     
-    def __init__(self, dt=1.0):
+    def __init__(self, dt):
         super(DoubleInt1dDynamics, self).__init__(2, 1, dt)
     
     @staticmethod
@@ -49,7 +51,7 @@ class DoubleInt1dDynamics(LinearModel):
         # u = np.clip(u, *ACC_LIMS)
         return x, u
     
-    def plot(self, X, xf=None, _=None):
+    def plot(self, X, xf=None, Jf=None, _=None):
         plt.clf()
         ax = plt.gca()
         t = np.arange(X.shape[0]) * self.dt
@@ -59,6 +61,10 @@ class DoubleInt1dDynamics(LinearModel):
         if xf is not None:
             ax.axhline(xf[0], c='r', label='$x_f$: ' + str(xf))
 
+        title = 'Double Integrator 1D'
+        if Jf is not None:
+            title += f': $J_f$ = {Jf:.3g}'
+            
         ax.set_xlabel('Time [s]')
         ax.set_ylabel('Position [m]')
         ax.set_title('Double Integator 1D')
@@ -72,8 +78,23 @@ class DoubleInt2dDynamics(LinearModel):
         control := [x acceleration, y acceleration]
     """
     
-    def __init__(self, dt=1.0):
+    def __init__(self, dt):
         super(DoubleInt2dDynamics, self).__init__(4, 2, dt)
+    
+        # LTI system
+        self.A = np.array([
+            [1, 0, self.dt,       0],
+            [0, 1,       0, self.dt],
+            [0, 0,       1,       0],
+            [0, 0,       0,       1]
+        ])
+
+        self.B = np.array([
+            [self.dt/2,         0],
+            [        0, self.dt/2],
+            [        1,         0],
+            [        0,         1]
+        ]) * self.dt
     
     @staticmethod
     def f(x, dt, u):
@@ -90,36 +111,21 @@ class DoubleInt2dDynamics(LinearModel):
         ])
     
     def linearize(self, _, __):
-        
-        A = np.array([
-            [1, 0, self.dt,       0],
-            [0, 1,       0, self.dt],
-            [0, 0,       1,       0],
-            [0, 0,       0,       1]
-        ])
-
-        B = np.array([
-            [self.dt/2,         0],
-            [        0, self.dt/2],
-            [        1,         0],
-            [        0,         1]
-        ]) * self.dt
-
-        return A, B
+        return self.A, self.B
     
     def constrain(self, x, u):
         # u = np.clip(u, *ACC_LIMS)
         return x, u
     
-    def plot(self, X, xf=None, do_headings=False):
+    def plot(self, X, xf=None, Jf=None, do_headings=False):
         # Augment the state with headings defined from the velocities.
         theta = np.arctan2(X[:,3], X[:,2])
         X = np.c_[X, theta]
-        super().plot(X, xf, do_headings=do_headings)
+        super().plot(X, xf, Jf=Jf, do_headings=do_headings)
         plt.gca().set_title('Double Integrator 2D')
     
     
-class CarDynamics(LinearModel):
+class CarDynamics(DynamicalModel):
     """Simplified UnicycleModel for modeling a car.
         state := [x position, y position, heading angle]
         control := [linear velocity, angular velocity]
@@ -128,7 +134,7 @@ class CarDynamics(LinearModel):
         the culprit.
     """
     
-    def __init__(self, dt=1.0):
+    def __init__(self, dt):
         super(CarDynamics, self).__init__(3, 2, dt)
         
     @staticmethod
@@ -145,27 +151,30 @@ class CarDynamics(LinearModel):
     
     def linearize(self, x, u):
         
+        # Advance dynamics in time for consistency with finite difference dynamics.
+        # x = self.__call__(x, u)
+        
         v = u[0]
         theta = x[2]
         
         # Analytical derivations ain't right.
-        # A = np.array([
-        #     [1, 0, -v*self.dt*np.sin(theta)],
-        #     [0, 1,  v*self.dt*np.cos(theta)],
-        #     [0, 0,                        1]
-        # ])
-        # B = np.array([
-        #     [np.cos(theta), -v*self.dt*np.sin(theta)],
-        #     [np.sin(theta),  v*self.dt*np.cos(theta)],
-        #     [            0,                        1]
-        # ]) * self.dt
-
-        A = np.eye(3)
+        A = np.array([
+            [1, 0, -v*self.dt*np.sin(theta)],
+            [0, 1,  v*self.dt*np.cos(theta)],
+            [0, 0,                        1]
+        ])
         B = np.array([
-            [np.cos(theta), 0],
-            [np.sin(theta), 0],
-            [            0, 1]
+            [np.cos(theta), -v*self.dt*np.sin(theta)],
+            [np.sin(theta),  v*self.dt*np.cos(theta)],
+            [            0,                        1]
         ]) * self.dt
+
+        # A = np.eye(3)
+        # B = np.array([
+        #     [np.cos(theta), 0],
+        #     [np.sin(theta), 0],
+        #     [            0, 1]
+        # ]) * self.dt
         
         return A, B
     
@@ -189,14 +198,14 @@ class CarDynamicsDiff(NumericalDiffModel):
             v = u[..., 0]
             omega = u[..., 1]
             
-            theta_next = theta + omega*dt
+            theta_next = theta # + omega*dt
             x_dot = v*np.cos(theta_next)
             y_dot = v*np.sin(theta_next)
             
             return np.stack([
                 x_ + x_dot*dt,
                 y + y_dot*dt,
-                theta_next
+                theta + omega*dt # theta_next
             ]).T
         
         super(CarDynamicsDiff, self).__init__(f, 3, 2, dt)
@@ -262,7 +271,7 @@ class UnicycleDynamics(DynamicalModel):
     
     def plot(self, *args, **kwargs):
         super().plot(*args, **kwargs)
-        plt.gca().set_title('Unicycle')
+        replace_title('Unicycle')
         
     
 class UnicycleDynamicsDiff(NumericalDiffModel):
@@ -304,7 +313,7 @@ class UnicycleDynamicsDiff(NumericalDiffModel):
     
     def plot(self, *args, **kwargs):
         super().plot(*args, **kwargs)
-        plt.gca().set_title('Unicycle')
+        replace_title('Unicycle')
     
         
 class BicycleDynamics(DynamicalModel):
@@ -313,7 +322,7 @@ class BicycleDynamics(DynamicalModel):
         control := [acceleration, steering velocity]
     """
     
-    def __init__(self, dt=1.0):
+    def __init__(self, dt):
         super(BicycleDynamics, self).__init__(5, 2, dt)
         
     def __call__(self, x, u):
@@ -383,11 +392,11 @@ class BicycleDynamics(DynamicalModel):
         # x[4] -= int(x[4]/np.pi)*2*np.pi
         return x, u
         
-    def plot(self, X, xf=None, do_headings=None):
+    def plot(self, X, xf=None, Jf=None, do_headings=None):
         # Augment the state with in the last column.
         X = np.c_[X, X[:,2]]
-        super(BicycleDynamics, self).plot(X, xf, do_headings=do_headings)
-        plt.gca().set_title('Bicycle')
+        super(BicycleDynamics, self).plot(X, xf, Jf, do_headings=do_headings)
+        replace_title('Bicycle')
         
 
 class BicycleDynamicsDiff(NumericalDiffModel):
@@ -428,9 +437,18 @@ class BicycleDynamicsDiff(NumericalDiffModel):
         u[1] = np.clip(u[1], *STEER_LIMS)
         return x, u
     
-    def plot(self, X, xf=None, do_headings=None):
+    def plot(self, X, xf=None, Jf=None, do_headings=None):
         # Augment the state with in the last column.
         X = np.c_[X, X[:,2]]
-        super(BicycleDynamicsDiff, self).plot(X, xf, do_headings=do_headings)
-        plt.gca().set_title('Bicycle')
+        super(BicycleDynamicsDiff, self).plot(X, xf, Jf, do_headings=do_headings)
+        replace_title('Bicycle')
         
+        
+def replace_title(new_title):
+    """Replace the first word of gca's title with something else."""
+    
+    gca = plt.gca()
+    full_title = re.sub(r'^\w+', new_title, gca.get_title())
+    gca.set_title(full_title)
+
+    
