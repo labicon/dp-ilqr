@@ -9,9 +9,11 @@ from scipy.optimize import approx_fprime
 
 
 class DynamicalModel(abc.ABC):
-    """Representation of a discretized dynamical model to be applied as constraints 
-       in the OCP.
     """
+    Representation of a discretized dynamical model to be applied as constraints in the OCP.
+    """
+    
+    name = "Dynamical Model"
     
     def __init__(self, n_x, n_u, dt):
         self.n_x = n_x
@@ -21,7 +23,8 @@ class DynamicalModel(abc.ABC):
     def __call__(self, x, u):
         """Advance the model in time by integrating the ODE, no assumption of linearity."""
         
-        x, u = self.constrain(x, u)
+        # NOTE: Hold off on applying constraints until better understood.
+        # x, u = self.constrain(x, u)
         
         # Euler integration - works for linear models.
         x_dot = self.f(x, self.dt, u)
@@ -47,40 +50,33 @@ class DynamicalModel(abc.ABC):
         """Apply physical constraints to the control input u."""
         pass
     
-    def plot(self, X, xf=None, Jf=None, do_headings=False):
-        """Visualizes a state evolution over time."""
+    @staticmethod
+    def get_heading(X):
+        """Retrieve the heading from a given state vector."""
+        # Assume it's stored in the last column.
+        return X[..., -1]
+    
+    def plot(self, X, Jf=None, do_headings=False):
+        """Visualizes a state evolution over time with some annotations."""
+        
         assert X.shape[1] >= 3, 'Must at least have x and y states for this to make sense.'
         
-        if xf is None:
-            xf = X[-1]
-        
-        title = 'Car'
-        if Jf is not None:
-            title += f': $J_f$ = {Jf:.3g}'
-
-        plt.clf()
         ax = plt.gca()
         N = X.shape[0]
         t = np.arange(N) * self.dt
 
-        h_scat = ax.scatter(X[:,0], X[:,1], c=t)
+        # NOTE: cmap=plt.get_cmap('Greys_r') provides more contrast but can get busy.
+        ax.scatter(X[:,0], X[:,1], c=t)
         ax.scatter(X[0,0], X[0,1], 80, 'g', 'x', label='$x_0$: ' + str(X[0]))
-        ax.scatter(xf[0], xf[1], 80, 'r', 'x', label='$x_f$: ' + str(xf))
-
-        plt.colorbar(h_scat, label='Time [s]')
-        ax.set_xlabel('x [m]')
-        ax.set_ylabel('y [m]')
-        ax.set_title(title)
-        ax.legend()
-        ax.grid()
+        # plt.colorbar(h_scat, label='Time [s]')
         
         if do_headings:
-            N = X.shape[0]
             bases = np.vstack([X[:-1,0], X[:-1,1]]).T
             dists = np.linalg.norm(np.diff(X[:,:2], axis=0), axis=1)
+            theta = self.get_heading(X)[:-1]
             ends = bases + dists[:,np.newaxis]*np.vstack([
-                np.cos(X[:-1,-1]), 
-                np.sin(X[:-1,-1])
+                np.cos(theta),
+                np.sin(theta)
             ]).T
 
             for i in range(N-1):
@@ -89,8 +85,9 @@ class DynamicalModel(abc.ABC):
                 
                 
 class LinearModel(DynamicalModel):
-    """Dynamical model where the system can be fully integrated via its 
-       discretized linearizations, i.e. x_{k+1} = A x_k + B u_k.
+    """
+    Dynamical model where the system can be fully integrated via its discretized 
+    linearizations, i.e. x_{k+1} = A x_k + B u_k.
     """
     
     def __call__(self, x, u):
@@ -102,8 +99,9 @@ class LinearModel(DynamicalModel):
     
     
 class NumericalDiffModel(DynamicalModel):
-    """Dynamical model where the linearizations are done via finite difference. Based off of
-       https://github.com/anassinator/ilqr/blob/master/ilqr/dynamics.py
+    """
+    Dynamical model where the linearizations are done via finite difference. Based off of
+    https://github.com/anassinator/ilqr/blob/master/ilqr/dynamics.py
     """
     
     def __init__(self, f, *args, j_eps=None):

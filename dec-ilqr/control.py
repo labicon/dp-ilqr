@@ -3,14 +3,22 @@
 
 import abc
 
+import matplotlib.pyplot as plt
 import numpy as np
+
+from dynamics import DynamicalModel
+from cost import Cost
 
 
 class BaseController(abc.ABC):
-    """Abstract base class for Optimal Control Problem solvers."""
+    """
+    Abstract base class for Optimal Control Problem solvers.
+    """
     
     def __init__(self, dynamics, cost, N):
         assert N > 1
+        assert issubclass(dynamics.__class__, DynamicalModel)
+        assert issubclass(cost.__class__, Cost)
         
         self.dynamics = dynamics
         self.cost = cost
@@ -48,13 +56,37 @@ class BaseController(abc.ABC):
             X[t+1] = self.dynamics(X[t], U[t])
             J += self.cost(X[t], U[t])
         J += self.cost(X[-1], np.zeros(self.n_u), terminal=True)
-
-        return X, J
-
-    
-class LQR(BaseController):
-    """Linear Quadratic Regulator that assumes linear dynamics and quadratic costs."""
         
+        return X, J
+    
+    def plot(self, X, Jf=None, do_headings=False, surface_plot=False, **kwargs):
+        """Sets up a trajectory plot and renders the sub-objects on gca, passing 
+           additional keywords to AgentCost.plot().
+        """
+
+        plt.clf()
+        ax = plt.gca()
+        
+        title = self.dynamics.name
+        if Jf is not None:
+            title += f': $J_f$ = {Jf:.3g}'
+        
+        ax.set_title(title)
+        ax.set_xlabel('x [m]')
+        ax.set_ylabel('y [m]')
+        
+        self.dynamics.plot(X, Jf, do_headings)
+        self.cost.plot(surface_plot, x0=X[0], **kwargs)
+        
+        ax.legend()
+        ax.grid()
+
+        
+class LQR(BaseController):
+    """
+    Linear Quadratic Regulator that assumes linear dynamics and quadratic costs.
+    """
+    
     @property
     def Q(self):
         return self.cost.Q
@@ -109,7 +141,9 @@ class LQR(BaseController):
 
     
 class iLQR(BaseController):
-    """iLQR solver."""
+    """
+    iLQR solver.
+    """
     
     DELTA_0 = 2.0 # initial regularization scaling
     MU_MIN = 1e-6 # regularization floor, below which is 0.0
@@ -145,7 +179,7 @@ class iLQR(BaseController):
         return X_next, U_next, J
     
     def backward_pass(self, X, U):
-        """Backward pass based on algorithm 1 [4]."""
+        """Backward pass to compute gain matrices K and d from the trajectory."""
         
         K = np.zeros((self.N, self.n_u, self.n_x)) # linear feedback gain
         d = np.zeros((self.N, self.n_u)) # feedforward gain
@@ -162,11 +196,6 @@ class iLQR(BaseController):
             L_x, L_u, L_xx, L_uu, L_ux = self.cost.quadraticize(X[t], U[t])
             A, B = self.dynamics.linearize(X[t], U[t])
             
-            # if t in [self.N-1, 0]:
-                # print(f'{t=}', P, p)
-                # print(f'{t=}', L_x, L_u, L_xx, L_uu, L_ux)
-                # print(f'{t=}', X[t], U[t], A, B)
-                
             Q_x = L_x + A.T @ p
             Q_u = L_u + B.T @ p
             Q_xx = L_xx + A.T @ P @ A
@@ -202,27 +231,15 @@ class iLQR(BaseController):
         for i in range(n_lqr_iter):
             accept = False
             
-            # if i == 1:
-            #     print(X[:5], X[-5:], U[:5], U[-5:])
-            #     break
-            
             # Backward recurse to compute gain matrices.
             K, d = self.backward_pass(X, U)
-            
-            # if i == 1:
-            #     print(K[:5], K[-5:], d[:5], d[-5:])
-            #     break
             
             # Conduct a line search to find a satisfactory trajectory where we continually
             # decrease α. We're effectively getting closer to the linear approximation in
             # the LQR case.
             for α in alphas:
                 X_next, U_next, J = self.forward_pass(X, U, K, d, α)
-                
-                # if i == 1:
-                #     print(X_next[:5], X_next[-5:], U_next[:5], U_next[-5:])
-                #     converged = True
-                #     break
+                # print(f'{J=:.3g}\t{J_star=:.3g}')
                 
                 if J < J_star:
                     if np.abs((J_star - J) / J_star) < tol:
@@ -239,14 +256,13 @@ class iLQR(BaseController):
                     if self.μ <= self.MU_MIN:
                         self.μ = 0.0
                     
-                    # print(f'[run] {α=}')
                     accept = True
                     break
 
             if not accept:
                 # TEMP: Regularization is pointless for quadratic costs.
-                print('[run] Failed line search.. giving up.')
-                break
+                # print('[run] Failed line search.. giving up.')
+                # break
 
                 # Increase regularization if we're not converging.
                 print('[run] Failed line search.. increasing μ.')
