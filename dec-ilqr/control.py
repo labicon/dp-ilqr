@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from dynamics import DynamicalModel
-from cost import Cost
+from cost import Cost, AgentCost
 
 
 class BaseController(abc.ABC):
@@ -19,6 +19,9 @@ class BaseController(abc.ABC):
         assert N > 1
         assert issubclass(dynamics.__class__, DynamicalModel)
         assert issubclass(cost.__class__, Cost)
+        
+        if not isinstance(cost, AgentCost):
+            cost = AgentCost([cost], [1.0])
         
         self.dynamics = dynamics
         self.cost = cost

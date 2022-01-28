@@ -6,6 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.integrate import odeint
 from scipy.optimize import approx_fprime
+from scipy.linalg import block_diag
 
 
 class DynamicalModel(abc.ABC):
@@ -130,3 +131,48 @@ class NumericalDiffModel(DynamicalModel):
         ])
         
         return A, B
+
+    
+class MultiDynamicalModel(object):
+    
+    """
+    Encompasses the dynamical simulation and linearization for a collection of DynamicalModel's.
+    """
+    
+    def __init__(self, submodels):
+        self.submodels = submodels
+        self.n_players = len(submodels)
+        
+        self.x_dims = [submodel.n_x for submodel in submodels]
+        self.u_dims = [submodel.n_u for submodel in submodels]
+        self.n_x = sum(self.x_dims)
+        self.n_u = sum(self.u_dims)
+    
+    def __call__(self, x, u):
+        """Integrate the dynamics for the combined decoupled dynamical model."""
+        
+        x_split = np.split(x, np.cumsum(self.x_dims[:-1]))
+        u_split = np.split(u, np.cumsum(self.u_dims[:-1]))
+        
+        sub_states = [submodel(xi, ui) for submodel, xi, ui in zip(self.submodels, x_split, u_split)]
+        return np.concatenate(sub_states, axis=0)
+    
+    def linearize(self, x, u):
+        """Compute the linearizations of each of the submodels and return as block diagonal
+        A and B.
+        """
+        
+        x_split = np.split(x, np.cumsum(self.x_dims[:-1]))
+        u_split = np.split(u, np.cumsum(self.u_dims[:-1]))
+        
+        sub_linearizations = [
+            submodel.linearize(xi, ui) for submodel, xi, ui in zip(self.submodels, x_split, u_split)
+        ]
+        
+        sub_As = [AB[0] for AB in sub_linearizations]
+        sub_Bs = [AB[1] for AB in sub_linearizations]
+        
+        return block_diag(*sub_As), block_diag(*sub_Bs)
+            
+        
+                             
