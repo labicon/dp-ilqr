@@ -254,7 +254,6 @@ class AgentCost(Cost):
         STEP = 0.1
         imshow_kwargs = {}
 
-        print(axis)
         if axis is None:
             ax = plt.gca()
             axis = ax.get_xlim() + ax.get_ylim()

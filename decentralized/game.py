@@ -17,6 +17,12 @@
 #     obstacle costs
 #   coupling costs
 
+# potential game
+#   dynamical models
+#     reference costs
+#   coupling costs
+#   obstacle costs
+
 # A0 A0 .  .  .   x01     B0 .  .  
 # A0 A0 .  .  .   x02     B0 .  .   u0
 # .  .  A1 A1 A1  x10  +  .  B1 B1  u10

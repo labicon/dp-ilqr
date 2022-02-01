@@ -229,7 +229,7 @@ class iLQR(BaseController):
         X, J_star = self.rollout(x0, U)
         
         self.cost_hist = [J_star]
-        print(f'[run] 0/{n_lqr_iter}\tJ: {J_star:g}')        
+        print(f'0/{n_lqr_iter}\tJ: {J_star:g}')        
         
         for i in range(n_lqr_iter):
             accept = False
@@ -268,17 +268,17 @@ class iLQR(BaseController):
                 # break
 
                 # Increase regularization if we're not converging.
-                print('[run] Failed line search.. increasing μ.')
+                print('Failed line search.. increasing μ.')
                 self.Δ = max(1.0, self.Δ) * self.DELTA_0
                 self.μ = max(self.MU_MIN, self.μ*self.Δ)
                 if self.μ >= self.MU_MAX:
-                    print("[run] Exceeded max regularization term...")
+                    print("Exceeded max regularization term...")
                     break
 
             if is_converged:
                 break
             
-            print(f'[run] {i+1}/{n_lqr_iter}\tJ: {J_star:g}\tμ: {self.μ:g}\tΔ: {self.Δ:g}')
+            print(f'{i+1}/{n_lqr_iter}\tJ: {J_star:g}\tμ: {self.μ:g}\tΔ: {self.Δ:g}')
 
         return X, U, J
     
