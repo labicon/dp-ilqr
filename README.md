@@ -1,8 +1,12 @@
-# Dec-iLQR
+# decentralized
 
 ## Overview
 Repository containing code for a decentralized implementation of iLQR applied 
-in a game theoretic context.
+in a game theoretic context. While the project is still relatively new and we
+are working to implement new features, it currently supports single-agent 
+navigation with obstacles.
+
+![](media/unicycle.png)
 
 ## Features
 * Simulation of arbitrary state space models in concert with each other.
