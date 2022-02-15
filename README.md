@@ -3,17 +3,19 @@
 ## Overview
 Repository containing code for a decentralized implementation of iLQR applied 
 in a game theoretic context. While the project is still relatively new and we
-are working to implement new features, it currently supports single-agent 
-navigation with obstacles.
+are working to implement new features, it currently supports a centralized
+multi-agent planner but has trouble overcoming deadlock.
 
 ![](media/unicycle.png)
 
 ## Features
 * Simulation of arbitrary state space models in concert with each other.
 * Incorporation of various notions of cost such as goal trajectories, obstacles,
-  coupling between agents.
-* Framework for solving navigational optimal control problems in a multi-agent 
-  environment using LQR and iLQR.
+  and coupling between agents.
+* Framework for solving navigational optimal control problems with LQR and iLQR
+  in a multi-agent environment using a centralized potential iLQR planner.
+
+![](media/asym_x.gif)
 
 ## Running the Code
 There are a few different python packages that this project relies on listed
