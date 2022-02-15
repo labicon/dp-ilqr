@@ -1,4 +1,4 @@
-# dynamics.py
+#!/usr/bin/env python
 
 import abc
 
@@ -36,7 +36,6 @@ class DynamicalModel(abc.ABC):
         return odeint(self.f, x, (0, self.dt), args=args)[-1]
     
     @staticmethod
-    @abc.abstractmethod
     def f(*args):
         """Continuous derivative of dynamics with respect to time."""
         pass
@@ -57,7 +56,7 @@ class DynamicalModel(abc.ABC):
         # Assume it's stored in the last column.
         return X[..., -1]
     
-    def plot(self, X, Jf=None, do_headings=False):
+    def plot(self, X, do_headings=False, coupling_radius=None):
         """Visualizes a state evolution over time with some annotations."""
         
         assert X.shape[1] >= 3, 'Must at least have x and y states for this to make sense.'
@@ -68,8 +67,20 @@ class DynamicalModel(abc.ABC):
 
         # NOTE: cmap=plt.get_cmap('Greys_r') provides more contrast but can get busy.
         ax.scatter(X[:,0], X[:,1], c=t)
-        ax.scatter(X[0,0], X[0,1], 80, 'g', 'x', label='$x_0$: ' + str(X[0]))
-        # plt.colorbar(h_scat, label='Time [s]')
+        ax.scatter(X[0,0], X[0,1], 80, 'g', 'x', label='$x_0$')
+
+        # Annotate the collision radius.
+        if coupling_radius:
+            ax.add_artist(plt.Circle(
+                    (X[-1,0], X[-1,1]), coupling_radius, 
+                    color='k', fill=True, alpha=0.3, lw=2
+                ))
+            # alphas = np.log10(np.logspace(0, 1, N+1))
+            # for i, x in enumerate(X):
+            #     ax.add_artist(plt.Circle(
+            #         (x[0], x[1]), coupling_radius, 
+            #         color='k', fill=True, alpha=0.02, lw=2
+            #     ))
         
         if do_headings:
             bases = np.vstack([X[:-1,0], X[:-1,1]]).T
@@ -133,13 +144,14 @@ class NumericalDiffModel(DynamicalModel):
         return A, B
 
     
-class MultiDynamicalModel(object):
+class MultiDynamicalModel(DynamicalModel):
     
     """
     Encompasses the dynamical simulation and linearization for a collection of DynamicalModel's.
     """
     
     def __init__(self, submodels):
+        self.dt = submodels[0].dt # assume they line up
         self.submodels = submodels
         self.n_players = len(submodels)
         
@@ -151,20 +163,23 @@ class MultiDynamicalModel(object):
     def __call__(self, x, u):
         """Integrate the dynamics for the combined decoupled dynamical model."""
         
-        x_split = np.split(x, np.cumsum(self.x_dims[:-1]))
-        u_split = np.split(u, np.cumsum(self.u_dims[:-1]))
-        
+        x_split, u_split = self.partition(x, u)
         sub_states = [submodel(xi, ui) for submodel, xi, ui in zip(self.submodels, x_split, u_split)]
         return np.concatenate(sub_states, axis=0)
     
-    def linearize(self, x, u):
-        """Compute the linearizations of each of the submodels and return as block diagonal
-        A and B.
-        """
+    def partition(self, x, u):
+        """Helper to split up the states and control for each subsystem."""
         
         x_split = np.split(x, np.cumsum(self.x_dims[:-1]))
         u_split = np.split(u, np.cumsum(self.u_dims[:-1]))
+        return x_split, u_split
+    
+    def linearize(self, x, u):
+        """Compute the linearizations of each of the submodels and return as block diagonal
+           A and B.
+        """
         
+        x_split, u_split = self.partition(x, u)
         sub_linearizations = [
             submodel.linearize(xi, ui) for submodel, xi, ui in zip(self.submodels, x_split, u_split)
         ]
@@ -174,5 +189,19 @@ class MultiDynamicalModel(object):
         
         return block_diag(*sub_As), block_diag(*sub_Bs)
             
+    def constrain(self, x, u):
+        return x, u
+    
+    def plot(self, X, do_headings=False, coupling_radius=1.0):
+        """Delegate plotting to subsystem models."""
         
+        X_split = np.split(X, np.cumsum(self.x_dims[:-1]), axis=1)
+        for X, submodel in zip(X_split, self.submodels):
+            submodel.plot(X, do_headings=do_headings, coupling_radius=coupling_radius)
+            
+        
+        
+
+    
+    
                              

@@ -1,5 +1,7 @@
-# control.py
-# Contains various implementations of LQR controllers including LQR and iLQR.
+#!/usr/bin/env python
+
+"""Various implementations of LQR controllers including LQR and iLQR"""
+
 
 import abc
 
@@ -19,9 +21,6 @@ class BaseController(abc.ABC):
         assert N > 1
         assert issubclass(dynamics.__class__, DynamicalModel)
         assert issubclass(cost.__class__, Cost)
-        
-        if not isinstance(cost, AgentCost):
-            cost = AgentCost([cost], [1.0])
         
         self.dynamics = dynamics
         self.cost = cost
@@ -62,7 +61,13 @@ class BaseController(abc.ABC):
         
         return X, J
     
-    def plot(self, X, Jf=None, do_headings=False, surface_plot=False, **kwargs):
+    def plot(self, 
+             X, 
+             Jf=None, 
+             do_headings=False, 
+             surface_plot=False, 
+             coupling_radius=1.0, 
+             **kwargs):
         """Sets up a trajectory plot and renders the sub-objects on gca, passing 
            additional keywords to AgentCost.plot().
         """
@@ -78,71 +83,15 @@ class BaseController(abc.ABC):
         ax.set_xlabel('x [m]')
         ax.set_ylabel('y [m]')
         
-        self.dynamics.plot(X, Jf, do_headings)
-        self.cost.plot(surface_plot, x0=X[0], **kwargs)
+        self.dynamics.plot(X, do_headings, coupling_radius)
+        self.cost.plot(surface_plot, **kwargs)
         
-        ax.legend()
-        ax.grid()
+        # Only include unique labels in the legend.
+        handles, labels = plt.gca().get_legend_handles_labels()
+        leg_map = dict(zip(labels, handles))
+        ax.legend(leg_map.values(), leg_map.keys())
 
         
-class LQR(BaseController):
-    """
-    Linear Quadratic Regulator that assumes linear dynamics and quadratic costs.
-    """
-    
-    @property
-    def Q(self):
-        return self.cost.Q
-    
-    @property
-    def R(self):
-        return self.cost.R
-        
-    def backward_pass(self, X, U):
-        """Compute the optimal feedforward gain K."""
-        
-        K = np.zeros((self.N, self.n_u, self.n_x))
-        P = np.zeros((self.N, self.n_x, self.n_x))
-        P = self.Q.copy()
-        
-        for t in range(self.N-1, -1, -1):
-            A, B = self.dynamics.linearize(X[t], U[t])
-            # Feedforward gain [4] (30)
-            K[t] = np.linalg.inv(self.R + B.T @ P @ B) @ B.T @ P @ A
-            # Cost-to-go [4] (32)
-            P = self.Q + (A.T @ P @ A) - A.T @ P.T @ B @ K[t]
-        return K
-    
-    def forward_pass(self, X, U, K):
-        """Apply the feedforward gain to compute the next trajectory."""
-        
-        X_next = np.zeros((self.N+1, self.n_x))
-        U_next = np.zeros((self.N, self.n_u))
-        
-        X_next[0] = X[0]
-        J = 0.0
-
-        for t in range(self.N):
-            U_next[t] = -K[t] @ (X_next[t] - self.xf)
-            X_next[t+1] = self.dynamics(X_next[t], U_next[t])
-            J += self.cost(X_next[t], U_next[t])
-        J += self.cost(X_next[-1], np.zeros((self.n_u)), terminal=True)
-
-        return X_next, U_next, J
-    
-    def run(self, x0, n_iter=10):
-        """Solve the LQR OCP."""
-        
-        U = np.random.randn(self.N, self.n_u) * 1e-3
-        X, J0 = self.rollout(x0, U)
-
-        K = self.backward_pass(X, U)
-        X, U, Jf = self.forward_pass(X, U, K)
-        print(f'J0: {J0:.3g}\tJf: {Jf:.3g}')
-
-        return X, U, Jf
-
-    
 class iLQR(BaseController):
     """
     iLQR solver.
@@ -214,7 +163,7 @@ class iLQR(BaseController):
             
         return K, d
         
-    def run(self, x0, n_lqr_iter=50, tol=1e-6):
+    def run(self, x0, n_lqr_iter=50, tol=1e-3):
         """Solve the OCP."""
         
         # Reset regularization terms.
@@ -242,7 +191,7 @@ class iLQR(BaseController):
             # the LQR case.
             for α in alphas:
                 X_next, U_next, J = self.forward_pass(X, U, K, d, α)
-                # print(f'{J=:.3g}\t{J_star=:.3g}')
+                # print(f'{J=}\t{J_star=}')
                 
                 if J < J_star:
                     if np.abs((J_star - J) / J_star) < tol:
@@ -281,4 +230,63 @@ class iLQR(BaseController):
             print(f'{i+1}/{n_lqr_iter}\tJ: {J_star:g}\tμ: {self.μ:g}\tΔ: {self.Δ:g}')
 
         return X, U, J
+    
+        
+class LQR(BaseController):
+    """
+    Linear Quadratic Regulator that assumes linear dynamics and quadratic costs.
+    """
+    
+    @property
+    def Q(self):
+        return self.cost.Q
+    
+    @property
+    def R(self):
+        return self.cost.R
+        
+    def backward_pass(self, X, U):
+        """Compute the optimal feedforward gain K."""
+        
+        K = np.zeros((self.N, self.n_u, self.n_x))
+        P = np.zeros((self.N, self.n_x, self.n_x))
+        P = self.Q.copy()
+        
+        for t in range(self.N-1, -1, -1):
+            A, B = self.dynamics.linearize(X[t], U[t])
+            # Feedforward gain [4] (30)
+            K[t] = np.linalg.inv(self.R + B.T @ P @ B) @ B.T @ P @ A
+            # Cost-to-go [4] (32)
+            P = self.Q + (A.T @ P @ A) - A.T @ P.T @ B @ K[t]
+        return K
+    
+    def forward_pass(self, X, U, K):
+        """Apply the feedforward gain to compute the next trajectory."""
+        
+        X_next = np.zeros((self.N+1, self.n_x))
+        U_next = np.zeros((self.N, self.n_u))
+        
+        X_next[0] = X[0]
+        J = 0.0
+
+        for t in range(self.N):
+            U_next[t] = -K[t] @ (X_next[t] - self.xf)
+            X_next[t+1] = self.dynamics(X_next[t], U_next[t])
+            J += self.cost(X_next[t], U_next[t])
+        J += self.cost(X_next[-1], np.zeros((self.n_u)), terminal=True)
+
+        return X_next, U_next, J
+    
+    def run(self, x0, n_iter=10):
+        """Solve the LQR OCP."""
+        
+        U = np.random.randn(self.N, self.n_u) * 1e-3
+        X, J0 = self.rollout(x0, U)
+
+        K = self.backward_pass(X, U)
+        X, U, Jf = self.forward_pass(X, U, K)
+        print(f'J0: {J0:.3g}\tJf: {Jf:.3g}')
+
+        return X, U, Jf
+
     

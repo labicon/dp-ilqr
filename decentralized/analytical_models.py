@@ -1,9 +1,12 @@
-# analytical-models.py
-# Non-linear dynamics models with my attempt to linearize them analytically.
-# For some reason, these models aren't able to navigate the cost surface as well
-# as the NumericalDiffModel's.
+#!/usr/bin/env python
 
-# NOTE: Deprecated in favor models.py.
+"""Non-linear dynamics models with my attempt to linearize them analytically.
+
+For some reason, these models aren't able to navigate the cost surface as well
+as the ``NumericalDiffModel``'s.
+
+NOTE: Deprecated in favor ``models.py``.
+"""
 
 import numpy as np
 

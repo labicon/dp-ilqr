@@ -1,18 +1,21 @@
-# cost.py
-# Implements various cost structures for creating the optimization surface of the LQ Game.
+#!/usr/bin/env python
+
+"""Implements various cost structures in the LQ Game"""
+
 
 import abc
 
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm, NoNorm
 import numpy as np
+from scipy.linalg import block_diag
 
 from util import Point
 
 
 EPS = np.finfo(float).eps
 
-# Indicies corresponding to the positional outputs of quadraticize_distance
+# Indicies corresponding to the positional outputs of _quadraticize_distance
 IX = 0
 IY = 1
 
@@ -27,9 +30,22 @@ class Cost(abc.ABC):
         """Returns the cost evaluated at the given state and control."""
         pass
     
-    @abc.abstractmethod
-    def quadraticize(self, *args):
+    def quadraticize(self, x, u, _=None):
         """Compute the jacobians and the hessians around the current control and state."""
+        
+        nx = x.shape[0]
+        nu = u.shape[0]
+        
+        L_x = np.zeros((nx))
+        L_u = np.zeros((nu))
+        L_xx = np.zeros((nx, nx))
+        L_uu = np.zeros((nu, nu))
+        L_ux = np.zeros((nu, nx))
+        
+        return L_x, L_u, L_xx, L_uu, L_ux
+    
+    def plot(self, *args, **kwargs):
+        """Visualize this cost object on plt.gca()."""
         pass
     
     
@@ -50,10 +66,11 @@ class ReferenceCost(Cost):
     The cost of a state and control from some reference trajectory.
     """
     
-    def __init__(self, xf, Q, R, Qf=None):
+    def __init__(self, xf, Q, R, Qf=None, weight=1.0):
         self.xf = xf.astype(float)
         self.Q = Q.astype(float)
         self.R = R.astype(float)
+        self.weight = weight
         
         if Qf is None:
             Qf = np.eye(Q.shape[0])
@@ -68,20 +85,20 @@ class ReferenceCost(Cost):
         return (x - self.xf).T @ self.Qf @ (x - self.xf)
         
     def quadraticize(self, x, u, terminal=False):
-        n_x = x.shape[0]
-        n_u = u.shape[0]
+        nx = x.shape[0]
+        nu = u.shape[0]
         
         L_x = (x - self.xf).T @ self.Q_plus_QT
         L_u = u.T @ self.R_plus_RT
         L_xx = self.Q_plus_QT
         L_uu = self.R_plus_RT
-        L_ux = np.zeros((n_u, n_x))
+        L_ux = np.zeros((nu, nx))
         
         if terminal:
             L_x = (x - self.xf).T @ (self.Qf + self.Qf.T)
             L_xx = self.Qf + self.Qf.T
-            L_u = np.zeros((n_u))
-            L_uu = np.zeros((n_u, n_u))
+            L_u = np.zeros((nu))
+            L_uu = np.zeros((nu, nu))
         
         return L_x, L_u, L_xx, L_uu, L_ux
     
@@ -90,7 +107,7 @@ class ReferenceCost(Cost):
         if "1D" in ax.get_title():
             ax.axhline(self.xf[0], c='r', label='$x_f$: ' + str(self.xf))
             return
-        ax.scatter(self.xf[0], self.xf[1], 80, 'r', 'x', label='$x_{goal}$: ' + str(self.xf))
+        ax.scatter(self.xf[0], self.xf[1], 80, 'r', 'x', label='$x_{goal}$')
 
 
 class ObstacleCost(Cost):
@@ -98,33 +115,34 @@ class ObstacleCost(Cost):
     The cost of an operating point from a stationary obstacle.
     """
     
-    def __init__(self, position_inds, point, max_distance):
+    def __init__(self, position_inds, point, radius, weight=1.0):
         self.ix, self.iy = position_inds
         self.point = point
-        self.max_distance = max_distance
+        self.radius = radius
+        self.weight = weight
     
     def __call__(self, x, _, __=None):
-        distance = np.linalg.norm([x[self.ix] - self.point.x, x[self.iy] - self.point.y])
-        return min(0.0, distance - self.max_distance)**2
+        distance = np.sqrt((x[self.ix] - self.point.x)**2 + (x[self.iy] - self.point.y)**2)
+        return min(0.0, distance - self.radius)**2
     
     def state_point(self, x):
         """Reformat the position within a state into a Point object."""
         return Point(x[self.ix], x[self.iy])
     
     def quadraticize(self, x, u, _=None):
-        n_x = x.shape[0]
-        n_u = u.shape[0]
+        nx = x.shape[0]
+        nu = u.shape[0]
         
-        L_x = np.zeros((n_x))
-        L_u = np.zeros((n_u))
-        L_xx = np.zeros((n_x, n_x))
-        L_uu = np.zeros((n_u, n_u))
-        L_ux = np.zeros((n_u, n_x))
+        L_x = np.zeros((nx))
+        L_u = np.zeros((nu))
+        L_xx = np.zeros((nx, nx))
+        L_uu = np.zeros((nu, nu))
+        L_ux = np.zeros((nu, nx))
         
         # Compute jacobians and hessians as 2x1 and 2x2 as a function of the positions,
         # then reformat by adding zeros to match the state dimensions.
         L_x_obs, L_xx_obs = \
-            quadraticize_distance(self.state_point(x), self.point, self.max_distance)
+            _quadraticize_distance(self.state_point(x), self.point, self.radius)
         
         L_x[self.ix] = L_x_obs[IX]
         L_x[self.iy] = L_x_obs[IY]
@@ -136,7 +154,7 @@ class ObstacleCost(Cost):
     
     def plot(self):
         circle = plt.Circle(
-            (self.point.x, self.point.y), self.max_distance, 
+            (self.point.x, self.point.y), self.radius, 
             color='k', fill=False, alpha=0.75, ls='--', lw=2
         )
         plt.gca().add_artist(circle)
@@ -152,39 +170,39 @@ class CouplingCost(Cost):
     can add jacobians & hessians equally in both directions.
     """
     
-    def __init__(self, pos_inds, max_distance):
+    def __init__(self, pos_inds, radius, weight=1.0):
         self.pos_inds = pos_inds
-        self.max_distance = max_distance
+        self.radius = radius
         self.n_agents = len(pos_inds)
+        self.weight = weight
     
     def __call__(self, x):
         total_cost = 0.0
         for i in range(self.n_agents):
             for j in range(i+1, self.n_agents):
-                ix, iy = self.pos_inds[i]
-                jx, jy = self.pos_inds[j]
-                
-                distance = (x[ix] - x[jx])**2 + (x[iy] - x[jy])**2
-                total_cost += min(0.0, distance - self.max_distance)**2
+                distance = np.linalg.norm(
+                    x[..., self.pos_inds[i]] - x[..., self.pos_inds[j]])
+                total_cost += min(0.0, distance - self.radius)**2
         return total_cost
     
     def quadraticize(self, x):
-        n_x = x.shape[0]
-        L_x = np.zeros((n_x))
-        L_xx = np.zeros((n_x, n_x))
+        nx = x.shape[0]
+        L_x = np.zeros((nx))
+        L_xx = np.zeros((nx, nx))
         
         for i in range(self.n_agents):            
             for j in range(i+1, self.n_agents):
-                L_xi = np.zeros((n_x))
-                L_xxi = np.zeros((n_x, n_x))
+                L_xi = np.zeros((nx))
+                L_xxi = np.zeros((nx, nx))
+                
+                L_x_pair, L_xx_pair = _quadraticize_distance(
+                    Point(*x[..., self.pos_inds[i]]), 
+                    Point(*x[..., self.pos_inds[j]]), 
+                    self.radius
+                )
                 
                 ix, iy = self.pos_inds[i]
                 jx, jy = self.pos_inds[j]
-                L_x_pair, L_xx_pair = quadraticize_distance(
-                    Point(x[ix], x[iy]), 
-                    Point(x[jx], x[jy]), 
-                    self.max_distance
-                )
                 
                 L_xi[ix] = L_xi[jx] = L_x_pair[IX]
                 L_xi[iy] = L_xi[jy] = L_x_pair[IY]
@@ -200,73 +218,141 @@ class CouplingCost(Cost):
 
 class AgentCost(Cost):
     """
-    Collects a reference cost and potentially obstacle costs for one agent in the game.
-    
-    TODO: Formalize organization of sub-class costs so we know where Q, R, and xf are.
+    Collects a reference and obstacle costs for one agent in the game.
     """
     
-    def __init__(self, costs, weights):
-        assert len(costs) == len(weights)
-        assert all(isinstance(cost, ReferenceCost) or isinstance(cost, ObstacleCost)
-                   for cost in costs)
-        
+    def __init__(self, costs):
+        assert all(isinstance(cost, ReferenceCost) 
+                or isinstance(cost, ObstacleCost) for cost in costs)
         self.costs = costs
-        self.weights = weights
         
     def __call__(self, x, u, terminal=False):
         full_cost = 0.0
-        for cost, weight in zip(self.costs, self.weights):
-            full_cost += weight * cost(x, u, terminal)
+        for cost in self.costs:
+            full_cost += cost.weight * cost(x, u, terminal)
         return full_cost
     
     def quadraticize(self, x, u, terminal=False):
-        n_x = x.shape[0]
-        n_u = u.shape[0]
+        nx = x.shape[0]
+        nu = u.shape[0]
         
-        L_x = np.zeros((n_x))
-        L_u = np.zeros((n_u))
-        L_xx = np.zeros((n_x, n_x))
-        L_uu = np.zeros((n_u, n_u))
-        L_ux = np.zeros((n_u, n_x))
+        L_x = np.zeros((nx))
+        L_u = np.zeros((nu))
+        L_xx = np.zeros((nx, nx))
+        L_uu = np.zeros((nu, nu))
+        L_ux = np.zeros((nu, nx))
         
-        for cost, weight in zip(self.costs, self.weights):
+        for cost in self.costs:
             L_xi, L_ui, L_xxi, L_uui, L_uxi = cost.quadraticize(x, u, terminal)
-            L_x += weight * L_xi
-            L_u += weight * L_ui
-            L_xx += weight * L_xxi
-            L_uu += weight * L_uui
-            L_ux += weight * L_uxi
+            L_x += cost.weight * L_xi
+            L_u += cost.weight * L_ui
+            L_xx += cost.weight * L_xxi
+            L_uu += cost.weight * L_uui
+            L_ux += cost.weight * L_uxi
         
         return L_x, L_u, L_xx, L_uu, L_ux
     
-    def plot(self, surface_plot=False, x0=None, axis=None, log_colors=False):
-        """Call the children cost.plot functions and overlay a sampled cost surface
+    def plot(self):
+        """Call the children cost.plot functions"""
+        for cost in self.costs:
+            cost.plot()
+        
+
+class GameCost(Cost):
+    """
+    Collects the costs for multiple agents as well as coupling costs between the agents.
+    """
+    
+    def __init__(self, 
+                 agent_costs, 
+                 coupling_costs, 
+                 x_dims, 
+                 u_dims):
+        # NOTE: we assume that agent_costs are passed in the same order as their respective 
+        # dynamics in the MultiDynamicalModel
+        
+        self.agent_costs = agent_costs
+        self.coupling_costs = coupling_costs
+        # TODO: only store these in one place.
+        self.x_dims = x_dims
+        self.u_dims = u_dims
+        
+    def __call__(self, x, u, terminal=False):
+        x_split = np.split(x, np.cumsum(self.x_dims[:-1]))
+        u_split = np.split(u, np.cumsum(self.u_dims[:-1]))
+        
+        agent_total = sum(agent_cost(xi, ui, terminal)
+                          for agent_cost, xi, ui in zip(self.agent_costs, x_split, u_split))
+        coupling_total = sum(coupling_cost.weight * coupling_cost(x) 
+                             for coupling_cost in self.coupling_costs)
+        
+        return agent_total + coupling_total
+    
+    def quadraticize(self, x, u, terminal=False):
+        L_xs, L_us = [], []
+        L_xxs, L_uus, L_uxs = [], [], []
+        
+        x_split = np.split(x, np.cumsum(self.x_dims[:-1]))
+        u_split = np.split(u, np.cumsum(self.u_dims[:-1]))
+        
+        # Compute agent quadraticizations in individual state spaces.
+        for agent_cost, xi, ui in zip(self.agent_costs, x_split, u_split):
+            L_xi, L_ui, L_xxi, L_uui, L_uxi = agent_cost.quadraticize(xi, ui, terminal)
+            L_xs.append(L_xi)
+            L_us.append(L_ui)
+            L_xxs.append(L_xxi)
+            L_uus.append(L_uui)
+            L_uxs.append(L_uxi)
+        
+        L_x = np.hstack(L_xs)
+        L_u = np.hstack(L_us)
+        L_xx = block_diag(*L_xxs)
+        L_uu = block_diag(*L_uus)
+        L_ux = block_diag(*L_uxs)
+        
+        # Incorporate coupling costs in full cartesian state space.
+        for coupling_cost in self.coupling_costs:
+            L_x_coup, L_xx_coup = coupling_cost.quadraticize(x)
+            L_x += coupling_cost.weight * L_x_coup
+            L_xx += coupling_cost.weight * L_xx_coup
+        
+        return L_x, L_u, L_xx, L_uu, L_ux
+    
+    def plot(self, 
+             surface_plot=False, 
+             agent_ind=0, 
+             couple_ind=0,
+             axis=None, 
+             log_colors=False):
+        """Call the agent_cost.plot functions and overlay a sampled cost surface
            over the current axes.
         """
         
-        for cost in self.costs:
-            cost.plot()
+        for agent_cost in self.agent_costs:
+            agent_cost.plot()
             
         if not surface_plot:
             return
         
-        assert x0 is not None
         STEP = 0.1
         imshow_kwargs = {}
-
-        if axis is None:
+        
+        # Hope that the current axes are square if none supplied.
+        if not axis:
             ax = plt.gca()
             axis = ax.get_xlim() + ax.get_ylim()
+        
         if log_colors:
-            imshow_kwargs = {'norm': LogNorm()}
+            imshow_kwargs['norm'] = LogNorm()
 
+        # Sample the positional state space over axis.
         pts = np.mgrid[axis[0]:axis[1]:STEP, axis[2]:axis[3]:STEP].T.reshape(-1,2)
-        u = np.zeros(2)
+        u = np.zeros(self.u_dims[agent_ind])
 
         costs = []
         for pt in pts:
-            xi = np.resize(pt, x0.shape[0])
-            costs.append(self(xi, u, False))
+            xi = np.resize(pt, self.x_dims[agent_ind])
+            costs.append(self.agent_costs[agent_ind](xi, u, False))
 
         side_len = round(np.sqrt(pts.shape[0]))
         costs = np.flip(np.array(costs).reshape(side_len, side_len), axis=0)
@@ -278,51 +364,12 @@ class AgentCost(Cost):
         # plt.ylabel('y [m]')
         plt.colorbar(cost_h, label='Cost')
         
-
-class GameCost(Cost):
-    """
-    Collects the costs for multiple agents as well as coupling costs between the agents.
-    """
+        # Plot coupling costs
+        if self.coupling_costs:
+            self.coupling_costs[couple_ind].plot()
     
-    def __init__(self, agent_costs, coupling_cost):
-        # NOTE: we assume that agent_costs are passed in the same order as their respective 
-        # dynamics in the MultiDynamicalModel
-        
-        self.agent_costs = agent_costs
-        self.coupling_cost = coupling_cost
-        
-    def __call__(self, x, u, terminal=False):
-        agent_total = sum(ac(x, u, terminal) for ac in self.agent_costs)
-        coupling_total = self.coupling_cost(x)
-        return agent_total + coupling_total
     
-    def quadraticize(self, x, u, terminal=False):
-        L_xs, L_us = [], []
-        L_xxs, L_uus, L_uxs = [], [], []
-        
-        # Run agent quadraticization then incorporate coupling quadraticizations.
-        for agent_cost in self.agent_costs:
-            # ...but what about the dimensionality of x and u...
-            L_xi, L_ui, L_xxi, L_uui, L_uxi = agent_cost.quadraticize(x, u, terminal)
-            L_xs.append(L_xi)
-            L_us.append(L_ui)
-            L_xxs.append(L_xxi)
-            L_uus.append(L_uui)
-            L_uxs.append(L_uxi)
-        
-        L_x = block_diag(*L_xs)
-        L_u = block_diag(*L_us)
-        L_xx = block_diag(*L_xxs)
-        L_uu = block_diag(*L_uus)
-        L_ux = block_diag(*L_uxs)
-        
-        L_x_coup, L_xx_coup = self.coupling_cost.quadraticize(x)
-        L_x += L_x_coup
-        L_xx += L_xx_coup
-        
-        return L_x, L_u, L_xx, L_uu, L_ux
-    
-def quadraticize_distance(point_a, point_b, max_distance):
+def _quadraticize_distance(point_a, point_b, max_distance):
     """Quadraticize the distance between two points thresholded by a max distance,
        returning the corresopnding 2x1 jacobian and 2x2 hessian.
        
