@@ -24,7 +24,7 @@ out in the next section. For convenience, there's also an
 environment with all of the necessary dependencies including `jupyter` and 
 `jupyterlab`. To create an environment from this file, execute the following:
 ```
-conda create --file environment.yml
+conda env create --file environment.yml
 ```
 
 If using `pip` with a different environment manager such as `venv`, run:
