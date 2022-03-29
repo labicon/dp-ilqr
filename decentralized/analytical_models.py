@@ -215,3 +215,5 @@ class BicycleDynamics(DynamicalModel):
     @staticmethod
     def get_heading(X):
         return X[..., 2]
+    
+    

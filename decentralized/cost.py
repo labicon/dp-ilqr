@@ -54,9 +54,6 @@ class NumericalDiffCost(Cost):
     Computes the quadraticization via finite difference. TODO.
     """
     
-    def __init__(self, *args):
-        raise NotImplementedError
-    
     def quadraticize(self, x, u, terminal=False):
         raise NotImplementedError
 
@@ -409,3 +406,4 @@ def _quadraticize_distance(point_a, point_b, max_distance):
     )
 
     return L_x, L_xx
+

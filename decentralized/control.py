@@ -170,6 +170,7 @@ class iLQR(BaseController):
         self.μ = 1.0
         self.Δ = self.DELTA_0
         
+        jolt = False
         is_converged = False
         alphas = 1.1**(-np.arange(self.N_LS_ITER)**2)
         
@@ -186,10 +187,21 @@ class iLQR(BaseController):
             # Backward recurse to compute gain matrices.
             K, d = self.backward_pass(X, U)
             
+            # When executing a jolt, alpha corresponds to the magnitude of the noise being
+            # added to the angular state, so it's flipped to go from least noise to most
+            # noise.
+            alphas_ls = alphas
+            # if jolt:
+            #     alphas_ls = np.linspace(-np.pi/3, +np.pi/3, self.N_LS_ITER)
+            
+            # if jolt:
+            #     d[:,-1] += np.pi/3
+            
             # Conduct a line search to find a satisfactory trajectory where we continually
             # decrease α. We're effectively getting closer to the linear approximation in
             # the LQR case.
-            for α in alphas:
+            for α in alphas_ls:
+                
                 X_next, U_next, J = self.forward_pass(X, U, K, d, α)
                 # print(f'{J=}\t{J_star=}')
                 
@@ -212,6 +224,13 @@ class iLQR(BaseController):
                     break
 
             if not accept:
+                
+                # Try "jolting" the problem by adding small amounts of noise 
+                # to the angular state to avoid deadlock.
+                if not jolt:
+                    jolt = True
+                    continue
+                
                 # TEMP: Regularization is pointless for quadratic costs.
                 # print('[run] Failed line search.. giving up.')
                 # break

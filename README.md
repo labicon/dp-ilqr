@@ -18,41 +18,49 @@ multi-agent planner but has trouble overcoming deadlock.
 ![](media/asym_x.gif)
 
 ## Running the Code
+To run the code, we assume that you have [decentralized](decentralized/) on 
+your `PYTHONPATH` environment variable. On unix, this can be accomplished by:
+
+    export PYTHONPATH=${PYTHONPATH}:/absolute/path/to/decentralized/decentralized
+
+
+### Environment
 There are a few different python packages that this project relies on listed
 out in the next section. For convenience, there's also an
 [environment.yml](environment.yml) file that one can use to spin up a conda 
 environment with all of the necessary dependencies including `jupyter` and 
 `jupyterlab`. To create an environment from this file, execute the following:
-```
-conda env create --file environment.yml
-```
+
+    conda env create --file environment.yml
+
 
 If using `pip` with a different environment manager such as `venv`, run:
-```
-python3 -m venv decctrl
-source decctrl/bin/activate
-pip install numpy scipy matplotlib sympy jupyter jupyterlab
-deactivate # when finished
-```
 
-[notebooks/main.ipynb](notebooks/main.ipynb) is the top level script used to
-construct the system dynamics and conduct simulations. 
-[notebooks/derivations.ipynb](notebooks/derivations.ipynb) is where many of the
-analytical linearizations and quadraticizations originated from.
+    python3 -m venv decctrl
+    source decctrl/bin/activate
+    pip install numpy scipy matplotlib sympy jupyter jupyterlab
+    deactivate # when finished
+
+
+### Organization
+- [notebooks/main.ipynb](notebooks/main.ipynb) is the top level script used to
+  construct the system dynamics and conduct simulations. 
+- [notebooks/derivations.ipynb](notebooks/derivations.ipynb) is where many of
+  the analytical linearizations and quadraticizations originated from.
 
 ## Dependencies
 **Required**:
-* `numpy`
-* `scipy`
-* `matplotlib`
+- `numpy`
+- `scipy`
+- `matplotlib`
 
 **Recommended**:
-* `sympy`
-* `jupyter`
-* `jupyterlab`
+- `sympy`
+- `jupyter`
+- `jupyterlab`
 
 ## Credit
 The following two repositories have been instrumental from both an algorithms
 and software architecture perspective in the development of this project:
-* [HJReachability/ilqgames](https://github.com/HJReachability/ilqgames)
-* [anassinator/ilqr](https://github.com/anassinator/ilqr)
+- [HJReachability/ilqgames](https://github.com/HJReachability/ilqgames)
+- [anassinator/ilqr](https://github.com/anassinator/ilqr)

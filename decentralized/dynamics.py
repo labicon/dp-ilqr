@@ -199,9 +199,4 @@ class MultiDynamicalModel(DynamicalModel):
         for X, submodel in zip(X_split, self.submodels):
             submodel.plot(X, do_headings=do_headings, coupling_radius=coupling_radius)
             
-        
-        
-
-    
-    
                              
