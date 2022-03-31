@@ -2,9 +2,8 @@
 
 """Implements various cost structures in the LQ Game"""
 
-
+from scipy.optimize import approx_fprime
 import abc
-
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm, NoNorm
 import numpy as np
@@ -49,13 +48,184 @@ class Cost(abc.ABC):
         pass
     
     
-class NumericalDiffCost(Cost):
-    """
-    Computes the quadraticization via finite difference. TODO.
-    """
+# class NumericalDiffCost(Cost):
+#     """
+#     Computes the quadraticization via finite difference. TODO.
+#     """
     
+<<<<<<< HEAD
+#     def __init__(self, x, u, *args):
+        
+#         self.nx = x.shape[0]
+#         self.nu = u.shape[0]
+        
+#         self.L_x = np.zeros((nx))
+#         self.L_u = np.zeros((nu))
+#         self.L_xx = np.zeros((nx, nx))
+#         self.L_uu = np.zeros((nu, nu))
+#         self.L_ux = np.zeros((nu, nx))
+        
+        
+    
+#     def quadraticize(self, x, u,x_eps=None,
+#                  u_eps=None, terminal=False):
+
+
+
+
+class NumericalDiffCost(Cost):
+
+    """Finite difference approximated Instantaneous Cost.
+    NOTE: The terminal cost needs to at most be a function of x and i, whereas
+          the non-terminal cost can be a function of x, u and i.
+    """
+
+    def __init__(self,
+                 l,
+                 l_terminal,
+                 state_size,
+                 action_size,
+                 x_eps=None,
+                 u_eps=None):
+        """Constructs an FiniteDiffCost.
+        Args:
+            l: Instantaneous cost function to approximate.
+                Signature: (x, u, i) -> scalar.
+            l_terminal: Terminal cost function to approximate.
+                Signature: (x, i) -> scalar.
+            state_size: State size.
+            action_size: Action size.
+            x_eps: Increment to the state to use when estimating the gradient.
+                Default: np.sqrt(np.finfo(float).eps).
+            u_eps: Increment to the action to use when estimating the gradient.
+                Default: np.sqrt(np.finfo(float).eps).
+        Note:
+            The square root of the provided epsilons are used when computing
+            the Hessians instead.
+        """
+        self._l = l
+        self._l_terminal = l_terminal
+        self._state_size = state_size
+        self._action_size = action_size
+
+        self._x_eps = x_eps if x_eps else np.sqrt(np.finfo(float).eps)
+        self._u_eps = u_eps if x_eps else np.sqrt(np.finfo(float).eps)
+
+        self._x_eps_hess = np.sqrt(self._x_eps)
+        self._u_eps_hess = np.sqrt(self._u_eps)
+
+        super(NumericalDiffCost, self).__init__()
+
+    def l(self, x, u, i, terminal=False):
+        """Instantaneous cost function.
+        Args:
+            x: Current state [state_size].
+            u: Current control [action_size]. None if terminal.
+            i: Current time step.
+            terminal: Compute terminal cost. Default: False.
+        Returns:
+            Instantaneous cost (scalar).
+        """
+        if terminal:
+            return self._l_terminal(x, i)
+
+        return self._l(x, u, i)
+
+    def l_x(self, x, u, i, terminal=False):
+        """Partial derivative of cost function with respect to x.
+        Args:
+            x: Current state [state_size].
+            u: Current control [action_size]. None if terminal.
+            i: Current time step.
+            terminal: Compute terminal cost. Default: False.
+        Returns:
+            dl/dx [state_size].
+        """
+        if terminal:
+            return approx_fprime(x, lambda x: self._l_terminal(x, i),
+                                 self._x_eps)
+
+        return approx_fprime(x, lambda x: self._l(x, u, i), self._x_eps)
+
+    def l_u(self, x, u, i, terminal=False):
+        """Partial derivative of cost function with respect to u.
+        Args:
+            x: Current state [state_size].
+            u: Current control [action_size]. None if terminal.
+            i: Current time step.
+            terminal: Compute terminal cost. Default: False.
+        Returns:
+            dl/du [action_size].
+        """
+        if terminal:
+            # Not a function of u, so the derivative is zero.
+            return np.zeros(self._action_size)
+
+        return approx_fprime(u, lambda u: self._l(x, u, i), self._u_eps)
+
+    def l_xx(self, x, u, i, terminal=False):
+        """Second partial derivative of cost function with respect to x.
+        Args:
+            x: Current state [state_size].
+            u: Current control [action_size]. None if terminal.
+            i: Current time step.
+            terminal: Compute terminal cost. Default: False.
+        Returns:
+            d^2l/dx^2 [state_size, state_size].
+        """
+        eps = self._x_eps_hess
+        Q = np.vstack([
+            approx_fprime(x, lambda x: self.l_x(x, u, i, terminal)[m], eps)
+            for m in range(self._state_size)
+        ])
+        return Q
+
+    def l_ux(self, x, u, i, terminal=False):
+        """Second partial derivative of cost function with respect to u and x.
+        Args:
+            x: Current state [state_size].
+            u: Current control [action_size]. None if terminal.
+            i: Current time step.
+            terminal: Compute terminal cost. Default: False.
+        Returns:
+            d^2l/dudx [action_size, state_size].
+        """
+        if terminal:
+            # Not a function of u, so the derivative is zero.
+            return np.zeros((self._action_size, self._state_size))
+
+        eps = self._x_eps_hess
+        Q = np.vstack([
+            approx_fprime(x, lambda x: self.l_u(x, u, i)[m], eps)
+            for m in range(self._action_size)
+        ])
+        return Q
+
+    def l_uu(self, x, u, i, terminal=False):
+        """Second partial derivative of cost function with respect to u.
+        Args:
+            x: Current state [state_size].
+            u: Current control [action_size]. None if terminal.
+            i: Current time step.
+            terminal: Compute terminal cost. Default: False.
+        Returns:
+            d^2l/du^2 [action_size, action_size].
+        """
+        if terminal:
+            # Not a function of u, so the derivative is zero.
+            return np.zeros((self._action_size, self._action_size))
+
+        eps = self._u_eps_hess
+        Q = np.vstack([
+            approx_fprime(u, lambda u: self.l_u(x, u, i)[m], eps)
+            for m in range(self._action_size)
+        ])
+        return Q
+
+=======
     def quadraticize(self, x, u, terminal=False):
         raise NotImplementedError
+>>>>>>> 50a3dfb9a40d65000bfcc3404e671a843146bdf2
 
         
 class ReferenceCost(Cost):
