@@ -47,31 +47,6 @@ class Cost(abc.ABC):
         """Visualize this cost object on plt.gca()."""
         pass
     
-    
-# class NumericalDiffCost(Cost):
-#     """
-#     Computes the quadraticization via finite difference. TODO.
-#     """
-    
-
-#     def __init__(self, x, u, *args):
-        
-#         self.nx = x.shape[0]
-#         self.nu = u.shape[0]
-        
-#         self.L_x = np.zeros((nx))
-#         self.L_u = np.zeros((nu))
-#         self.L_xx = np.zeros((nx, nx))
-#         self.L_uu = np.zeros((nu, nu))
-#         self.L_ux = np.zeros((nu, nx))
-        
-        
-    
-#     def quadraticize(self, x, u,x_eps=None,
-#                  u_eps=None, terminal=False):
-
-
-
 
 class NumericalDiffCost(Cost):
 
@@ -79,42 +54,6 @@ class NumericalDiffCost(Cost):
     NOTE: The terminal cost needs to at most be a function of x and i, whereas
           the non-terminal cost can be a function of x, u and i.
     """
-
-    def __init__(self,
-                 l,
-                 l_terminal,
-                 state_size,
-                 action_size,
-                 x_eps=None,
-                 u_eps=None):
-        """Constructs an FiniteDiffCost.
-        Args:
-            l: Instantaneous cost function to approximate.
-                Signature: (x, u, i) -> scalar.
-            l_terminal: Terminal cost function to approximate.
-                Signature: (x, i) -> scalar.
-            state_size: State size.
-            action_size: Action size.
-            x_eps: Increment to the state to use when estimating the gradient.
-                Default: np.sqrt(np.finfo(float).eps).
-            u_eps: Increment to the action to use when estimating the gradient.
-                Default: np.sqrt(np.finfo(float).eps).
-        Note:
-            The square root of the provided epsilons are used when computing
-            the Hessians instead.
-        """
-        self._l = l
-        self._l_terminal = l_terminal
-        self._state_size = state_size
-        self._action_size = action_size
-
-        self._x_eps = x_eps if x_eps else np.sqrt(np.finfo(float).eps)
-        self._u_eps = u_eps if x_eps else np.sqrt(np.finfo(float).eps)
-
-        self._x_eps_hess = np.sqrt(self._x_eps)
-        self._u_eps_hess = np.sqrt(self._u_eps)
-
-        super(NumericalDiffCost, self).__init__()
 
     def l(self, x, u, i, terminal=False):
         """Instantaneous cost function.
@@ -225,7 +164,6 @@ class NumericalDiffCost(Cost):
 
     def quadraticize(self, x, u, terminal=False):
         raise NotImplementedError
-
 
         
 class ReferenceCost(Cost):

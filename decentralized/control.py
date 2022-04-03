@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from dynamics import DynamicalModel
-from cost import Cost, AgentCost
+from cost import Cost
 
 
 class BaseController(abc.ABC):
@@ -309,3 +309,27 @@ class LQR(BaseController):
         return X, U, Jf
 
     
+
+class RHC:
+    """Receding horizon controller
+    
+    Attributes
+    ----------
+    
+    """
+
+    def __init__(self, x0, controller):
+        self._x = x0
+        self.controller = controller
+
+    @property
+    def x(self):
+        return self._x
+
+    @x.setter
+    def x(self, xn):
+        self._x = xn
+    
+    def fit(self, U0):
+        while True:
+            self.controller.run(U0)
