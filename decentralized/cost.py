@@ -53,7 +53,7 @@ class Cost(abc.ABC):
 #     Computes the quadraticization via finite difference. TODO.
 #     """
     
-<<<<<<< HEAD
+
 #     def __init__(self, x, u, *args):
         
 #         self.nx = x.shape[0]
@@ -222,10 +222,10 @@ class NumericalDiffCost(Cost):
         ])
         return Q
 
-=======
+
     def quadraticize(self, x, u, terminal=False):
         raise NotImplementedError
->>>>>>> 50a3dfb9a40d65000bfcc3404e671a843146bdf2
+
 
         
 class ReferenceCost(Cost):
