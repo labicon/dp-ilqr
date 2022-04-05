@@ -6,7 +6,7 @@ import re
 import numpy as np
 import matplotlib.pyplot as plt
 
-from dynamics import DynamicalModel, LinearModel, NumericalDiffModel
+from .dynamics import DynamicalModel, LinearModel, NumericalDiffModel
 
 
 ACC_LIMS = [-1.0, 1.0] # [m/s**2]

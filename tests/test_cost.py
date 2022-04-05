@@ -28,10 +28,10 @@ class TestReferenceCost(unittest.TestCase):
         self.Q = np.eye(self.n)
         self.R = np.eye(self.m)
         self.Qf = np.diag([1, 1, 0])
-        #self.ref_cost = ReferenceCost(self.xf, self.Q, self.R, self.Qf)
-        # self.ref_cost = ReferenceCostDiff(self.xf, self.Q, self.R, self.Qf)
         
-        self.ref_cost = NumericalDiffCost(self.xf, self.Q, self.R, self.Qf)
+        # self.ref_cost = ReferenceCost(self.xf, self.Q, self.R, self.Qf)
+        self.ref_cost = ReferenceCostDiff(self.xf, self.Q, self.R, self.Qf)
+        # self.ref_cost = NumericalDiffCost(self.xf, self.Q, self.R, self.Qf)
         
         self.x0 = np.random.randint(0, 10, (self.n,))
         self.u = np.random.randint(0, 10, (self.m,))

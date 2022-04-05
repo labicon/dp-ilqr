@@ -2,14 +2,15 @@
 
 """Implements various cost structures in the LQ Game"""
 
-from scipy.optimize import approx_fprime
 import abc
+
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm, NoNorm
 import numpy as np
+from scipy.optimize import approx_fprime
 from scipy.linalg import block_diag
 
-from util import Point
+from .util import Point
 
 
 EPS = np.sqrt(np.finfo(float).eps)

@@ -8,8 +8,8 @@ import abc
 import matplotlib.pyplot as plt
 import numpy as np
 
-from dynamics import DynamicalModel
-from cost import Cost
+from .dynamics import DynamicalModel
+from .cost import Cost
 
 
 class BaseController(abc.ABC):

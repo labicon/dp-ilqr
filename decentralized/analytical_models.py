@@ -10,8 +10,8 @@ NOTE: Deprecated in favor ``models.py``.
 
 import numpy as np
 
-from dynamics import DynamicalModel
-from models import V_LIMS, OMEGA_LIMS, ACC_LIMS
+from .dynamics import DynamicalModel
+from .models import V_LIMS, OMEGA_LIMS, ACC_LIMS
 
 
 class CarDynamics(DynamicalModel):
