@@ -2,8 +2,8 @@
 
 import abc
 
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
 from scipy.integrate import odeint
 from scipy.optimize import approx_fprime
 from scipy.linalg import block_diag

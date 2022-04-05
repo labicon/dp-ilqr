@@ -21,7 +21,7 @@ multi-agent planner but has trouble overcoming deadlock.
 To run the code, we assume that you have [decentralized](decentralized/) on 
 your `PYTHONPATH` environment variable. On unix, this can be accomplished by:
 
-    export PYTHONPATH=${PYTHONPATH}:/absolute/path/to/decentralized/decentralized
+    export PYTHONPATH=${PYTHONPATH}:/absolute/path/to/decentralized/
 
 
 ### Environment
