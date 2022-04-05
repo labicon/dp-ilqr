@@ -12,7 +12,7 @@ from scipy.linalg import block_diag
 from util import Point
 
 
-EPS = np.finfo(float).eps
+EPS = np.sqrt(np.finfo(float).eps)
 
 # Indicies corresponding to the positional outputs of _quadraticize_distance
 IX = 0
@@ -55,115 +55,42 @@ class NumericalDiffCost(Cost):
           the non-terminal cost can be a function of x, u and i.
     """
 
-    def l(self, x, u, i, terminal=False):
-        """Instantaneous cost function.
-        Args:
-            x: Current state [state_size].
-            u: Current control [action_size]. None if terminal.
-            i: Current time step.
-            terminal: Compute terminal cost. Default: False.
-        Returns:
-            Instantaneous cost (scalar).
-        """
-        if terminal:
-            return self._l_terminal(x, i)
-
-        return self._l(x, u, i)
-
-    def l_x(self, x, u, i, terminal=False):
-        """Partial derivative of cost function with respect to x.
-        Args:
-            x: Current state [state_size].
-            u: Current control [action_size]. None if terminal.
-            i: Current time step.
-            terminal: Compute terminal cost. Default: False.
-        Returns:
-            dl/dx [state_size].
-        """
-        if terminal:
-            return approx_fprime(x, lambda x: self._l_terminal(x, i),
-                                 self._x_eps)
-
-        return approx_fprime(x, lambda x: self._l(x, u, i), self._x_eps)
-
-    def l_u(self, x, u, i, terminal=False):
-        """Partial derivative of cost function with respect to u.
-        Args:
-            x: Current state [state_size].
-            u: Current control [action_size]. None if terminal.
-            i: Current time step.
-            terminal: Compute terminal cost. Default: False.
-        Returns:
-            dl/du [action_size].
-        """
-        if terminal:
-            # Not a function of u, so the derivative is zero.
-            return np.zeros(self._action_size)
-
-        return approx_fprime(u, lambda u: self._l(x, u, i), self._u_eps)
-
-    def l_xx(self, x, u, i, terminal=False):
-        """Second partial derivative of cost function with respect to x.
-        Args:
-            x: Current state [state_size].
-            u: Current control [action_size]. None if terminal.
-            i: Current time step.
-            terminal: Compute terminal cost. Default: False.
-        Returns:
-            d^2l/dx^2 [state_size, state_size].
-        """
-        eps = self._x_eps_hess
-        Q = np.vstack([
-            approx_fprime(x, lambda x: self.l_x(x, u, i, terminal)[m], eps)
-            for m in range(self._state_size)
-        ])
-        return Q
-
-    def l_ux(self, x, u, i, terminal=False):
-        """Second partial derivative of cost function with respect to u and x.
-        Args:
-            x: Current state [state_size].
-            u: Current control [action_size]. None if terminal.
-            i: Current time step.
-            terminal: Compute terminal cost. Default: False.
-        Returns:
-            d^2l/dudx [action_size, state_size].
-        """
-        if terminal:
-            # Not a function of u, so the derivative is zero.
-            return np.zeros((self._action_size, self._state_size))
-
-        eps = self._x_eps_hess
-        Q = np.vstack([
-            approx_fprime(x, lambda x: self.l_u(x, u, i)[m], eps)
-            for m in range(self._action_size)
-        ])
-        return Q
-
-    def l_uu(self, x, u, i, terminal=False):
-        """Second partial derivative of cost function with respect to u.
-        Args:
-            x: Current state [state_size].
-            u: Current control [action_size]. None if terminal.
-            i: Current time step.
-            terminal: Compute terminal cost. Default: False.
-        Returns:
-            d^2l/du^2 [action_size, action_size].
-        """
-        if terminal:
-            # Not a function of u, so the derivative is zero.
-            return np.zeros((self._action_size, self._action_size))
-
-        eps = self._u_eps_hess
-        Q = np.vstack([
-            approx_fprime(u, lambda u: self.l_u(x, u, i)[m], eps)
-            for m in range(self._action_size)
-        ])
-        return Q
-
-
     def quadraticize(self, x, u, terminal=False):
-        raise NotImplementedError
+        #returns L_x,L_u,L_xx,L_uu,L_ux
+        nx = x.shape[0]
+        nu = u.shape[0]
+        
+        L_x = np.vstack([
+            approx_fprime(x, lambda x: self.l(x, u)[i], EPS) for i in range(self.n_x)
+        ])
+        
+        L_u = np.vstack([
+            approx_fprime(u, lambda u: self.f(x, u)[i], EPS) for i in range(self.n_u)
+        ])
+        
+        
+        L_xx = np.vstack([
+            
+            approx_fprime(x, lambda x: L_x[i], EPS) for i in range(self.n_x)
+            
+        ])
+        
+        L_uu = np.vstack([
+            
+            approx_fprime(u, lambda u: L_u[i], EPS) for i in range(self.n_u)
+            
+        ])
+        
+        
+        L_ux = np.vstack([
+            
+            approx_fprime(x, lambda x: L_u[i], EPS) for i in range(self.n_x)
+            
+        ])
+        
+        return
+        
+        
 
         
 class ReferenceCost(Cost):
