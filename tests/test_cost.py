@@ -54,7 +54,9 @@ class TestReferenceCost(unittest.TestCase):
         L_xx_expect = Q_plus_Q_T,
         L_uu_expect = R_plus_R_T,
         L_ux_expect = np.zeros((self.m, self.n))
-        
+        print(L_xx_expect)
+        #print(L_x_expect)
+        #print(self.x0)
         L_x, L_u, L_xx, L_uu, L_ux = self.ref_cost.quadraticize(self.x0, self.u)
         self.assertTrue(np.allclose(L_x, L_x_expect))
         self.assertTrue(np.allclose(L_u, L_u_expect))

@@ -13,7 +13,7 @@ from scipy.linalg import block_diag
 from .util import Point
 
 
-EPS = np.sqrt(np.finfo(float).eps)
+EPS = np.finfo(float).eps
 
 # Indicies corresponding to the positional outputs of _quadraticize_distance
 IX = 0
@@ -61,35 +61,40 @@ class NumericalDiffCost(Cost):
         nx = x.shape[0]
         nu = u.shape[0]
         
-        L_x = np.vstack([
-            approx_fprime(x, lambda x: self.l(x, u)[i], EPS) for i in range(self.n_x)
-        ])
+        L_x = approx_fprime(x, lambda x: self.__call__(x, u, terminal), EPS)
+       
         
-        L_u = np.vstack([
-            approx_fprime(u, lambda u: self.f(x, u)[i], EPS) for i in range(self.n_u)
-        ])
+        L_u = approx_fprime(u, lambda u: self.__call__(x, u, terminal), EPS)
         
         
-        L_xx = np.vstack([
+        def Lx(x,u):
             
-            approx_fprime(x, lambda x: L_x[i], EPS) for i in range(self.n_x)
-            
-        ])
+            return approx_fprime(x, lambda x: self.__call__(x, u ,terminal), EPS)
+        
+        
+        L_xx = np.vstack([approx_fprime(x, lambda x: Lx(x,u)[i],EPS) for i in range(nx)]) 
+        
+        
+        
+        print(L_xx)
+       
+
+        
         
         L_uu = np.vstack([
             
-            approx_fprime(u, lambda u: L_u[i], EPS) for i in range(self.n_u)
+            approx_fprime(u, lambda u: L_u[i], EPS) for i in range(nu)
             
         ])
         
         
         L_ux = np.vstack([
             
-            approx_fprime(x, lambda x: L_u[i], EPS) for i in range(self.n_x)
+            approx_fprime(x, lambda x: L_u[i], EPS) for i in range(nx)
             
         ])
         
-        return
+        return L_x,L_u,L_xx,L_uu,L_ux
         
         
 
