@@ -1,7 +1,7 @@
-from .analytical_models import CarDynamics, UnicycleDynamics, BicycleDynamics
-# from .models import CarDynamics, UnicycleDynamics, BicycleDynamics
+# from .analytical_models import CarDynamics, UnicycleDynamics, BicycleDynamics
+from .models import CarDynamics, UnicycleDynamics, BicycleDynamics
 from .models import DoubleInt1dDynamics, DoubleInt2dDynamics
-from .control import BaseController, iLQR, LQR
+from .control import BaseController, iLQR, LQR, RecedingHorizonController
 from .cost import (
     Cost, NumericalDiffCost, ReferenceCost, ObstacleCost, CouplingCost, 
     AgentCost, GameCost, _quadraticize_distance

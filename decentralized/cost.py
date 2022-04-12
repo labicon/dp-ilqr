@@ -354,6 +354,9 @@ class GameCost(Cost):
         for agent_cost in self.agent_costs:
             agent_cost.plot()
             
+        if axis:
+            plt.axis(axis)
+            
         if not surface_plot:
             return
         
