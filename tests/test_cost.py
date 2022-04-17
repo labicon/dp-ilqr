@@ -59,9 +59,9 @@ class TestReferenceCost(unittest.TestCase):
         
         self.assertTrue(np.allclose(L_x, L_x_expect))
         self.assertTrue(np.allclose(L_u, L_u_expect))
+        self.assertTrue(np.allclose(L_xx, L_xx_expect))
         self.assertTrue(np.allclose(L_uu, L_uu_expect))
         self.assertTrue(np.allclose(L_ux, L_ux_expect))
-        self.assertTrue(np.allclose(L_xx, L_xx_expect))
 
 
 if __name__ == "__main__":

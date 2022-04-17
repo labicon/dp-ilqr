@@ -121,7 +121,7 @@ class NumericalDiffModel(DynamicalModel):
         self._f = f
         self.j_eps = j_eps if j_eps else np.sqrt(np.finfo(float).eps)
 
-        super(NumericalDiffModel, self).__init__(*args)
+        super().__init__(*args)
         
     def __call__(self, x, u):
         return self.f(x, u)

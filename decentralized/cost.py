@@ -54,10 +54,11 @@ class NumericalDiffCost(Cost):
           the non-terminal cost can be a function of x, u and i.
     """
     
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
         self._jac_eps = np.sqrt(np.finfo(float).eps)
         self._hess_eps = np.sqrt(self._jac_eps)
-
+        super().__init__(*args, **kwargs)
+        
     def quadraticize(self, x, u, terminal=False):
         nx = x.shape[0]
         nu = u.shape[0]
@@ -82,8 +83,6 @@ class NumericalDiffCost(Cost):
         
         return Lx(x, u), Lu(x, u), L_xx, L_uu, L_ux
         
-        
-
         
 class ReferenceCost(Cost):
     """
