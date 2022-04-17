@@ -103,7 +103,7 @@ class iLQR(BaseController):
     N_LS_ITER = 10 # number of line search iterations
     
     def __init__(self, dynamics, cost, N=10):
-        super(iLQR, self).__init__(dynamics, cost, N)
+        super().__init__(dynamics, cost, N)
         
         self.cost_hist = None
         self.μ = 1.0 # regularization
