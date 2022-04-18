@@ -27,13 +27,12 @@ class DynamicalModel(abc.ABC):
         # NOTE: Hold off on applying constraints until better understood.
         # x, u = self.constrain(x, u)
         
-        # Euler integration - works for linear models.
-        x_dot = self.f(x, self.dt, u)
-        return x + x_dot*self.dt
+        # Euler integration.
+        return x + self.f(x, self.dt, u)*self.dt
 
         # Integration of ODE using lsoda from FORTRAN library odepack.
-        args = tuple([u.flatten()]) # ensure u is passed off properly
-        return odeint(self.f, x, (0, self.dt), args=args)[-1]
+        # args = tuple([u.flatten()])
+        # return odeint(self.f, x, (0, self.dt), args=args)[-1]
     
     @staticmethod
     def f(*args):

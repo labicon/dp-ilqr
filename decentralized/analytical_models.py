@@ -42,31 +42,22 @@ class CarDynamics(DynamicalModel):
     
     def linearize(self, x, u):
         
-        # Advance dynamics in time for consistency with finite difference dynamics.
-        # x = self.__call__(x, u)
-        
         v = u[0]
+        omega = u[1]
         theta = x[2]
+        theta_next = theta + omega * self.dt 
         
-        # Analytical derivations ain't right.
         A = np.array([
-            [1, 0, -v*self.dt*np.sin(theta)],
-            [0, 1,  v*self.dt*np.cos(theta)],
-            [0, 0,                        1]
+            [1, 0, -v*self.dt*np.sin(theta_next)],
+            [0, 1,  v*self.dt*np.cos(theta_next)],
+            [0, 0,                             1]
         ])
         B = np.array([
-            [np.cos(theta), -v*self.dt*np.sin(theta)],
-            [np.sin(theta),  v*self.dt*np.cos(theta)],
-            [            0,                        1]
-        ]) * self.dt
+            [self.dt*np.cos(theta_next), 0],
+            [self.dt*np.sin(theta_next), 0],
+            [                         0, 1]
+        ])
 
-        # A = np.eye(3)
-        # B = np.array([
-        #     [np.cos(theta), 0],
-        #     [np.sin(theta), 0],
-        #     [            0, 1]
-        # ]) * self.dt
-        
         return A, B
     
     def constrain(self, x, u):

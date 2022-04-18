@@ -130,14 +130,14 @@ class CarDynamics(NumericalDiffModel):
             v = u[..., 0]
             omega = u[..., 1]
             
-            theta_next = theta # + omega*dt
+            theta_next = theta + omega*dt
             x_dot = v*np.cos(theta_next)
             y_dot = v*np.sin(theta_next)
             
             return np.stack([
                 x_ + x_dot*dt,
                 y + y_dot*dt,
-                theta + omega*dt # theta_next
+                theta_next
             ]).T
         
         super().__init__(f, 3, 2, dt)
@@ -159,8 +159,6 @@ class UnicycleDynamics(NumericalDiffModel):
         def f(x, u):
             """Discretized dynamics."""
             
-            mm = np
-            
             x_ = x[..., 0]
             y = x[..., 1]
             v = x[..., 2]
@@ -168,17 +166,17 @@ class UnicycleDynamics(NumericalDiffModel):
             a = u[..., 0]
             omega = u[..., 1]
 
-            next_theta = theta + omega*dt
-            # x_dot = (v + 0.5*a*dt)*mm.cos(next_theta)
-            # y_dot = (v + 0.5*a*dt)*mm.sin(next_theta)
-            x_dot = v*mm.cos(next_theta)
-            y_dot = v*mm.sin(next_theta)
+            theta_next = theta + omega*dt
+            # x_dot = (v + 0.5*a*dt)*np.cos(theta_next)
+            # y_dot = (v + 0.5*a*dt)*np.sin(theta_next)
+            x_dot = v*np.cos(theta_next)
+            y_dot = v*np.sin(theta_next)
             
-            return mm.stack([
+            return np.stack([
                 x_ + x_dot*dt,
                 y + y_dot*dt,
                 v + a*dt,
-                next_theta
+                theta_next
             ]).T
         
         super().__init__(f, 4, 2, dt)
@@ -198,8 +196,6 @@ class BicycleDynamics(NumericalDiffModel):
     
         def f(x, u):
             
-            mm = np
-            
             x_ = x[..., 0]
             y = x[..., 1]
             theta = x[..., 2]
@@ -208,13 +204,13 @@ class BicycleDynamics(NumericalDiffModel):
             a = u[..., 0]
             phi_dot = u[..., 1]            
             
-            theta_dot = mm.tan(phi)
-            next_theta = theta + theta_dot*dt
+            theta_dot = np.tan(phi)
+            theta_next = theta + theta_dot*dt
 
-            x_dot = v*mm.cos(next_theta)
-            y_dot = v*mm.sin(next_theta)
+            x_dot = v*np.cos(theta_next)
+            y_dot = v*np.sin(theta_next)
             
-            return mm.stack([
+            return np.stack([
                 x_ + x_dot*dt,
                 y + y_dot*dt,
                 theta + theta_dot*dt,

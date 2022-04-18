@@ -54,11 +54,9 @@ class NumericalDiffCost(Cost):
           the non-terminal cost can be a function of x, u and i.
     """
     
-    def __init__(self, *args, **kwargs):
-        self._jac_eps = np.sqrt(np.finfo(float).eps)
-        self._hess_eps = np.sqrt(self._jac_eps)
-        super().__init__(*args, **kwargs)
-        
+    _jac_eps = np.sqrt(np.finfo(float).eps)
+    _hess_eps = np.sqrt(_jac_eps)
+    
     def quadraticize(self, x, u, terminal=False):
         nx = x.shape[0]
         nu = u.shape[0]
@@ -71,8 +69,8 @@ class NumericalDiffCost(Cost):
         
         L_xx = np.vstack([
             approx_fprime(x, lambda x: Lx(x, u)[i], self._hess_eps) for i in range(nx)
-        ]) 
-        
+        ])
+
         L_uu = np.vstack([
             approx_fprime(u, lambda u: Lu(x, u)[i], self._hess_eps) for i in range(nu)
         ])
@@ -199,7 +197,7 @@ class CouplingCost(Cost):
         self.n_agents = len(pos_inds)
         self.weight = weight
     
-    def __call__(self, x):
+    def __call__(self, x, _=None, __=None):
         total_cost = 0.0
         for i in range(self.n_agents):
             for j in range(i+1, self.n_agents):
@@ -208,7 +206,7 @@ class CouplingCost(Cost):
                 total_cost += min(0.0, distance - self.radius)**2
         return total_cost
     
-    def quadraticize(self, x):
+    def quadraticize(self, x, _=None, __=None):
         nx = x.shape[0]
         L_x = np.zeros((nx))
         L_xx = np.zeros((nx, nx))
@@ -236,7 +234,7 @@ class CouplingCost(Cost):
                 L_x += L_xi
                 L_xx += L_xxi
                 
-        return L_x, L_xx
+        return L_x, None, L_xx, None, None
                 
 
 class AgentCost(Cost):
@@ -335,7 +333,7 @@ class GameCost(Cost):
         
         # Incorporate coupling costs in full cartesian state space.
         for coupling_cost in self.coupling_costs:
-            L_x_coup, L_xx_coup = coupling_cost.quadraticize(x)
+            L_x_coup, _, L_xx_coup, _, _ = coupling_cost.quadraticize(x, u)
             L_x += coupling_cost.weight * L_x_coup
             L_xx += coupling_cost.weight * L_xx_coup
         

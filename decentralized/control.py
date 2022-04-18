@@ -1,6 +1,10 @@
 #!/usr/bin/env python
 
-"""Various implementations of LQR controllers including LQR and iLQR"""
+"""Various implementations of LQR controllers including LQR and iLQR
+
+[1] Jackson. AL iLQR Tutorial. https://bjack205.github.io/papers/AL_iLQR_Tutorial.pdf
+
+"""
 
 
 import abc
@@ -106,7 +110,6 @@ class iLQR(BaseController):
     def __init__(self, dynamics, cost, N=10):
         super().__init__(dynamics, cost, N)
 
-        self.cost_hist = None
         self.μ = 1.0 # regularization
         self.Δ = self.DELTA_0 # regularization scaling
     
@@ -140,7 +143,6 @@ class iLQR(BaseController):
         # self.μ = 0.0 # DBG
         reg = self.μ * np.eye(self.n_x)
         
-        # Initialize cost jacobian and hessian.
         L_x, _, L_xx, _, _ = self.cost.quadraticize(X[-1], np.zeros(self.n_u), terminal=True)
         p = L_x
         P = L_xx
@@ -160,7 +162,7 @@ class iLQR(BaseController):
             
             p = Q_x + K[t].T @ Q_uu @ d[t] + K[t].T @ Q_u + Q_ux.T @ d[t]
             P = Q_xx + K[t].T @ Q_uu @ K[t] + K[t].T @ Q_ux + Q_ux.T @ K[t]
-            P = 0.5 * (P + P.T) # to maintain symmetry
+            P = 0.5 * (P + P.T)
             
         return K, d
         
@@ -168,8 +170,9 @@ class iLQR(BaseController):
         """Solve the OCP."""
         
         if U is None:
-            U = np.zeros((self.N, self.n_u))
-            # U = np.random.uniform(-1, 1, (self.N, self.n_u))
+            # U = np.zeros((self.N, self.n_u))
+            # U = np.full((self.N, self.n_u), 0.1)
+            U = 1e-3 * np.random.uniform(-1, 1, (self.N, self.n_u))
         if U.shape != (self.N, self.n_u):
             raise ValueError
             
@@ -182,9 +185,7 @@ class iLQR(BaseController):
         
         X, J_star = self._rollout(x0, U)
         
-        self.cost_hist = [J_star]
         print(f'0/{n_lqr_iter}\tJ: {J_star:g}')        
-        
         for i in range(n_lqr_iter):
             accept = False
             
@@ -192,9 +193,9 @@ class iLQR(BaseController):
             K, d = self._backward_pass(X, U)
             alphas_ls = alphas
             
-            # Conduct a line search to find a satisfactory trajectory where we continually
-            # decrease α. We're effectively getting closer to the linear approximation in
-            # the LQR case.
+            # Conduct a line search to find a satisfactory trajectory where we
+            # continually decrease α. We're effectively getting closer to the 
+            # linear approximation in the LQR case.
             for α in alphas_ls:
                 
                 X_next, U_next, J = self._forward_pass(X, U, K, d, α)
@@ -206,7 +207,6 @@ class iLQR(BaseController):
                     X = X_next
                     U = U_next
                     J_star = J
-                    self.cost_hist.append(J_star)
                     
                     # Decrease regularization to converge more slowly.
                     self.Δ = min(1.0, self.Δ) / self.DELTA_0
@@ -219,7 +219,7 @@ class iLQR(BaseController):
 
             if not accept:
                 
-                # TEMP: Regularization is pointless for quadratic costs.
+                # DBG: Regularization is pointless for quadratic costs.
                 # print('[run] Failed line search.. giving up.')
                 # break
 
@@ -261,9 +261,9 @@ class LQR(BaseController):
         
         for t in range(self.N-1, -1, -1):
             A, B = self.dynamics.linearize(X[t], U[t])
-            # Feedforward gain [4] (30)
+            # Feedforward gain [1] (30)
             K[t] = np.linalg.inv(self.R + B.T @ P @ B) @ B.T @ P @ A
-            # Cost-to-go [4] (32)
+            # Cost-to-go [1] (32)
             P = self.Q + (A.T @ P @ A) - A.T @ P.T @ B @ K[t]
         return K
     
@@ -384,3 +384,24 @@ class RecedingHorizonController:
                 print("Converged!")
                 break
             
+            
+class NavigationProblem:
+    
+    """Splits a centralized optimal control problem into a decentralized one
+    
+    Attributes
+    ----------
+    planning_radius : float, default=10.0
+        The splitting distance between agents. If two agents come within each 
+        others' planning radii, we split the centralized problem into distinct
+        sub-problems.
+        
+    """
+    
+    def __init__(self, planning_radius=10.0):
+        self.planning_radius = planning_radius
+        
+    def delegate_subproblems(self, multi_dynamics, game_cost):
+        raise NotImplementedError
+        
+        
