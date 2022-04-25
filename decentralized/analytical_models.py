@@ -26,7 +26,7 @@ class CarDynamics(DynamicalModel):
     name = "Car"
     
     def __init__(self, dt):
-        super(CarDynamics, self).__init__(3, 2, dt)
+        super().__init__(3, 2, dt)
         
     @staticmethod
     def f(x, _, u):
@@ -85,7 +85,7 @@ class UnicycleDynamics(DynamicalModel):
     name = "Unicycle"
     
     def __init__(self, dt):
-        super(UnicycleDynamics, self).__init__(4, 2, dt)
+        super().__init__(4, 2, dt)
         
     @staticmethod
     def f(x, _, u):
@@ -145,7 +145,7 @@ class BicycleDynamics(DynamicalModel):
     name = "Bicycle"
     
     def __init__(self, dt):
-        super(BicycleDynamics, self).__init__(5, 2, dt)
+        super().__init__(5, 2, dt)
         
     def __call__(self, x, u):
         # Forward Euler Method, since odeint isn't able to consistently 

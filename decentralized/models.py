@@ -24,7 +24,7 @@ class DoubleInt1dDynamics(LinearModel):
     name = "Double Integrator 1D"
     
     def __init__(self, dt):
-        super(DoubleInt1dDynamics, self).__init__(2, 1, dt)
+        super().__init__(2, 1, dt)
     
     @staticmethod
     def f(x, dt, u):
@@ -73,7 +73,7 @@ class DoubleInt2dDynamics(LinearModel):
     name = "Double Integrator 2D"
     
     def __init__(self, dt):
-        super(DoubleInt2dDynamics, self).__init__(4, 2, dt)
+        super().__init__(4, 2, dt)
     
         # LTI system
         self.A = np.array([
@@ -140,7 +140,7 @@ class CarDynamics(NumericalDiffModel):
                 theta + omega*dt # theta_next
             ]).T
         
-        super(CarDynamics, self).__init__(f, 3, 2, dt)
+        super().__init__(f, 3, 2, dt)
         
     def constrain(self, x, u):
         x[2] %= 2*np.pi
@@ -181,7 +181,7 @@ class UnicycleDynamics(NumericalDiffModel):
                 next_theta
             ]).T
         
-        super(UnicycleDynamics, self).__init__(f, 4, 2, dt)
+        super().__init__(f, 4, 2, dt)
     
     def constrain(self, x, u):
         u[0] = np.clip(u[0], *ACC_LIMS)
@@ -222,7 +222,7 @@ class BicycleDynamics(NumericalDiffModel):
                 phi + phi_dot*dt
             ]).T
         
-        super(BicycleDynamics, self).__init__(f, 5, 2, dt)
+        super().__init__(f, 5, 2, dt)
     
     def constrain(self, x, u):
         u[0] = np.clip(u[0], *ACC_LIMS)

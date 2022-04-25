@@ -13,8 +13,6 @@ from scipy.linalg import block_diag
 from .util import Point
 
 
-EPS = np.finfo(float).eps
-
 # Indicies corresponding to the positional outputs of _quadraticize_distance
 IX = 0
 IY = 1
@@ -55,49 +53,36 @@ class NumericalDiffCost(Cost):
     NOTE: The terminal cost needs to at most be a function of x and i, whereas
           the non-terminal cost can be a function of x, u and i.
     """
-
+    
+    def __init__(self, *args, **kwargs):
+        self._jac_eps = np.sqrt(np.finfo(float).eps)
+        self._hess_eps = np.sqrt(self._jac_eps)
+        super().__init__(*args, **kwargs)
+        
     def quadraticize(self, x, u, terminal=False):
-        #returns L_x,L_u,L_xx,L_uu,L_ux
         nx = x.shape[0]
         nu = u.shape[0]
         
-        L_x = approx_fprime(x, lambda x: self.__call__(x, u, terminal), EPS)
-       
+        def Lx(x, u):
+            return approx_fprime(x, lambda x: self.__call__(x, u, terminal), self._jac_eps)
         
-        L_u = approx_fprime(u, lambda u: self.__call__(x, u, terminal), EPS)
+        def Lu(x, u):
+            return approx_fprime(u, lambda u: self.__call__(x, u, terminal), self._jac_eps)
         
-        
-        def Lx(x,u):
-            
-            return approx_fprime(x, lambda x: self.__call__(x, u ,terminal), EPS)
-        
-        
-        L_xx = np.vstack([approx_fprime(x, lambda x: Lx(x,u)[i],EPS) for i in range(nx)]) 
-        
-        
-        
-        print(L_xx)
-       
-
-        
+        L_xx = np.vstack([
+            approx_fprime(x, lambda x: Lx(x, u)[i], self._hess_eps) for i in range(nx)
+        ]) 
         
         L_uu = np.vstack([
-            
-            approx_fprime(u, lambda u: L_u[i], EPS) for i in range(nu)
-            
+            approx_fprime(u, lambda u: Lu(x, u)[i], self._hess_eps) for i in range(nu)
         ])
-        
         
         L_ux = np.vstack([
-            
-            approx_fprime(x, lambda x: L_u[i], EPS) for i in range(nx)
-            
+            approx_fprime(x, lambda x: Lu(x, u)[i], self._hess_eps) for i in range(nu)
         ])
         
-        return L_x,L_u,L_xx,L_uu,L_ux
+        return Lx(x, u), Lu(x, u), L_xx, L_uu, L_ux
         
-        
-
         
 class ReferenceCost(Cost):
     """
