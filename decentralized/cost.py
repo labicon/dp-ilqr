@@ -279,7 +279,7 @@ class AgentCost(Cost):
             cost.plot()
         
 
-class GameCost(Cost):
+class MultiAgentCost(Cost):
     """
     Collects the costs for multiple agents as well as coupling costs between the agents.
     """
@@ -375,13 +375,13 @@ class GameCost(Cost):
 
         costs = []
         for pt in pts:
-            xi = np.resize(pt, self.x_dims[agent_ind])
+            xi = np.pad(pt, (0, self.x_dims[agent_ind]-2))
             costs.append(self.agent_costs[agent_ind](xi, u, False))
 
         side_len = round(np.sqrt(pts.shape[0]))
         costs = np.flip(np.array(costs).reshape(side_len, side_len), axis=0)
         # Q: why does NoNorm have weird behavior here?
-        cost_h = plt.imshow(costs, extent=axis, interpolation='bilinear', **imshow_kwargs)
+        cost_h = plt.imshow(costs, extent=axis, **imshow_kwargs)
         
         # plt.title('Cost Surface')
         # plt.xlabel('x [m]')

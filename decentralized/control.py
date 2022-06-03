@@ -47,7 +47,7 @@ class BaseController(abc.ABC):
         return self.cost.xf
     
     @abc.abstractmethod
-    def run(self, x0):
+    def solve(self, x0):
         """Implements functionality to solve the OCP at the current state x0."""
         pass
     
@@ -166,8 +166,7 @@ class iLQR(BaseController):
             
         return K, d
         
-    def run(self, x0, U=None, n_lqr_iter=50, tol=1e-3):
-        """Solve the OCP."""
+    def solve(self, x0, U=None, n_lqr_iter=50, tol=1e-3):
         
         if U is None:
             # U = np.zeros((self.N, self.n_u))
@@ -220,7 +219,7 @@ class iLQR(BaseController):
             if not accept:
                 
                 # DBG: Regularization is pointless for quadratic costs.
-                # print('[run] Failed line search.. giving up.')
+                # print('[solve] Failed line search.. giving up.')
                 # break
 
                 # Increase regularization if we're not converging.
@@ -284,7 +283,7 @@ class LQR(BaseController):
 
         return X_next, U_next, J
     
-    def run(self, x0, U=None, n_iter=10):
+    def solve(self, x0, U=None):
         """Solve the LQR OCP."""
         
         if U is None:
@@ -293,7 +292,6 @@ class LQR(BaseController):
             raise ValueError
             
         X, J0 = self._rollout(x0, U)
-
         K = self._backward_pass(X, U)
         X, U, Jf = self._forward_pass(X, U, K)
         print(f'J0: {J0:.3g}\tJf: {Jf:.3g}')
@@ -314,8 +312,6 @@ class RecedingHorizonController:
         Controller instance initialized with all necessary costs
     step_size : int, default=1
         Number of steps to take between controller fits
-    n_runs : int
-        Number of ``controller.run()`` executions
         
     """
 
@@ -336,7 +332,7 @@ class RecedingHorizonController:
     def N(self):
         return self._controller.N
     
-    def run(self, U_init, J_converge=1.0, **kwargs):
+    def solve(self, U_init, J_converge=1.0, **kwargs):
         """Optimize the system controls from the current state
         
         Parameters
@@ -347,7 +343,7 @@ class RecedingHorizonController:
             Cost defining convergence to the goal, which causes us to stop if 
             reached
         **kwargs
-            Additional keyword arguments to pass onto the ``controller.run``.
+            Additional keyword arguments to pass onto the ``controller.solve``.
             
         Returns
         -------
@@ -366,7 +362,7 @@ class RecedingHorizonController:
             if U.shape != (self._controller.N, self._controller.n_u):
                 raise RuntimeError
                 
-            X, U, J = self._controller.run(self.x, U, **kwargs)
+            X, U, J = self._controller.solve(self.x, U, **kwargs)
             
             # Add random noise to the trajectory to add some realism.
             # X += np.random.normal(size=X.shape, scale=0.05)

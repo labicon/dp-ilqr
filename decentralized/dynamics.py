@@ -164,13 +164,13 @@ class MultiDynamicalModel(DynamicalModel):
         
         x_split, u_split = self.partition(x, u)
         sub_states = [submodel(xi, ui) for submodel, xi, ui in zip(self.submodels, x_split, u_split)]
-        return np.concatenate(sub_states, axis=0)
+        return np.concatenate(sub_states, axis=1)
     
     def partition(self, x, u):
         """Helper to split up the states and control for each subsystem."""
         
-        x_split = np.split(x, np.cumsum(self.x_dims[:-1]))
-        u_split = np.split(u, np.cumsum(self.u_dims[:-1]))
+        x_split = np.split(np.atleast_2d(x), np.cumsum(self.x_dims[:-1]), axis=1)
+        u_split = np.split(np.atleast_2d(u), np.cumsum(self.u_dims[:-1]), axis=1)
         return x_split, u_split
     
     def linearize(self, x, u):
@@ -180,7 +180,8 @@ class MultiDynamicalModel(DynamicalModel):
         
         x_split, u_split = self.partition(x, u)
         sub_linearizations = [
-            submodel.linearize(xi, ui) for submodel, xi, ui in zip(self.submodels, x_split, u_split)
+            submodel.linearize(xi.flatten(), ui.flatten()) 
+            for submodel, xi, ui in zip(self.submodels, x_split, u_split)
         ]
         
         sub_As = [AB[0] for AB in sub_linearizations]
