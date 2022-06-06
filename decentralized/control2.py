@@ -16,9 +16,9 @@ import numpy as np
 import torch
 
 
-def integrate_discrete(f, x, u, dt=0.1):
+def _integrate_discrete(f, x, u, _dt):
     """Zero-order hold to discretize a state given continuous dynamics f"""
-    return x + f(x, u)*dt
+    return x + f(x, u) * _dt
 
 
 def _linearize_dynamics(f, x_torch, u_torch, _dt):
@@ -47,24 +47,6 @@ def _linearize_dynamics(f, x_torch, u_torch, _dt):
     return A, B
 
 
-def QR_goal_cost(x, u, _x_goal, _Q=None, _R=None, terminal=False):
-    """Cost of reaching the goal"""
-    
-    assert isinstance(x, torch.Tensor) and isinstance(u, torch.Tensor)
-    
-    TERMINAL_WEIGHT = 1000.0    
-    if _Q is None:
-        _Q = torch.eye(x.numel())
-    if _R is None:
-        _R = torch.eye(u.numel())
-    
-    cost = (x - _x_goal).T @ _Q @ (x - _x_goal) + u.T @ _R @ u
-    
-    if terminal:
-        return TERMINAL_WEIGHT * cost
-    return cost
-
-
 def quadraticize_cost(cost, x_torch, u_torch, **kwargs):
     """
     Compute a quadratic approximation to the overall cost for a
@@ -88,11 +70,11 @@ def quadraticize_cost(cost, x_torch, u_torch, **kwargs):
     # u_torch = [torch.from_numpy(ui).requires_grad_(True) for ui in u]
 
     cost_fn = lambda x, u: cost(x, u, **kwargs)
-    L_x, L_u = torch.autograd.functional.jacobian(cost_fn, (x, u))
-    L_x = L_x.reshape(nx, 1)
-    L_u = L_u.reshape(nu, 1)
+    L_x, L_u = torch.autograd.functional.jacobian(cost_fn, (x_torch, u_torch))
+    L_x = L_x.reshape(nx)
+    L_u = L_u.reshape(nu)
 
-    (L_xx, _), (L_ux, L_uu) = torch.autograd.functional.hessian(cost_fn, (x, u))
+    (L_xx, _), (L_ux, L_uu) = torch.autograd.functional.hessian(cost_fn, (x_torch, u_torch))
     L_xx = L_xx.reshape(nx, nx)
     L_ux = L_ux.reshape(nu, nx)
     L_uu = L_uu.reshape(nu, nu)
@@ -112,11 +94,8 @@ class iLQR:
     
     def __init__(self, dynamics, cost, n_x, n_u, dt=0.1, N=10):
         
-        self.dynamics = functools.partial(dynamics, _dt=dt)
+        self.dynamics = dynamics
         self.cost = cost
-        
-        self.linearize_dynamics = functools.partial(_linearize_dynamics, _dt=dt)
-        self.quadraticize_cost = quadraticize_cost
         
         self.N = N
         self.dt = dt
@@ -125,19 +104,28 @@ class iLQR:
         
         self.μ = 1.0 # regularization
         self.Δ = self.DELTA_0 # regularization scaling
+        
+    def linearize_dynamics(self, *args, **kwargs):
+        return _linearize_dynamics(self.dynamics, *args, **kwargs, _dt=self.dt)
+    
+    def integrate_dynamics(self, *args, **kwargs):
+        return _integrate_discrete(self.dynamics, *args, **kwargs, _dt=self.dt)
+    
+    def quadraticize_cost(self, *args, **kwargs):
+        return quadraticize_cost(self.cost, *args, **kwargs)
     
     def _rollout(self, x0, U):
         """Rollout the system from an initial state with a control sequence U."""
         
         N = U.shape[0]
         X = torch.zeros((N+1, self.n_x))
-        X[0] = x0
+        X[0] = x0.flatten()
         J = 0.0
         
         for t in range(N):
-            X[t+1] = self.dynamics(X[t], U[t])
-            J += self.cost(X[t], U[t])
-        J += self.cost(X[-1], torch.zeros(self.n_u), terminal=True)
+            X[t+1] = self.integrate_dynamics(X[t], U[t])
+            J += self.cost(X[t], U[t]).item()
+        J += self.cost(X[-1], torch.zeros(self.n_u), terminal=True).item()
         
         return X, J
     
@@ -147,7 +135,7 @@ class iLQR:
         X_next = torch.zeros((self.N+1, self.n_x))
         U_next = torch.zeros((self.N, self.n_u))
 
-        X_next[0] = X[0].copy()
+        X_next[0] = X[0].clone()
         J = 0.0
 
         for t in range(self.N):
@@ -155,10 +143,10 @@ class iLQR:
             δu = K[t]@δx + α*d[t]
 
             U_next[t] = U[t] + δu
-            X_next[t+1] = self.dynamics(X_next[t], U_next[t])
+            X_next[t+1] = self.integrate_dynamics(X_next[t], U_next[t])
             
-            J += self.cost(X_next[t], U_next[t])
-        J += self.cost(X_next[-1], torch.zeros((self.n_u)), terminal=True)
+            J += self.cost(X_next[t], U_next[t]).item()
+        J += self.cost(X_next[-1], torch.zeros((self.n_u)), terminal=True).item()
 
         return X_next, U_next, J
     
@@ -176,7 +164,7 @@ class iLQR:
         P = L_xx
 
         for t in range(self.N-1, -1, -1):
-            L_x, L_u, L_xx, L_uu, L_ux = cost_quadraticize(X[t], U[t])
+            L_x, L_u, L_xx, L_uu, L_ux = self.quadraticize_cost(X[t], U[t])
             A, B = self.linearize_dynamics(X[t], U[t])
             
             Q_x = L_x + A.T @ p
@@ -185,8 +173,8 @@ class iLQR:
             Q_uu = L_uu + B.T @ (P + reg) @ B
             Q_ux = L_ux + B.T @ (P + reg) @ A
 
-            K[t] = -np.linalg.solve(Q_uu, Q_ux)
-            d[t] = -np.linalg.solve(Q_uu, Q_u)
+            K[t] = -torch.linalg.solve(Q_uu, Q_ux)
+            d[t] = -torch.linalg.solve(Q_uu, Q_u)
             
             p = Q_x + K[t].T @ Q_uu @ d[t] + K[t].T @ Q_u + Q_ux.T @ d[t]
             P = Q_xx + K[t].T @ Q_uu @ K[t] + K[t].T @ Q_ux + Q_ux.T @ K[t]
@@ -207,6 +195,7 @@ class iLQR:
         self.μ = 1.0
         self.Δ = self.DELTA_0
         
+        x0 = x0.reshape(-1,1)
         is_converged = False
         alphas = 1.1**(-torch.arange(self.N_LS_ITER, dtype=torch.float32)**2)
         
@@ -263,7 +252,7 @@ class iLQR:
             
             print(f'{i+1}/{n_lqr_iter}\tJ: {J_star:g}\tμ: {self.μ:g}\tΔ: {self.Δ:g}')
 
-        return X, U, J
+        return X.detach().numpy(), U.detach().numpy(), J
     
     def __repr__(self):  
         return (
