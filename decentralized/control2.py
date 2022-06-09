@@ -181,9 +181,9 @@ class iLQR:
     def solve(self, x0, U=None, n_lqr_iter=50, tol=1e-3):
 
         if U is None:
-            # U = np.zeros((self.N, self.n_u))
-            # U = np.full((self.N, self.n_u), 0.1)
-            U = 1e-3 * torch.rand((self.N, self.n_u))
+            U = torch.zeros((self.N, self.n_u))
+            # U = torch.full((self.N, self.n_u), 0.1)
+            # U = 1e-3 * torch.rand((self.N, self.n_u))
         if U.shape != (self.N, self.n_u):
             raise ValueError
 
@@ -211,7 +211,7 @@ class iLQR:
             for α in alphas_ls:
 
                 X_next, U_next, J = self._forward_pass(X, U, K, d, α)
-
+                
                 if J < J_star:
                     if np.abs((J_star - J) / J_star) < tol:
                         is_converged = True
@@ -292,9 +292,9 @@ class iLQR_v2:
     def solve(self, x0, U=None, n_lqr_iter=50, tol=1e-3):
 
         if U is None:
-            # U = np.zeros((self.N, self.n_u))
-            # U = np.full((self.N, self.n_u), 0.1)
-            U = 1e-3 * torch.rand((self.N, self.n_u))
+            U = torch.zeros((self.N, self.n_u))
+            # U = torch.full((self.N, self.n_u), 0.1)
+            # U = 1e-3 * torch.rand((self.N, self.n_u))
         if U.shape != (self.N, self.n_u):
             raise ValueError
 
@@ -345,6 +345,7 @@ class iLQR_v2:
                 print("Failed line search.. increasing μ.")
 
             if converged:
+                print(f"{i+1}/{n_lqr_iter}\tJ: {J_opt:g}\tμ: {self.μ:g}\tΔ: {self.Δ:g}")
                 break
 
             print(f"{i+1}/{n_lqr_iter}\tJ: {J_opt:g}\tμ: {self.μ:g}\tΔ: {self.Δ:g}")
