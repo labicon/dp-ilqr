@@ -41,12 +41,23 @@ class AutoDiffModel(DynamicalModel):
         super().__init__(*args, **kwargs)
         self.NX_EYE = np.eye(self.n_x, dtype=np.float32)
 
-    def linearize(self, x_torch, u_torch, discrete=False):
+    def linearize(self, x, u, discrete=False):
         """Compute the Jacobian linearization of the dynamics for a particular state
            and controls for all players.
         """
 
-        A, B = torch.autograd.functional.jacobian(self.f, (x_torch, u_torch))
+        assert torch.is_tensor(x) == torch.is_tensor(u)
+        convert_to_torch = not torch.is_tensor(x) and not torch.is_tensor(u)
+
+        if convert_to_torch:
+            x = torch.from_numpy(x).requires_grad_(True)
+            u = torch.from_numpy(u).requires_grad_(True)
+
+        A, B = torch.autograd.functional.jacobian(self.f, (x, u))
+
+        if convert_to_torch:
+            A = A.detach().numpy()
+            B = B.detach().numpy()
 
         if discrete:
             return A, B
@@ -72,20 +83,24 @@ class MultiDynamicalModel(AutoDiffModel):
         super().__init__(sum(self.x_dims), sum(self.u_dims), submodels[0].dt)
 
     def f(self, x, u):
-        """Integrate the dynamics for the combined decoupled dynamical model."""
-        return torch.concat(
+        """Integrate the dynamics for the combined decoupled dynamical model"""
+        mm = torch if torch.is_tensor(x) else np
+        return mm.stack(
             [
                 submodel.f(xi.flatten(), ui.flatten())
                 for submodel, xi, ui in zip(self.submodels, *self.partition(x, u))
             ]
-        )
+        ).flatten()
 
     def partition(self, x, u):
-        """Helper to split up the states and control for each subsystem."""
+        """Helper to split up the states and control for each subsystem"""
         return split_agents(x, self.x_dims), split_agents(u, self.u_dims)
 
     def _linearize_arbitary(self, x, u):
-        """Compute the sub-linearizations, doesn't assume derivatives can be estimated in one go"""
+        """Compute the submodel-linearizations (deprecated)
+           NOTE: This function is an alternate way to do the linearization rather than
+           using the AutoDiffModel mix-in.
+        """
 
         sub_linearizations = [
             submodel.linearize(xi.flatten(), ui.flatten())

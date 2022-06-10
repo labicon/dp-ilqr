@@ -30,6 +30,7 @@ class iLQR:
         self.dt = dt
         self.n_x = n_x
         self.n_u = n_u
+        self.mm = None
 
         self._reset_regularization()
 
@@ -37,24 +38,24 @@ class iLQR:
         """Rollout the system from an initial state with a control sequence U."""
 
         N = U.shape[0]
-        X = torch.zeros((N + 1, self.n_x))
+        X = self.mm.zeros((N + 1, self.n_x))
         X[0] = x0.flatten()
         J = 0.0
 
         for t in range(N):
             X[t + 1] = self.dynamics(X[t], U[t])
             J += self.cost(X[t], U[t]).item()
-        J += self.cost(X[-1], torch.zeros(self.n_u), terminal=True).item()
+        J += self.cost(X[-1], self.mm.zeros(self.n_u), terminal=True).item()
 
         return X, J
 
     def _forward_pass(self, X, U, K, d, α):
         """Forward pass to rollout the control gains K and d."""
 
-        X_next = torch.zeros((self.N + 1, self.n_x))
-        U_next = torch.zeros((self.N, self.n_u))
+        X_next = self.mm.zeros((self.N + 1, self.n_x))
+        U_next = self.mm.zeros((self.N, self.n_u))
 
-        X_next[0] = X[0].clone()
+        X_next[0] = X[0]
         J = 0.0
 
         for t in range(self.N):
@@ -65,21 +66,21 @@ class iLQR:
             X_next[t + 1] = self.dynamics(X_next[t], U_next[t])
 
             J += self.cost(X_next[t], U_next[t]).item()
-        J += self.cost(X_next[-1], torch.zeros((self.n_u)), terminal=True).item()
+        J += self.cost(X_next[-1], self.mm.zeros((self.n_u)), terminal=True).item()
 
         return X_next, U_next, J
 
     def _backward_pass(self, X, U):
         """Backward pass to compute gain matrices K and d from the trajectory."""
 
-        K = torch.zeros((self.N, self.n_u, self.n_x))  # linear feedback gain
-        d = torch.zeros((self.N, self.n_u))  # feedforward gain
+        K = self.mm.zeros((self.N, self.n_u, self.n_x))  # linear feedback gain
+        d = self.mm.zeros((self.N, self.n_u))  # feedforward gain
 
         # self.μ = 0.0 # DBG
-        reg = self.μ * torch.eye(self.n_x)
+        reg = self.μ * self.mm.eye(self.n_x)
 
         L_x, _, L_xx, _, _ = self.cost.quadraticize(
-            X[-1], torch.zeros(self.n_u), terminal=True
+            X[-1], self.mm.zeros(self.n_u), terminal=True
         )
         p = L_x
         P = L_xx
@@ -94,8 +95,8 @@ class iLQR:
             Q_uu = L_uu + B.T @ (P + reg) @ B
             Q_ux = L_ux + B.T @ (P + reg) @ A
 
-            K[t] = -torch.linalg.solve(Q_uu, Q_ux)
-            d[t] = -torch.linalg.solve(Q_uu, Q_u)
+            K[t] = -self.mm.linalg.solve(Q_uu, Q_ux)
+            d[t] = -self.mm.linalg.solve(Q_uu, Q_u)
 
             p = Q_x + K[t].T @ Q_uu @ d[t] + K[t].T @ Q_u + Q_ux.T @ d[t]
             P = Q_xx + K[t].T @ Q_uu @ K[t] + K[t].T @ Q_ux + Q_ux.T @ K[t]
@@ -105,10 +106,12 @@ class iLQR:
 
     def solve(self, x0, U=None, n_lqr_iter=50, tol=1e-3):
 
+        self.mm = torch if torch.is_tensor(x0) else np
+
         if U is None:
-            U = torch.zeros((self.N, self.n_u))
-            # U = torch.full((self.N, self.n_u), 0.1)
-            # U = 1e-3 * torch.rand((self.N, self.n_u))
+            U = self.mm.zeros((self.N, self.n_u))
+            # U = self.mm.full((self.N, self.n_u), 0.1)
+            # U = 1e-3 * self.mm.rand((self.N, self.n_u))
         if U.shape != (self.N, self.n_u):
             raise ValueError
 
@@ -116,7 +119,7 @@ class iLQR:
 
         x0 = x0.reshape(-1, 1)
         is_converged = False
-        alphas = 1.1 ** (-torch.arange(self.N_LS_ITER, dtype=torch.float32) ** 2)
+        alphas = 1.1 ** (-self.mm.arange(self.N_LS_ITER, dtype=self.mm.float32) ** 2)
 
         X, J_star = self._rollout(x0, U)
 
@@ -126,17 +129,16 @@ class iLQR:
 
             # Backward recurse to compute gain matrices.
             K, d = self._backward_pass(X, U)
-            alphas_ls = alphas
 
             # Conduct a line search to find a satisfactory trajectory where we
             # continually decrease α. We're effectively getting closer to the
             # linear approximation in the LQR case.
-            for α in alphas_ls:
+            for α in alphas:
 
                 X_next, U_next, J = self._forward_pass(X, U, K, d, α)
 
                 if J < J_star:
-                    if np.abs((J_star - J) / J_star) < tol:
+                    if abs((J_star - J) / J_star) < tol:
                         is_converged = True
 
                     X = X_next
@@ -161,7 +163,9 @@ class iLQR:
 
             print(f"{i+1}/{n_lqr_iter}\tJ: {J_star:g}\tμ: {self.μ:g}\tΔ: {self.Δ:g}")
 
-        return X.detach().numpy(), U.detach().numpy(), J
+        if self._use_torch:
+            return X.detach().numpy(), U.detach().numpy(), J
+        return X, U, J
 
     def _reset_regularization(self):
         """Reset regularization terms to their factory defaults."""
@@ -179,6 +183,10 @@ class iLQR:
         """Increase regularization to go a different direction"""
         self.Δ = max(1.0, self.Δ) * self.DELTA_0
         self.μ = max(self.MU_MIN, self.μ * self.Δ)
+
+    @property
+    def _use_torch(self):
+        return self.mm is torch
 
     def __repr__(self):
         return (
