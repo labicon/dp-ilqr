@@ -8,72 +8,7 @@
 
 
 import numpy as np
-
 import torch
-
-
-def _integrate_discrete(f, x, u, _dt):
-    """Zero-order hold to discretize a state given continuous dynamics f"""
-    return x + f(x, u) * _dt
-
-
-def _linearize_dynamics(f, x_torch, u_torch, _dt):
-    """
-    Compute the Jacobian linearization of the dynamics for a particular
-    state `x0` and controls `u0` for each player. Outputs `A` and `Bi`
-    matrices of a linear system:
-      ```\dot x - f(x0, u0) = A (x - x0) + sum_i Bi (ui - ui0) ```
-    REF: [1]
-    """
-
-    nx = x_torch.numel()
-    nu = u_torch.numel()
-
-    A_cont, B_cont = torch.autograd.functional.jacobian(f, (x_torch, u_torch))
-
-    # Compute the discretized A and B.
-    A = _dt * A_cont.reshape(nx, nx) + np.eye(nx, dtype=np.float32)
-    B = _dt * B_cont.reshape(nx, nu)
-    return A, B
-
-
-def quadraticize_cost(cost, x_torch, u_torch, **kwargs):
-    """
-    Compute a quadratic approximation to the overall cost for a
-    particular choice of state `x`, and controls `u` for each player.
-    Returns the gradient and Hessian of the overall cost such that:
-    ```
-       cost(x + dx, [ui + dui]) \approx
-            cost(x, u1, u2) +
-            grad_x^T dx +
-            0.5 * (dx^T hess_x dx + sum_i dui^T hess_ui dui)
-    ```
-    REF: [1]
-    """
-
-    nx = x_torch.numel()
-    nu = u_torch.numel()
-
-    # WIP: Assume x and u are already torch.Tensors.
-    # Convert to torch.Tensor format.
-    # x_torch = torch.from_numpy(x).requires_grad_(True)
-    # u_torch = [torch.from_numpy(ui).requires_grad_(True) for ui in u]
-
-    def cost_fn(x, u):
-        return cost(x, u, **kwargs)
-
-    L_x, L_u = torch.autograd.functional.jacobian(cost_fn, (x_torch, u_torch))
-    L_x = L_x.reshape(nx)
-    L_u = L_u.reshape(nu)
-
-    (L_xx, _), (L_ux, L_uu) = torch.autograd.functional.hessian(
-        cost_fn, (x_torch, u_torch)
-    )
-    L_xx = L_xx.reshape(nx, nx)
-    L_ux = L_ux.reshape(nu, nx)
-    L_uu = L_uu.reshape(nu, nu)
-
-    return L_x, L_u, L_xx, L_uu, L_ux
 
 
 class iLQR:
@@ -98,15 +33,6 @@ class iLQR:
 
         self._reset_regularization()
 
-    def linearize_dynamics(self, *args, **kwargs):
-        return _linearize_dynamics(self.dynamics, *args, **kwargs, _dt=self.dt)
-
-    def integrate_dynamics(self, *args, **kwargs):
-        return _integrate_discrete(self.dynamics, *args, **kwargs, _dt=self.dt)
-
-    def quadraticize_cost(self, *args, **kwargs):
-        return quadraticize_cost(self.cost, *args, **kwargs)
-
     def _rollout(self, x0, U):
         """Rollout the system from an initial state with a control sequence U."""
 
@@ -116,7 +42,7 @@ class iLQR:
         J = 0.0
 
         for t in range(N):
-            X[t + 1] = self.integrate_dynamics(X[t], U[t])
+            X[t + 1] = self.dynamics(X[t], U[t])
             J += self.cost(X[t], U[t]).item()
         J += self.cost(X[-1], torch.zeros(self.n_u), terminal=True).item()
 
@@ -136,7 +62,7 @@ class iLQR:
             δu = K[t] @ δx + α * d[t]
 
             U_next[t] = U[t] + δu
-            X_next[t + 1] = self.integrate_dynamics(X_next[t], U_next[t])
+            X_next[t + 1] = self.dynamics(X_next[t], U_next[t])
 
             J += self.cost(X_next[t], U_next[t]).item()
         J += self.cost(X_next[-1], torch.zeros((self.n_u)), terminal=True).item()
@@ -152,15 +78,15 @@ class iLQR:
         # self.μ = 0.0 # DBG
         reg = self.μ * torch.eye(self.n_x)
 
-        L_x, _, L_xx, _, _ = self.quadraticize_cost(
+        L_x, _, L_xx, _, _ = self.cost.quadraticize(
             X[-1], torch.zeros(self.n_u), terminal=True
         )
         p = L_x
         P = L_xx
 
         for t in range(self.N - 1, -1, -1):
-            L_x, L_u, L_xx, L_uu, L_ux = self.quadraticize_cost(X[t], U[t])
-            A, B = self.linearize_dynamics(X[t], U[t])
+            L_x, L_u, L_xx, L_uu, L_ux = self.cost.quadraticize(X[t], U[t])
+            A, B = self.dynamics.linearize(X[t], U[t])
 
             Q_x = L_x + A.T @ p
             Q_u = L_u + B.T @ p
