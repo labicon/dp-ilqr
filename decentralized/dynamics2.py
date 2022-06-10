@@ -122,10 +122,10 @@ class BikeDynamics5D(DynamicalModel):
         )
 
 
+# Based off of https://github.com/anassinator/ilqr/blob/master/ilqr/dynamics.py
 def linearize_finite_difference(f, x, u):
     """"Linearization using finite difference.
 
-    REF: https://github.com/anassinator/ilqr/blob/master/ilqr/dynamics.py
     NOTE: deprecated in favor of automatic differentiation.
     """
 

@@ -184,3 +184,104 @@ class iLQR:
             f"\n\tN: {self.N},\n\tdt: {self.dt},\n\tμ: {self.μ},\n\tΔ: {self.Δ}"
             "\n)"
         )
+
+
+# Based off of: https://github.com/anassinator/ilqr/blob/master/ilqr/controller.py
+class RecedingHorizonController:
+    """Receding horizon controller
+
+    Attributes
+    ----------
+    _x : np.ndarray
+        Current state
+    _controller : BaseController
+        Controller instance initialized with all necessary costs
+    step_size : int, default=1
+        Number of steps to take between controller fits
+
+    """
+
+    def __init__(self, x0, controller, step_size=1):
+        self._x = x0
+        self._controller = controller
+        self.step_size = step_size
+
+    @property
+    def x(self):
+        return self._x
+
+    @x.setter
+    def x(self, xn):
+        self._x = xn
+
+    @property
+    def N(self):
+        return self._controller.N
+
+    def solve(self, U_init, J_converge=1.0, **kwargs):
+        """Optimize the system controls from the current state
+
+        Parameters
+        ----------
+        U_init : np.ndarray
+            Initial inputs to provide to the controller
+        J_converge : float
+            Cost defining convergence to the goal, which causes us to stop if 
+            reached
+        **kwargs
+            Additional keyword arguments to pass onto the ``controller.solve``.
+
+        Returns
+        -------
+        X : np.ndarray
+            Resulting trajectory computed by controller of shape (step_size, n_x)
+        U : np.ndarray
+            Control sequence applied of shape (step_size, n_u)
+        J : float
+            Converged cost value
+
+        """
+
+        U = U_init
+        while True:
+            # Fit the current state initializing with our control sequence.
+            if U.shape != (self._controller.N, self._controller.n_u):
+                raise RuntimeError
+
+            X, U, J = self._controller.solve(self.x, U, **kwargs)
+
+            # Add random noise to the trajectory to add some realism.
+            # X += torch.random.normal(size=X.shape, scale=0.05)
+
+            # Shift the state to our predicted value. NOTE: this can be
+            # updated externally for actual sensor feedback.
+            self.x = X[self.step_size]
+
+            yield X[: self.step_size], U[: self.step_size], J
+
+            U = U[self.step_size :]
+            U = torch.vstack([U, torch.zeros((self.step_size, self._controller.n_u))])
+
+            if J < J_converge:
+                print("Converged!")
+                break
+
+
+class NavigationProblem:
+
+    """Splits a centralized optimal control problem into a decentralized one
+
+    Attributes
+    ----------
+    planning_radius : float, default=10.0
+        The splitting distance between agents. If two agents come within each 
+        others' planning radii, we split the centralized problem into distinct
+        sub-problems.
+
+    """
+
+    def __init__(self, planning_radius=10.0):
+        self.planning_radius = planning_radius
+
+    def delegate_subproblems(self, multi_dynamics, game_cost):
+        raise NotImplementedError
