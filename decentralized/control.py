@@ -158,8 +158,8 @@ class iLQR:
                 break
 
             print(f"{i+1}/{n_lqr_iter}\tJ: {J_star:g}\tμ: {self.μ:g}\tΔ: {self.Δ:g}")
-
-        return X.detach().numpy(), U.detach().numpy(), J
+        
+        return X.detach(), U.detach(), J
 
     def _reset_regularization(self):
         """Reset regularization terms to their factory defaults."""
@@ -202,17 +202,9 @@ class RecedingHorizonController:
     """
 
     def __init__(self, x0, controller, step_size=1):
-        self._x = x0
+        self.x = x0
         self._controller = controller
         self.step_size = step_size
-
-    @property
-    def x(self):
-        return self._x
-
-    @x.setter
-    def x(self, xn):
-        self._x = xn
 
     @property
     def N(self):
@@ -242,8 +234,12 @@ class RecedingHorizonController:
 
         """
 
+        i = 0
         U = U_init
         while True:
+            print("-" * 40 + f"\nHorizon {i}")
+            i += 1
+            
             # Fit the current state initializing with our control sequence.
             if U.shape != (self._controller.N, self._controller.n_u):
                 raise RuntimeError
@@ -260,12 +256,15 @@ class RecedingHorizonController:
             yield X[: self.step_size], U[: self.step_size], J
 
             U = U[self.step_size :]
-            U = torch.vstack([U, torch.zeros((self.step_size, self._controller.n_u))])
+            U = torch.vstack([
+                U, 
+                torch.zeros((self.step_size, self._controller.n_u))
+            ])
 
             if J < J_converge:
                 print("Converged!")
                 break
-
+            
 
 class NavigationProblem:
 
