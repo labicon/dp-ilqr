@@ -14,11 +14,16 @@ from .util import split_agents
 
 class DynamicalModel(abc.ABC):
     """Simulation of a dynamical model to be applied in the iLQR solution."""
-
+    
+    _id = 0
+        
     def __init__(self, n_x, n_u, dt):
         self.n_x = n_x
         self.n_u = n_u
         self.dt = dt
+        
+        self.id = DynamicalModel._id
+        DynamicalModel._id += 1
 
         self.NX_EYE = np.eye(self.n_x, dtype=np.float32)
 

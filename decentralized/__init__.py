@@ -1,4 +1,3 @@
-# from .analytical_models import CarDynamics, UnicycleDynamics, BicycleDynamics
 from .control import iLQR, RecedingHorizonController
 from .cost import Cost, ReferenceCost, ProximityCost, GameCost
 from .dynamics import (
@@ -9,4 +8,5 @@ from .dynamics import (
     UnicycleDynamics4D,
     BikeDynamics5D,
 )
+from .problem import NavigationProblem
 from .util import Point, compute_pairwise_distance, split_agents

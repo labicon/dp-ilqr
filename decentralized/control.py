@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-"""Functional programming implementation of the iLQR solver.
+"""Torch based implementation of the iLQR algorithm.
 
 [1] Jackson. AL iLQR Tutorial. https://bjack205.github.io/papers/AL_iLQR_Tutorial.pdf
 
@@ -20,10 +20,9 @@ class iLQR:
     MU_MAX = 1e3  # regularization ceiling
     N_LS_ITER = 10  # number of line search iterations
 
-    def __init__(self, dynamics, cost, n_x, n_u, dt=0.1, N=10):
+    def __init__(self, problem, n_x, n_u, dt=0.1, N=10):
 
-        self.dynamics = dynamics
-        self.cost = cost
+        self.problem = problem
 
         self.N = N
         self.dt = dt
@@ -31,6 +30,14 @@ class iLQR:
         self.n_u = n_u
 
         self._reset_regularization()
+
+    @property
+    def cost(self):
+        return self.problem.game_cost
+
+    @property
+    def dynamics(self):
+        return self.problem.dynamics
 
     def _rollout(self, x0, U):
         """Rollout the system from an initial state with a control sequence U."""
@@ -147,6 +154,10 @@ class iLQR:
 
             if not accept:
 
+                # DBG: bail out since regularization doesn't seem to help.
+                print("Failed line search, giving up.")
+                break
+
                 # Increase regularization if we're not converging.
                 print("Failed line search.. increasing μ.")
                 self._increase_regularization()
@@ -158,7 +169,7 @@ class iLQR:
                 break
 
             print(f"{i+1}/{n_lqr_iter}\tJ: {J_star:g}\tμ: {self.μ:g}\tΔ: {self.Δ:g}")
-        
+
         return X.detach(), U.detach(), J
 
     def _reset_regularization(self):
@@ -218,7 +229,7 @@ class RecedingHorizonController:
         U_init : np.ndarray
             Initial inputs to provide to the controller
         J_converge : float
-            Cost defining convergence to the goal, which causes us to stop if 
+            Cost defining convergence to the goal, which causes us to stop if
             reached
         **kwargs
             Additional keyword arguments to pass onto the ``controller.solve``.
@@ -237,9 +248,9 @@ class RecedingHorizonController:
         i = 0
         U = U_init
         while True:
-            print("-" * 40 + f"\nHorizon {i}")
+            print("-" * 50 + f"\nHorizon {i}")
             i += 1
-            
+
             # Fit the current state initializing with our control sequence.
             if U.shape != (self._controller.N, self._controller.n_u):
                 raise RuntimeError
@@ -256,31 +267,8 @@ class RecedingHorizonController:
             yield X[: self.step_size], U[: self.step_size], J
 
             U = U[self.step_size :]
-            U = torch.vstack([
-                U, 
-                torch.zeros((self.step_size, self._controller.n_u))
-            ])
+            U = torch.vstack([U, torch.zeros((self.step_size, self._controller.n_u))])
 
             if J < J_converge:
                 print("Converged!")
                 break
-            
-
-class NavigationProblem:
-
-    """Splits a centralized optimal control problem into a decentralized one
-
-    Attributes
-    ----------
-    planning_radius : float, default=10.0
-        The splitting distance between agents. If two agents come within each 
-        others' planning radii, we split the centralized problem into distinct
-        sub-problems.
-
-    """
-
-    def __init__(self, planning_radius=10.0):
-        self.planning_radius = planning_radius
-
-    def delegate_subproblems(self, multi_dynamics, game_cost):
-        raise NotImplementedError

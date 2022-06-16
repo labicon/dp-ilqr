@@ -70,14 +70,14 @@ class ReferenceCost(Cost):
         self.R = R
         self.Qf = Qf
 
-        self.Q_plus_QT = self.Q + self.Q.T
-        self.R_plus_RT = self.R + self.R.T
-
     def __call__(self, x, u, terminal=False):
         if not terminal:
             # NOTE: u.T does nothing here since it will always come in flat.
             return (x - self.xf) @ self.Q @ (x - self.xf).T + u @ self.R @ u
         return (x - self.xf) @ self.Qf @ (x - self.xf).T
+    
+    def __repr__(self):
+        return f"ReferenceCost(\n\tQ: {self.Q},\n\tR: {self.R},\n\tQf: {self.Qf}\n)"
 
 
 class ProximityCost(Cost):
@@ -90,6 +90,9 @@ class ProximityCost(Cost):
         distances = compute_pairwise_distance(x, self.x_dims)
         pair_costs = torch.fmin(torch.zeros((1)), distances - self.radius) ** 2
         return pair_costs.sum(dim=0)
+    
+    def __repr__(self):
+        return f"ProximityCost(\n\tx_dims: {self.x_dims},\n\tradius: {self.radius}\n)"
 
 
 class GameCost(Cost):
@@ -116,7 +119,7 @@ class GameCost(Cost):
 def quadraticize_finite_difference(cost, x, u, terminal=False):
     """Finite difference quadraticized cost
 
-    NOTE: deprecated in favor of AutoDiffModel in lieu of speed and consistency.
+    NOTE: deprecated in favor of automatic differentiation in lieu of speed and consistency.
     """
     jac_eps = np.sqrt(np.finfo(float).eps)
     hess_eps = np.sqrt(jac_eps)
