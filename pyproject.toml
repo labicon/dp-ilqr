@@ -1,0 +1,25 @@
+[tool.poetry]
+name = "decentralized"
+version = "0.1.0"
+description = "Implementation of decentralized potential iLQR for cooperative multi-agent navigation."
+authors = ["Zach Williams <zjwilliams20@gmail.com>"]
+
+[tool.poetry.dependencies]
+python = "~3.10"
+numpy = "^1.22.4"
+scipy = "^1.8.1"
+torch = "^1.11.0"
+matplotlib = "^3.5.2"
+ipympl = "^0.9.1"
+jupyter = "^1.0.0"
+
+[tool.poetry.dev-dependencies]
+sympy = "^1.10.1"
+seaborn = "^0.11.2"
+jupyterlab = "^3.4.3"
+jupyterlab-git = "^0.37.1"
+jupyterlab-horizon-theme = "^3.0.1"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

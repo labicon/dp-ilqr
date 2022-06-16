@@ -4,9 +4,9 @@
 Repository containing code for a decentralized implementation of iLQR applied 
 in a game theoretic context. While the project is still relatively new and we
 are working to implement new features, it currently supports a centralized
-multi-agent planner but has trouble overcoming deadlock.
+multi-agent planner that can be tuned to achieve realistic trajectories. 
 
-![](media/unicycle.png)
+![](media/3-agent-intersection-2.gif)
 
 ## Features
 * Simulation of arbitrary state space models in concert with each other.
@@ -27,19 +27,16 @@ your `PYTHONPATH` environment variable. On unix, this can be accomplished by:
 ### Environment
 There are a few different python packages that this project relies on listed
 out in the next section. For convenience, there's also an
-[environment.yml](environment.yml) file that one can use to spin up a conda 
-environment with all of the necessary dependencies including `jupyter` and 
-`jupyterlab`. To create an environment from this file, execute the following:
+[pyproejct.toml](pyproject.toml) file that one can use to spin up a poetry 
+environment with all of the necessary dependencies. To create an environment 
+from this file, execute the following:
 
-    conda env create --file environment.yml
+    poetry init
 
+See the following for more information:
 
-If using `pip` with a different environment manager such as `venv`, run:
-
-    python3 -m venv decctrl
-    source decctrl/bin/activate
-    pip install numpy scipy matplotlib sympy jupyter jupyterlab
-    deactivate # when finished
+- [Installation](https://python-poetry.org/docs/#installation)
+- [Initialize a pre-existing project](https://python-poetry.org/docs/basic-usage/#initialising-a-pre-existing-project)
 
 
 ### Organization
@@ -47,17 +44,6 @@ If using `pip` with a different environment manager such as `venv`, run:
   construct the system dynamics and conduct simulations. 
 - [notebooks/derivations.ipynb](notebooks/derivations.ipynb) is where many of
   the analytical linearizations and quadraticizations originated from.
-
-## Dependencies
-**Required**:
-- `numpy`
-- `scipy`
-- `matplotlib`
-
-**Recommended**:
-- `sympy`
-- `jupyter`
-- `jupyterlab`
 
 ## Credit
 The following two repositories have been instrumental from both an algorithms
