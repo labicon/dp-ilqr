@@ -3,6 +3,7 @@
 """Torch based implementation of the iLQR algorithm.
 
 [1] Jackson. AL iLQR Tutorial. https://bjack205.github.io/papers/AL_iLQR_Tutorial.pdf
+[2] Anass. iLQR Implementation. https://github.com/anassinator/ilqr/
 
 """
 
@@ -11,14 +12,42 @@ import torch
 
 
 class iLQR:
-    """
-    iLQR solver with a functional approach
+    """Iterative Linear Quadratic Gaussian solver
+
+    Attributes
+    ----------
+    problem : NavigationProblem
+        Centralized problem with dynamics and costs to solve
+    N : int
+        Length of control horizon
+    dt : float
+        Discretization time step
+    n_x : int
+        Number of states in the concatenated system
+    n_u : int
+        Number of controls in the concatenated system
+    μ : float
+        Amount of regularization on hessian in backward pass
+    Δ : float
+        Rate of change of μ, almost like a learning rate
+
+    Constants
+    ---------
+    DELTA_0 : float
+        Initial regularization scaling
+    MU_MIN : float
+        Minimum permissible μ, below which is set to 0
+    MU_MAX : float
+        Maximum permissible μ, above which we quit
+    N_LS_ITER : int
+        Number of iterations to perform line search with
+
     """
 
-    DELTA_0 = 2.0  # initial regularization scaling
-    MU_MIN = 1e-6  # regularization floor, below which is 0.0
-    MU_MAX = 1e3  # regularization ceiling
-    N_LS_ITER = 10  # number of line search iterations
+    DELTA_0 = 2.0
+    MU_MIN = 1e-6
+    MU_MAX = 1e3
+    N_LS_ITER = 10
 
     def __init__(self, problem, n_x, n_u, dt=0.1, N=10):
 
@@ -197,13 +226,13 @@ class iLQR:
         )
 
 
-# Based off of: https://github.com/anassinator/ilqr/blob/master/ilqr/controller.py
+# Based off of: [2] /ilqr/controller.py
 class RecedingHorizonController:
     """Receding horizon controller
 
     Attributes
     ----------
-    _x : np.ndarray
+    x : np.ndarray
         Current state
     _controller : BaseController
         Controller instance initialized with all necessary costs
