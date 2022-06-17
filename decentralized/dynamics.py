@@ -14,14 +14,14 @@ from .util import split_agents
 
 class DynamicalModel(abc.ABC):
     """Simulation of a dynamical model to be applied in the iLQR solution."""
-    
+
     _id = 0
-        
+
     def __init__(self, n_x, n_u, dt):
         self.n_x = n_x
         self.n_u = n_u
         self.dt = dt
-        
+
         self.id = DynamicalModel._id
         DynamicalModel._id += 1
 
@@ -39,7 +39,7 @@ class DynamicalModel(abc.ABC):
 
     def linearize(self, x: torch.tensor, u: torch.tensor, discrete=False):
         """Compute the Jacobian linearization of the dynamics for a particular state
-           and controls for all players.
+        and controls for all players.
         """
 
         A, B = torch.autograd.functional.jacobian(self.f, (x, u))
@@ -55,7 +55,7 @@ class DynamicalModel(abc.ABC):
 
 class MultiDynamicalModel(DynamicalModel):
     """Encompasses the dynamical simulation and linearization for a collection of
-       DynamicalModel's
+    DynamicalModel's
     """
 
     def __init__(self, submodels):
@@ -129,7 +129,7 @@ class BikeDynamics5D(DynamicalModel):
 
 # Based off of https://github.com/anassinator/ilqr/blob/master/ilqr/dynamics.py
 def linearize_finite_difference(f, x, u):
-    """"Linearization using finite difference.
+    """ "Linearization using finite difference.
 
     NOTE: deprecated in favor of automatic differentiation.
     """
