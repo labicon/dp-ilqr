@@ -58,6 +58,8 @@ class ReferenceCost(Cost):
     The cost of a state and control from some reference trajectory.
     """
 
+    _id = 0
+
     def __init__(self, xf, Q, R, Qf=None):
 
         if Qf is None:
@@ -70,6 +72,9 @@ class ReferenceCost(Cost):
         self.R = R
         self.Qf = Qf
 
+        self.id = ReferenceCost._id
+        ReferenceCost._id += 1
+
     @property
     def x_dim(self):
         return self.Q.shape[0]
@@ -78,13 +83,20 @@ class ReferenceCost(Cost):
     def u_dim(self):
         return self.R.shape[0]
 
+    @classmethod
+    def _reset_ids(cls):
+        cls._id = 0
+
     def __call__(self, x, u, terminal=False):
         if not terminal:
             return (x - self.xf) @ self.Q @ (x - self.xf).T + u @ self.R @ u.T
         return (x - self.xf) @ self.Qf @ (x - self.xf).T
 
     def __repr__(self):
-        return f"ReferenceCost(\n\tQ: {self.Q},\n\tR: {self.R},\n\tQf: {self.Qf}\n)"
+        return (
+            f"ReferenceCost(\n\tQ: {self.Q},\n\tR: {self.R},\n\tQf: {self.Qf}"
+            f",\n\tid: {self.id}\n)"
+        )
 
 
 class ProximityCost(Cost):
@@ -99,7 +111,7 @@ class ProximityCost(Cost):
         return pair_costs.sum(dim=0)
 
     def __repr__(self):
-        return f"ProximityCost(\n\tx_dims: {self.x_dims},\n\tradius: {self.radius}\n)"
+        return f"ProximityCost(x_dims: {self.x_dims}, radius: {self.radius})"
 
 
 class GameCost(Cost):
@@ -116,17 +128,42 @@ class GameCost(Cost):
         self.REF_WEIGHT = 1.0
         self.PROX_WEIGHT = 100.0
 
+    @property
+    def x_dims(self):
+        return [ref_cost.x_dim for ref_cost in self.ref_costs]
+
+    @property
+    def u_dims(self):
+        return [ref_cost.u_dim for ref_cost in self.ref_costs]
+
     def __call__(self, x, u, terminal=False):
-        x_dims = [ref_cost.x_dim for ref_cost in self.ref_costs]
-        u_dims = [ref_cost.u_dim for ref_cost in self.ref_costs]
-        x_split = split_agents(x, x_dims)
-        u_split = split_agents(u, u_dims)
+        x_split = split_agents(x, self.x_dims)
+        u_split = split_agents(u, self.u_dims)
 
         ref_total = 0.0
         for ref_cost, xi, ui in zip(self.ref_costs, x_split, u_split):
             ref_total += ref_cost(xi, ui, terminal)[0]
 
         return self.PROX_WEIGHT * self.prox_cost(x) + self.REF_WEIGHT * ref_total
+
+    def split(self, graph):
+        """Split this model into sub game-costs dictated by the interaction graph"""
+
+        # Assume all states and radii are the same between agents.
+        n_states = self.ref_costs[0].x_dim
+        radius = self.prox_cost.radius
+
+        game_costs = []
+        for problem in graph:
+            goal_costs_i = [self.ref_costs[i] for i in graph[problem]]
+            prox_cost_i = ProximityCost([n_states] * len(graph[problem]), radius)
+            game_costs.append(GameCost(goal_costs_i, prox_cost_i))
+
+        return game_costs
+
+    def __repr__(self):
+        ids = [ref_cost.id for ref_cost in self.ref_costs]
+        return f"GameCost(\n\tids: {ids},\n\tprox_cost: {self.prox_cost}\n)"
 
 
 def quadraticize_finite_difference(cost, x, u, terminal=False):

@@ -50,3 +50,17 @@ def split_agents(Z, z_dims):
     if torch.is_tensor(Z):
         return torch.split(torch.atleast_2d(Z), z_dims, dim=1)
     return np.split(np.atleast_2d(Z), np.cumsum(z_dims[:-1]), axis=1)
+
+
+def split_graph(Z, z_dims, graph):
+    """Split up the state or control by grouping their ID's according to the graph"""
+    assert len(set(z_dims)) == 1
+
+    n_z = z_dims[0]
+    z_split = []
+    for n, ids in graph.items():
+        z_split.append(
+            torch.cat([Z[:, id_ * n_z : (id_ + 1) * n_z] for id_ in ids], dim=1)
+        )
+
+    return z_split

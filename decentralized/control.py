@@ -11,12 +11,12 @@
 import torch
 
 
-class iLQR:
+class ilqrSolver:
     """Iterative Linear Quadratic Gaussian solver
 
     Attributes
     ----------
-    problem : NavigationProblem
+    problem : ilqrProblem
         Centralized problem with dynamics and costs to solve
     N : int
         Length of control horizon
@@ -49,14 +49,10 @@ class iLQR:
     MU_MAX = 1e3
     N_LS_ITER = 10
 
-    def __init__(self, problem, n_x, n_u, dt=0.1, N=10):
+    def __init__(self, problem, N=10):
 
         self.problem = problem
-
         self.N = N
-        self.dt = dt
-        self.n_x = n_x
-        self.n_u = n_u
 
         self._reset_regularization()
 
@@ -67,6 +63,18 @@ class iLQR:
     @property
     def dynamics(self):
         return self.problem.dynamics
+
+    @property
+    def n_x(self):
+        return self.problem.dynamics.n_x
+
+    @property
+    def n_u(self):
+        return self.problem.dynamics.n_u
+
+    @property
+    def dt(self):
+        return self.problem.dynamics.dt
 
     def _rollout(self, x0, U):
         """Rollout the system from an initial state with a control sequence U."""

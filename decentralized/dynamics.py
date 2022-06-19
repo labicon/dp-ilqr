@@ -52,6 +52,13 @@ class DynamicalModel(abc.ABC):
         B = self.dt * B.reshape(self.n_x, self.n_u)
         return A, B
 
+    @classmethod
+    def _reset_ids(cls):
+        cls._id = 0
+
+    def __repr__(self):
+        return f"{type(self).__name__}(n_x: {self.n_x}, n_u: {self.n_u}, id: {self.id})"
+
 
 class MultiDynamicalModel(DynamicalModel):
     """Encompasses the dynamical simulation and linearization for a collection of
@@ -79,6 +86,19 @@ class MultiDynamicalModel(DynamicalModel):
     def partition(self, x, u):
         """Helper to split up the states and control for each subsystem"""
         return split_agents(x, self.x_dims), split_agents(u, self.u_dims)
+
+    def split(self, graph):
+        """Split this model into submodels dictated by the interaction graph"""
+        split_dynamics = []
+        for problem in graph:
+            submodels_i = [self.submodels[i] for i in graph[problem]]
+            split_dynamics.append(MultiDynamicalModel(submodels_i))
+
+        return split_dynamics
+
+    def __repr__(self):
+        sub_reprs = ",\n\t".join([repr(submodel) for submodel in self.submodels])
+        return f"MultiDynamicalModel(\n\t{sub_reprs}\n)"
 
 
 class DoubleIntDynamics4D(DynamicalModel):

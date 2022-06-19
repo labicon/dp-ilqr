@@ -1,4 +1,4 @@
-from .control import iLQR, RecedingHorizonController
+from .control import ilqrSolver, RecedingHorizonController
 from .cost import Cost, ReferenceCost, ProximityCost, GameCost
 from .dynamics import (
     DynamicalModel,
@@ -12,5 +12,6 @@ from .problem import (
     ilqrProblem,
     define_inter_graph_threshold,
     define_inter_graph_dbscan,
+    _reset_ids,
 )
-from .util import Point, compute_pairwise_distance, split_agents
+from .util import Point, compute_pairwise_distance, split_agents, split_graph

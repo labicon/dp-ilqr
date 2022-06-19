@@ -9,6 +9,8 @@ from sklearn.cluster import DBSCAN
 import torch
 
 from .util import compute_pairwise_distance
+from .dynamics import DynamicalModel
+from .cost import ReferenceCost
 
 
 class ilqrProblem:
@@ -17,12 +19,24 @@ class ilqrProblem:
     def __init__(self, dynamics, game_cost):
         self.dynamics = dynamics
         self.game_cost = game_cost
+        self.n_agents = len(game_cost.ref_costs)
+        self.ids = [model.id for model in dynamics.submodels]
 
-    def split(self, X, planning_radii, planning_horizon):
+    def split(self, graph):
         """Split up this centralized problem into a list of decentralized
         sub-problems.
         """
-        raise NotImplementedError
+
+        split_dynamics = self.dynamics.split(graph)
+        split_costs = self.game_cost.split(graph)
+
+        return [
+            ilqrProblem(dynamics, cost)
+            for dynamics, cost in zip(split_dynamics, split_costs)
+        ]
+
+    def __repr__(self):
+        return f"ilqrProblem(\n\t{self.dynamics},\n\t{self.game_cost}\n)"
 
 
 def define_inter_graph_threshold(X, n_agents, radius, x_dims):
@@ -85,3 +99,9 @@ def define_inter_graph_dbscan(X, n_agents, n_states, radius):
             graph[pair[1]].add(pair[0])
 
     return graph
+
+
+def _reset_ids():
+    """Set each of the agent specific ID's to zero for understandability"""
+    DynamicalModel._reset_ids()
+    ReferenceCost._reset_ids()
