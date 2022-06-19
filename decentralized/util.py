@@ -35,6 +35,9 @@ def compute_pairwise_distance(X, x_dims):
     n_agents = len(x_dims)
     n_states = x_dims[0]
 
+    if n_agents == 1:
+        raise ValueError("Can't compute pairwise distance for one agent.")
+
     pair_inds = np.array(list(itertools.combinations(range(n_agents), 2)))
     X_agent = X.reshape(-1, n_agents, n_states).swapaxes(0, 2)
     dX = X_agent[:2, pair_inds[:, 0]] - X_agent[:2, pair_inds[:, 1]]

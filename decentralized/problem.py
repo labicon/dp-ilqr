@@ -8,19 +8,24 @@ import numpy as np
 from sklearn.cluster import DBSCAN
 import torch
 
-from .util import compute_pairwise_distance
-from .dynamics import DynamicalModel
-from .cost import ReferenceCost
+from .util import compute_pairwise_distance, split_agents
+from .dynamics import DynamicalModel, MultiDynamicalModel
+from .cost import ReferenceCost, GameCost
 
 
 class ilqrProblem:
     """Centralized optimal control problem that combines dynamics and cost"""
 
-    def __init__(self, dynamics, game_cost):
+    def __init__(self, dynamics, cost):
         self.dynamics = dynamics
-        self.game_cost = game_cost
-        self.n_agents = len(game_cost.ref_costs)
-        self.ids = [model.id for model in dynamics.submodels]
+        self.game_cost = cost
+
+        self.n_agents = 1
+        self.ids = [0]
+        if isinstance(cost, GameCost):
+            self.n_agents = len(cost.ref_costs)
+        if isinstance(dynamics, MultiDynamicalModel):
+            self.ids = [model.id for model in dynamics.submodels]
 
     def split(self, graph):
         """Split up this centralized problem into a list of decentralized
@@ -34,6 +39,20 @@ class ilqrProblem:
             ilqrProblem(dynamics, cost)
             for dynamics, cost in zip(split_dynamics, split_costs)
         ]
+
+    def extract(self, X, U, i):
+        """Extract the state and controls for a particular agent i from the
+        concatenated problem state/controls
+        """
+
+        if i not in self.ids:
+            raise IndexError(f"Index {i} not in ids: {self.ids}.")
+
+        ext_ind = self.ids.index(i)
+        Xi = split_agents(X, self.game_cost.x_dims)[ext_ind]
+        Ui = split_agents(U, self.game_cost.u_dims)[ext_ind]
+
+        return Xi, Ui
 
     def __repr__(self):
         return f"ilqrProblem(\n\t{self.dynamics},\n\t{self.game_cost}\n)"
@@ -54,13 +73,14 @@ def define_inter_graph_threshold(X, n_agents, radius, x_dims):
 
     # Put each pair of agents within each others' graphs if they are within
     # some threshold distance from each other.
-    graph = {i: set([i]) for i in range(n_agents)}
+    graph = {i: [i] for i in range(n_agents)}
     pair_inds = np.array(list(itertools.combinations(range(n_agents), 2)))
     for i, pair in enumerate(pair_inds):
         if torch.any(rel_dists[sample_slice, i] < planning_radii):
-            graph[pair[0]].add(pair[1])
-            graph[pair[1]].add(pair[0])
+            graph[pair[0]].append(pair[1])
+            graph[pair[1]].append(pair[0])
 
+    graph = {i: sorted(ids) for i, ids in graph.items()}
     return graph
 
 

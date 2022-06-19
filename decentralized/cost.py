@@ -106,6 +106,8 @@ class ProximityCost(Cost):
 
     def __call__(self, x):
         """Penalizes distances underneath some radius between agents"""
+        if len(self.x_dims) == 1:
+            return 0.0
         distances = compute_pairwise_distance(x, self.x_dims)
         pair_costs = torch.fmin(torch.zeros((1)), distances - self.radius) ** 2
         return pair_costs.sum(dim=0)
