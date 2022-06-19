@@ -11,11 +11,7 @@ import torch
 from .util import compute_pairwise_distance
 
 
-def decentralize_ocp(dynamics, cost, planning_radii, planning_horizon):
-    pass
-
-
-class NavigationProblem:
+class ilqrProblem:
     """Centralized optimal control problem that combines dynamics and cost"""
 
     def __init__(self, dynamics, game_cost):
