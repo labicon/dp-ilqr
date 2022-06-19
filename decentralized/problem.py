@@ -3,14 +3,60 @@
 """Logic to combine dynamics and cost in one framework"""
 
 import itertools
+from time import perf_counter as pc
 
 import numpy as np
 from sklearn.cluster import DBSCAN
 import torch
 
-from .util import compute_pairwise_distance, split_agents
-from .dynamics import DynamicalModel, MultiDynamicalModel
+from .control import ilqrSolver
 from .cost import ReferenceCost, GameCost
+from .dynamics import DynamicalModel, MultiDynamicalModel
+from .util import compute_pairwise_distance, split_agents, split_graph
+
+
+def solve_decentralized(problem, X, U, radius):
+    """Split up the centralized problems into sub-problems for each agent and combine
+    individual results
+    """
+
+    x_dims = problem.game_cost.x_dims
+    u_dims = problem.game_cost.u_dims
+
+    N = X.shape[0]
+    n_states = x_dims[0]
+    n_controls = u_dims[0]
+    n_agents = len(x_dims)
+
+    # Compute interaction graph based on relative distances
+    graph = define_inter_graph_threshold(X, n_agents, radius, x_dims)
+
+    # Split up the initial state and control for each subproblem.
+    x0_split = split_graph(X[0].reshape(1, -1), x_dims, graph)
+    U_split = split_graph(U, u_dims, graph)
+
+    # Solve each sub-problem serially, keeping results for each agent in *_full.
+    X_dec = torch.zeros((N + 1, n_agents * n_states))
+    U_dec = torch.zeros((N, n_agents * n_controls))
+    for i, (subproblem, x0_i, U_i) in enumerate(
+        zip(problem.split(graph), x0_split, U_split)
+    ):
+        print("=" * 60 + f"\nProblem {i}: {subproblem.ids}")
+        subsolver = ilqrSolver(subproblem, N)
+
+        t0 = pc()
+        Xi, Ui, _ = subsolver.solve(x0_i)
+        print(f"Took {pc() - t0:.3g} seconds")
+
+        Xi_agent, Ui_agent = subproblem.extract(Xi, Ui, i)
+        X_dec[:, i * n_states : (i + 1) * n_states] = Xi_agent
+        U_dec[:, i * n_controls : (i + 1) * n_controls] = Ui_agent
+
+    # Evaluate the cost of this combined trajectory.
+    full_solver = ilqrSolver(problem, N)
+    _, J_full = full_solver._rollout(X[0], U)
+
+    return X_dec, U_dec, J_full
 
 
 class ilqrProblem:

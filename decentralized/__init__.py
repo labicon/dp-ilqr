@@ -9,6 +9,7 @@ from .dynamics import (
     BikeDynamics5D,
 )
 from .problem import (
+    solve_decentralized,
     ilqrProblem,
     define_inter_graph_threshold,
     define_inter_graph_dbscan,
