@@ -89,6 +89,7 @@ class ReferenceCost(Cost):
 
     def __call__(self, x, u, terminal=False):
         if not terminal:
+            u = u.reshape(1, -1)
             return (x - self.xf) @ self.Q @ (x - self.xf).T + u @ self.R @ u.T
         return (x - self.xf) @ self.Qf @ (x - self.xf).T
 
