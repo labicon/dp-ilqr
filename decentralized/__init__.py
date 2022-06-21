@@ -15,4 +15,12 @@ from .problem import (
     define_inter_graph_dbscan,
     _reset_ids,
 )
-from .util import Point, compute_pairwise_distance, split_agents, split_graph
+from .util import (
+    Point,
+    compute_pairwise_distance,
+    split_agents,
+    split_graph,
+    randomize_locs,
+    face_goal,
+    random_setup,
+)

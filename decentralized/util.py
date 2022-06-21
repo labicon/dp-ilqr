@@ -3,9 +3,13 @@
 """Various utilities used in other areas of the code."""
 
 import itertools
+import random
 
 import numpy as np
+from scipy.spatial.transform import Rotation
 import torch
+
+π = np.pi
 
 
 class Point(object):
@@ -69,3 +73,64 @@ def split_graph(Z, z_dims, graph):
         z_split.append(torch.cat([Z[:, i * n_z : (i + 1) * n_z] for i in inds], dim=1))
 
     return z_split
+
+
+def randomize_locs(n_pts, min_sep=3.0, var=3.0, n_dim=2):
+    """Uniformly randomize locations of points in N-D while enforcing
+    a minimum separation between them.
+    """
+
+    # Distance to move away from center if we're too close.
+    Δ = 0.1 * n_pts
+    x = var * np.random.uniform(-1, 1, (n_pts, n_dim))
+
+    # Determine the pair-wise indicies for an arbitrary number of agents.
+    pair_inds = np.array(list(itertools.combinations(range(n_pts), 2)))
+    move_inds = np.arange(n_pts)
+
+    # Keep moving points away from center until we satisfy radius
+    while move_inds.size:
+        center = np.mean(x, axis=0)
+        distances = compute_pairwise_distance(x.flatten(), [n_dim] * n_pts)
+
+        move_inds = pair_inds[distances.flatten() <= min_sep]
+        x[move_inds] += Δ * (x[move_inds] - center)
+
+    return x
+
+
+def face_goal(x0, x_goal):
+    """Make the agents face the direction of their goal with a little noise"""
+
+    VAR = 0.01
+    dX = x_goal[:, :2] - x0[:, :2]
+    headings = np.arctan2(*np.rot90(dX, 1))
+
+    x0[:, 2] = headings + VAR * np.random.randn(x0.shape[0])
+    x_goal[:, 2] = headings + VAR * np.random.randn(x0.shape[0])
+
+    return x0, x_goal
+
+
+def random_setup(n_agents, n_states, is_rotation=False, **kwargs):
+    """Create a randomized set up of initial and final positions"""
+
+    # We don't have to normlize for energy here
+    x_i = randomize_locs(n_agents, **kwargs)
+
+    # Rotate the initial points by some amount about the center.
+    if is_rotation:
+        theta = π + random.uniform(-π / 4, π / 4)
+        R = Rotation.from_euler("z", theta).as_matrix()[:2, :2]
+        x_f = x_i @ R + x_i.mean(axis=0)
+    else:
+        x_f = randomize_locs(n_agents, **kwargs)
+
+    x0 = np.c_[x_i, np.zeros((n_agents, n_states - 2))]
+    x_goal = np.c_[x_f, np.zeros((n_agents, n_states - 2))]
+    x0, x_goal = face_goal(x0, x_goal)
+
+    x0 = torch.from_numpy(x0).requires_grad_(True).type(torch.float)
+    x_goal = torch.from_numpy(x_goal).type(torch.float)
+
+    return x0.reshape(-1, 1), x_goal.reshape(-1, 1)
