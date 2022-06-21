@@ -23,32 +23,33 @@ def solve_decentralized(problem, X, U, radius):
     x_dims = problem.game_cost.x_dims
     u_dims = problem.game_cost.u_dims
 
-    N = X.shape[0]
+    N = U.shape[0]
     n_states = x_dims[0]
     n_controls = u_dims[0]
     n_agents = len(x_dims)
+    ids = problem.ids
 
     # Compute interaction graph based on relative distances
-    graph = define_inter_graph_threshold(X, n_agents, radius, x_dims)
+    graph = define_inter_graph_threshold(X, n_agents, radius, x_dims, ids)
 
     # Split up the initial state and control for each subproblem.
-    x0_split = split_graph(X[0].reshape(1, -1), x_dims, graph)
+    x0_split = split_graph(X[np.newaxis, 0], x_dims, graph)
     U_split = split_graph(U, u_dims, graph)
 
     # Solve each sub-problem serially, keeping results for each agent in *_full.
     X_dec = torch.zeros((N + 1, n_agents * n_states))
     U_dec = torch.zeros((N, n_agents * n_controls))
-    for i, (subproblem, x0_i, U_i) in enumerate(
-        zip(problem.split(graph), x0_split, U_split)
+    for i, (subproblem, x0i, Ui, id_) in enumerate(
+        zip(problem.split(graph), x0_split, U_split, ids)
     ):
-        print("=" * 60 + f"\nProblem {i}: {subproblem.ids}")
+        print("=" * 60 + f"\nAgent {id_}: {subproblem.ids}")
         subsolver = ilqrSolver(subproblem, N)
 
         t0 = pc()
-        Xi, Ui, _ = subsolver.solve(x0_i)
+        Xi, Ui, _ = subsolver.solve(x0i, Ui)
         print(f"Took {pc() - t0:.3g} seconds")
 
-        Xi_agent, Ui_agent = subproblem.extract(Xi, Ui, i)
+        Xi_agent, Ui_agent = subproblem.extract(Xi, Ui, id_)
         X_dec[:, i * n_states : (i + 1) * n_states] = Xi_agent
         U_dec[:, i * n_controls : (i + 1) * n_controls] = Ui_agent
 
@@ -65,13 +66,19 @@ class ilqrProblem:
     def __init__(self, dynamics, cost):
         self.dynamics = dynamics
         self.game_cost = cost
-
         self.n_agents = 1
-        self.ids = [0]
         if isinstance(cost, GameCost):
             self.n_agents = len(cost.ref_costs)
-        if isinstance(dynamics, MultiDynamicalModel):
-            self.ids = [model.id for model in dynamics.submodels]
+
+    @property
+    def ids(self):
+        if not isinstance(self.dynamics, MultiDynamicalModel):
+            raise NotImplementedError(
+                "Only MultiDynamicalModel's have an 'ids' attribute"
+            )
+        if not self.dynamics.ids == self.game_cost.ids:
+            raise ValueError(f"Dynamics and cost have inconsistent ID's: {self}")
+        return self.dynamics.ids.copy()
 
     def split(self, graph):
         """Split up this centralized problem into a list of decentralized
@@ -86,15 +93,15 @@ class ilqrProblem:
             for dynamics, cost in zip(split_dynamics, split_costs)
         ]
 
-    def extract(self, X, U, i):
-        """Extract the state and controls for a particular agent i from the
+    def extract(self, X, U, id_):
+        """Extract the state and controls for a particular agent id_ from the
         concatenated problem state/controls
         """
 
-        if i not in self.ids:
-            raise IndexError(f"Index {i} not in ids: {self.ids}.")
+        if id_ not in self.ids:
+            raise IndexError(f"Index {id_} not in ids: {self.ids}.")
 
-        ext_ind = self.ids.index(i)
+        ext_ind = self.ids.index(id_)
         Xi = split_agents(X, self.game_cost.x_dims)[ext_ind]
         Ui = split_agents(U, self.game_cost.u_dims)[ext_ind]
 
@@ -104,7 +111,7 @@ class ilqrProblem:
         return f"ilqrProblem(\n\t{self.dynamics},\n\t{self.game_cost}\n)"
 
 
-def define_inter_graph_threshold(X, n_agents, radius, x_dims):
+def define_inter_graph_threshold(X, n_agents, radius, x_dims, ids):
     """Compute the interaction graph based on a simple thresholded distance
     for each pair of agents sampled over the trajectory
     """
@@ -119,14 +126,14 @@ def define_inter_graph_threshold(X, n_agents, radius, x_dims):
 
     # Put each pair of agents within each others' graphs if they are within
     # some threshold distance from each other.
-    graph = {i: [i] for i in range(n_agents)}
-    pair_inds = np.array(list(itertools.combinations(range(n_agents), 2)))
+    graph = {id_: [id_] for id_ in ids}
+    pair_inds = np.array(list(itertools.combinations(ids, 2)))
     for i, pair in enumerate(pair_inds):
         if torch.any(rel_dists[sample_slice, i] < planning_radii):
             graph[pair[0]].append(pair[1])
             graph[pair[1]].append(pair[0])
 
-    graph = {i: sorted(ids) for i, ids in graph.items()}
+    graph = {agent_id: sorted(prob_ids) for agent_id, prob_ids in graph.items()}
     return graph
 
 

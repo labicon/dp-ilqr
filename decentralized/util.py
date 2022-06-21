@@ -59,11 +59,13 @@ def split_graph(Z, z_dims, graph):
     """Split up the state or control by grouping their ID's according to the graph"""
     assert len(set(z_dims)) == 1
 
+    # Create a mapping from the graph to indicies.
+    mapping = {id_: i for i, id_ in enumerate(list(graph))}
+
     n_z = z_dims[0]
     z_split = []
     for n, ids in graph.items():
-        z_split.append(
-            torch.cat([Z[:, id_ * n_z : (id_ + 1) * n_z] for id_ in ids], dim=1)
-        )
+        inds = [mapping[id_] for id_ in ids]
+        z_split.append(torch.cat([Z[:, i * n_z : (i + 1) * n_z] for i in inds], dim=1))
 
     return z_split

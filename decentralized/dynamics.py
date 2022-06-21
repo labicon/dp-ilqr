@@ -17,14 +17,15 @@ class DynamicalModel(abc.ABC):
 
     _id = 0
 
-    def __init__(self, n_x, n_u, dt):
+    def __init__(self, n_x, n_u, dt, id=None):
+        if not id:
+            id = DynamicalModel._id
+            DynamicalModel._id += 1
+
         self.n_x = n_x
         self.n_u = n_u
         self.dt = dt
-
-        self.id = DynamicalModel._id
-        DynamicalModel._id += 1
-
+        self.id = id
         self.NX_EYE = np.eye(self.n_x, dtype=np.float32)
 
     def __call__(self, x, u):
@@ -71,8 +72,9 @@ class MultiDynamicalModel(DynamicalModel):
 
         self.x_dims = [submodel.n_x for submodel in submodels]
         self.u_dims = [submodel.n_u for submodel in submodels]
+        self.ids = [submodel.id for submodel in submodels]
 
-        super().__init__(sum(self.x_dims), sum(self.u_dims), submodels[0].dt)
+        super().__init__(sum(self.x_dims), sum(self.u_dims), submodels[0].dt, -1)
 
     def f(self, x, u):
         """Integrate the dynamics for the combined decoupled dynamical model"""
@@ -91,8 +93,11 @@ class MultiDynamicalModel(DynamicalModel):
         """Split this model into submodels dictated by the interaction graph"""
         split_dynamics = []
         for problem in graph:
-            submodels_i = [self.submodels[i] for i in graph[problem]]
-            split_dynamics.append(MultiDynamicalModel(submodels_i))
+            split_dynamics.append(
+                MultiDynamicalModel(
+                    [model for model in self.submodels if model.id in graph[problem]]
+                )
+            )
 
         return split_dynamics
 
@@ -102,8 +107,8 @@ class MultiDynamicalModel(DynamicalModel):
 
 
 class DoubleIntDynamics4D(DynamicalModel):
-    def __init__(self, dt):
-        super().__init__(4, 2, dt)
+    def __init__(self, dt, *args, **kwargs):
+        super().__init__(4, 2, dt, *args, **kwargs)
 
     @staticmethod
     def f(x, u):
@@ -113,8 +118,8 @@ class DoubleIntDynamics4D(DynamicalModel):
 
 
 class CarDynamics3D(DynamicalModel):
-    def __init__(self, dt):
-        super().__init__(3, 2, dt)
+    def __init__(self, dt, *args, **kwargs):
+        super().__init__(3, 2, dt, *args, **kwargs)
 
     @staticmethod
     def f(x, u):
@@ -124,8 +129,8 @@ class CarDynamics3D(DynamicalModel):
 
 
 class UnicycleDynamics4D(DynamicalModel):
-    def __init__(self, dt):
-        super().__init__(4, 2, dt)
+    def __init__(self, dt, *args, **kwargs):
+        super().__init__(4, 2, dt, *args, **kwargs)
 
     @staticmethod
     def f(x, u):
@@ -135,7 +140,7 @@ class UnicycleDynamics4D(DynamicalModel):
 
 
 class BikeDynamics5D(DynamicalModel):
-    def __init__(self, dt):
+    def __init__(self, dt, *args, **kwargs):
         super().__init__(5, 2, dt)
 
     @staticmethod

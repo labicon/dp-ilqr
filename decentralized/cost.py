@@ -60,10 +60,14 @@ class ReferenceCost(Cost):
 
     _id = 0
 
-    def __init__(self, xf, Q, R, Qf=None):
+    def __init__(self, xf, Q, R, Qf=None, id=None):
 
         if Qf is None:
             Qf = torch.eye(Q.shape[0])
+
+        if not id:
+            id = ReferenceCost._id
+            ReferenceCost._id += 1
 
         # Define states as rows so that xf doesn't broadcast x in __call__.
         self.xf = xf.reshape(1, -1)
@@ -71,9 +75,7 @@ class ReferenceCost(Cost):
         self.Q = Q
         self.R = R
         self.Qf = Qf
-
-        self.id = ReferenceCost._id
-        ReferenceCost._id += 1
+        self.id = id
 
     @property
     def x_dim(self):
@@ -131,13 +133,9 @@ class GameCost(Cost):
         self.REF_WEIGHT = 1.0
         self.PROX_WEIGHT = 100.0
 
-    @property
-    def x_dims(self):
-        return [ref_cost.x_dim for ref_cost in self.ref_costs]
-
-    @property
-    def u_dims(self):
-        return [ref_cost.u_dim for ref_cost in self.ref_costs]
+        self.x_dims = [ref_cost.x_dim for ref_cost in self.ref_costs]
+        self.u_dims = [ref_cost.u_dim for ref_cost in self.ref_costs]
+        self.ids = [ref_cost.id for ref_cost in self.ref_costs]
 
     def __call__(self, x, u, terminal=False):
         x_split = split_agents(x, self.x_dims)
@@ -158,7 +156,9 @@ class GameCost(Cost):
 
         game_costs = []
         for problem in graph:
-            goal_costs_i = [self.ref_costs[i] for i in graph[problem]]
+            goal_costs_i = [
+                ref_cost for ref_cost in self.ref_costs if ref_cost.id in graph[problem]
+            ]
             prox_cost_i = ProximityCost([n_states] * len(graph[problem]), radius)
             game_costs.append(GameCost(goal_costs_i, prox_cost_i))
 
