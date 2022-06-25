@@ -130,7 +130,7 @@ def random_setup(n_agents, n_states, is_rotation=False, **kwargs):
     x_goal = np.c_[x_f, np.zeros((n_agents, n_states - 2))]
     x0, x_goal = face_goal(x0, x_goal)
 
-    x0 = torch.from_numpy(x0).requires_grad_(True).type(torch.float)
+    x0 = torch.from_numpy(x0).type(torch.float)
     x_goal = torch.from_numpy(x_goal).type(torch.float)
 
     return x0.reshape(-1, 1), x_goal.reshape(-1, 1)

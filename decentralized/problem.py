@@ -3,6 +3,7 @@
 """Logic to combine dynamics and cost in one framework"""
 
 import itertools
+import multiprocessing as mp
 from time import perf_counter as pc
 
 import numpy as np
@@ -15,10 +16,8 @@ from .dynamics import DynamicalModel, MultiDynamicalModel
 from .util import compute_pairwise_distance, split_agents, split_graph
 
 
-def solve_decentralized(problem, X, U, radius):
-    """Split up the centralized problems into sub-problems for each agent and combine
-    individual results
-    """
+def solve_decentralized(problem, X, U, radius, is_mp=False):
+    """Solve the centralized problem in parallel with multiprocessing"""
 
     x_dims = problem.game_cost.x_dims
     u_dims = problem.game_cost.u_dims
@@ -29,35 +28,70 @@ def solve_decentralized(problem, X, U, radius):
     n_agents = len(x_dims)
     ids = problem.ids
 
-    # Compute interaction graph based on relative distances
-    graph = define_inter_graph_threshold(X, n_agents, radius, x_dims, ids)
+    # Compute interaction graph based on relative distances.
+    graph = define_inter_graph_threshold(X, radius, x_dims, ids)
 
     # Split up the initial state and control for each subproblem.
     x0_split = split_graph(X[np.newaxis, 0], x_dims, graph)
     U_split = split_graph(U, u_dims, graph)
 
-    # Solve each sub-problem serially, keeping results for each agent in *_full.
     X_dec = torch.zeros((N + 1, n_agents * n_states))
     U_dec = torch.zeros((N, n_agents * n_controls))
-    for i, (subproblem, x0i, Ui, id_) in enumerate(
-        zip(problem.split(graph), x0_split, U_split, ids)
-    ):
-        print("=" * 60 + f"\nAgent {id_}: {subproblem.ids}")
-        subsolver = ilqrSolver(subproblem, N)
+
+    # Solve all problems in one process, keeping results for each agent in *_full.
+    if not is_mp:
+        for i, (subproblem, x0i, Ui, id_) in enumerate(
+            zip(problem.split(graph), x0_split, U_split, ids)
+        ):
+            t0 = pc()
+            Xi_agent, Ui_agent, id_ = solve_subproblem((subproblem, x0i, Ui, id_))
+            print("=" * 60 + f"\nProblem {id_}: {graph[id_]}\nTook {pc() - t0} seconds")
+
+            X_dec[:, i * n_states : (i + 1) * n_states] = Xi_agent
+            U_dec[:, i * n_controls : (i + 1) * n_controls] = Ui_agent
+
+    # Solve in separate processes using imap.
+    else:
+        # NOTE: torch requires this context due to this:
+        # https://github.com/pytorch/pytorch/wiki/Autograd-and-Fork
+        ctx = mp.get_context("spawn")
+
+        # Package up arguments for the subproblem solver.
+        args = zip(problem.split(graph), x0_split, U_split, ids)
 
         t0 = pc()
-        Xi, Ui, _ = subsolver.solve(x0i, Ui)
-        print(f"Took {pc() - t0:.3g} seconds")
-
-        Xi_agent, Ui_agent = subproblem.extract(Xi, Ui, id_)
-        X_dec[:, i * n_states : (i + 1) * n_states] = Xi_agent
-        U_dec[:, i * n_controls : (i + 1) * n_controls] = Ui_agent
+        with ctx.Pool(processes=n_agents) as pool:
+            for i, (Xi_agent, Ui_agent, id_) in enumerate(
+                pool.imap_unordered(solve_subproblem, args)
+            ):
+                print(
+                    "=" * 60
+                    + f"\nProblem {id_}: {graph[id_]}\nTook {pc() - t0} seconds"
+                )
+                X_dec[:, i * n_states : (i + 1) * n_states] = Xi_agent
+                U_dec[:, i * n_controls : (i + 1) * n_controls] = Ui_agent
 
     # Evaluate the cost of this combined trajectory.
     full_solver = ilqrSolver(problem, N)
     _, J_full = full_solver._rollout(X[0], U)
 
     return X_dec, U_dec, J_full
+
+
+def solve_subproblem(args):
+    """Solve the sub-problem and extract results for this agent"""
+
+    subproblem, x0, U, id_ = args
+    N = U.shape[0]
+
+    subsolver = ilqrSolver(subproblem, N)
+    Xi, Ui, _ = subsolver.solve(x0, U)
+    return *subproblem.extract(Xi, Ui, id_), id_
+
+
+def solve_subproblem_starmap(subproblem, x0, U, id_):
+    """Solve the sub-problem and extract results for this agent"""
+    return solve_subproblem((subproblem, x0, U, id_))
 
 
 class ilqrProblem:
@@ -111,7 +145,7 @@ class ilqrProblem:
         return f"ilqrProblem(\n\t{self.dynamics},\n\t{self.game_cost}\n)"
 
 
-def define_inter_graph_threshold(X, n_agents, radius, x_dims, ids):
+def define_inter_graph_threshold(X, radius, x_dims, ids):
     """Compute the interaction graph based on a simple thresholded distance
     for each pair of agents sampled over the trajectory
     """

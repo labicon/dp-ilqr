@@ -234,7 +234,7 @@ class ilqrSolver:
         )
 
 
-# Based off of: [2] /ilqr/controller.py
+# Based off of: [2] ilqr/controller.py
 class RecedingHorizonController:
     """Receding horizon controller
 
