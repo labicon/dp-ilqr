@@ -23,4 +23,5 @@ from .util import (
     randomize_locs,
     face_goal,
     random_setup,
+    plot_interaction_graph,
 )

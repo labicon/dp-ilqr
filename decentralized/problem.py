@@ -38,14 +38,14 @@ def solve_decentralized(problem, X, U, radius, is_mp=False):
     X_dec = torch.zeros((N + 1, n_agents * n_states))
     U_dec = torch.zeros((N, n_agents * n_controls))
 
-    # Solve all problems in one process, keeping results for each agent in *_full.
+    # Solve all problems in one process, keeping results for each agent in *_dec.
     if not is_mp:
         for i, (subproblem, x0i, Ui, id_) in enumerate(
             zip(problem.split(graph), x0_split, U_split, ids)
         ):
             t0 = pc()
             Xi_agent, Ui_agent, id_ = solve_subproblem((subproblem, x0i, Ui, id_))
-            print("=" * 60 + f"\nProblem {id_}: {graph[id_]}\nTook {pc() - t0} seconds")
+            print(f"Problem {id_}: {graph[id_]}\nTook {pc() - t0} seconds\n" + "=" * 60)
 
             X_dec[:, i * n_states : (i + 1) * n_states] = Xi_agent
             U_dec[:, i * n_controls : (i + 1) * n_controls] = Ui_agent
@@ -90,7 +90,7 @@ def solve_subproblem(args):
 
 
 def solve_subproblem_starmap(subproblem, x0, U, id_):
-    """Solve the sub-problem and extract results for this agent"""
+    """Package up the input arguments for compatiblity with mp.imap()."""
     return solve_subproblem((subproblem, x0, U, id_))
 
 

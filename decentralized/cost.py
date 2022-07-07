@@ -131,7 +131,7 @@ class GameCost(Cost):
         self.prox_cost = proximity_cost
 
         self.REF_WEIGHT = 1.0
-        self.PROX_WEIGHT = 100.0
+        self.PROX_WEIGHT = 200.0
 
         self.x_dims = [ref_cost.x_dim for ref_cost in self.ref_costs]
         self.u_dims = [ref_cost.u_dim for ref_cost in self.ref_costs]

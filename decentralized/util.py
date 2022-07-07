@@ -5,6 +5,8 @@
 import itertools
 import random
 
+import matplotlib.pyplot as plt
+import networkx as nx
 import numpy as np
 from scipy.spatial.transform import Rotation
 import torch
@@ -134,3 +136,25 @@ def random_setup(n_agents, n_states, is_rotation=False, **kwargs):
     x_goal = torch.from_numpy(x_goal).type(torch.float)
 
     return x0.reshape(-1, 1), x_goal.reshape(-1, 1)
+
+
+def plot_interaction_graph(graph):
+    """Visualize the interaction graph using networkx"""
+
+    plt.clf()
+
+    # Remove self-looping nodes.
+    graph = {k: [vi for vi in v if vi != k] for k, v in graph.items()}
+
+    G = nx.Graph(graph)
+
+    options = {
+        "font_size": 10,
+        "node_size": 600,
+        "node_color": "white",
+        "edgecolors": "black",
+    }
+
+    nx.draw_networkx(G, nx.spring_layout(G, k=1.5), **options)
+    plt.margins(0.1)
+    plt.draw()
