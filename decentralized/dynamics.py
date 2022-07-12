@@ -61,6 +61,13 @@ class DynamicalModel(abc.ABC):
         return f"{type(self).__name__}(n_x: {self.n_x}, n_u: {self.n_u}, id: {self.id})"
 
 
+class AnalyticalModel(DynamicalModel):
+    """Mix-in for analytical linearization"""
+
+    def linearize(self, x, u):
+        return self.A_num(x, u), self.B_num(x, u)
+
+
 class MultiDynamicalModel(DynamicalModel):
     """Encompasses the dynamical simulation and linearization for a collection of
     DynamicalModel's
