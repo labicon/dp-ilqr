@@ -7,6 +7,7 @@ import abc
 import numpy as np
 from scipy.linalg import block_diag
 from scipy.optimize import approx_fprime
+import sympy as sym
 import torch
 
 from .util import split_agents
@@ -144,6 +145,31 @@ class UnicycleDynamics4D(DynamicalModel):
         *_, theta, v = x
         a, omega = u
         return torch.stack([v * torch.cos(theta), v * torch.sin(theta), a, omega])
+
+
+
+class UnicycleDynamics4dSymbolic(AnalyticalModel):
+    def __init__(self, dt, *args, **kwargs):
+        super().__init__(4, 2, dt, *args, **kwargs)
+
+        p_x, p_y, v, theta, omega, a = sym.symbols('p_x p_y v theta omega a')
+        x = sym.Matrix([p_x, p_y, v, theta])
+        u = sym.Matrix([a, omega])
+
+        x_dot = sym.Matrix([
+            x[2]*sym.cos(x[3]),
+            x[2]*sym.sin(x[3]),
+            u[0],
+            u[1],
+        ])
+
+        A = x_dot.jacobian(x)
+        B = x_dot.jacobian(u)
+
+        
+
+
+
 
 
 class BikeDynamics5D(DynamicalModel):
