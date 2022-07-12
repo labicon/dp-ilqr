@@ -31,7 +31,7 @@ out in the next section. For convenience, there's also an
 environment with all of the necessary dependencies. To create an environment 
 from this file, execute the following:
 
-    poetry init
+    poetry install
 
 See the following for more information:
 
