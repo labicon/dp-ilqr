@@ -32,6 +32,13 @@ class DynamicalModel(abc.ABC):
     def __call__(self, x, u):
         """Zero-order hold to integrate continuous dynamics f"""
         return x + self.f(x, u) * self.dt
+        # Single RK4 integration of continuous dynamics.
+        # k1 = self.dt * self.f(x, u)
+        # k2 = self.dt * self.f(x + 0.5 * k1, u)
+        # k3 = self.dt * self.f(x + 0.5 * k2, u)
+        # k4 = self.dt * self.f(x + k3, u)
+        # x += (k1 + 2.0 * k2 + 2.0 * k3 + k4) / 6.0
+        # return x
 
     @staticmethod
     @abc.abstractmethod
