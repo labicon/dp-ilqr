@@ -8,7 +8,7 @@ import numpy as np
 import torch
 from scipy.optimize import approx_fprime
 
-from .util import compute_pairwise_distance, split_agents
+from decentralized.util import compute_pairwise_distance, split_agents
 
 
 class Cost(abc.ABC):

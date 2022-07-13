@@ -10,7 +10,7 @@ from scipy.optimize import approx_fprime
 import sympy as sym
 import torch
 
-from .util import split_agents
+from decentralized.util import split_agents
 
 
 class DynamicalModel(abc.ABC):

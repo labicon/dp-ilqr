@@ -10,10 +10,10 @@ import numpy as np
 from sklearn.cluster import DBSCAN
 import torch
 
-from .control import ilqrSolver
-from .cost import ReferenceCost, GameCost
-from .dynamics import DynamicalModel, MultiDynamicalModel
-from .util import compute_pairwise_distance, split_agents, split_graph
+from decentralized.control import ilqrSolver
+from decentralized.cost import ReferenceCost, GameCost
+from decentralized.dynamics import DynamicalModel, MultiDynamicalModel
+from decentralized.util import compute_pairwise_distance, split_agents, split_graph
 
 
 def solve_decentralized(problem, X, U, radius, is_mp=False):
