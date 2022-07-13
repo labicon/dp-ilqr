@@ -65,8 +65,8 @@ class DynamicalModel(abc.ABC):
 class AnalyticalModel(DynamicalModel):
     """Mix-in for analytical linearization"""
     
-    def __init__(self,A_num,B_num,L_x,L_u,L_xx,L_uu,L_ux):
-
+    def __init__(self, A_num, B_num, L_x, L_u, L_xx, L_uu, L_ux):
+    
         self.A_num = A_num
         self.B_num = B_num
         self.L_x = L_x
@@ -75,14 +75,14 @@ class AnalyticalModel(DynamicalModel):
         self.L_uu = L_uu
         self.L_ux = L_ux
 
-    def linearize(self, x, u):
+    def linearize(self, x, u): 
         
         return self.A_num(x, u), self.B_num(x, u)
 
     def quadraticize(self, x, u):
         
-        return self.L_x(x,u),self.L_u(x,u),self.L_xx(x,u),self.L_uu(x,u),self.L_ux(x,u)
- 
+        return self.L_x(x,u), self.L_u(x,u), self.L_xx(x,u), self.L_uu(x,u), self.L_ux(x,u)
+
 class MultiDynamicalModel(DynamicalModel):
     """Encompasses the dynamical simulation and linearization for a collection of
     DynamicalModel's
@@ -173,7 +173,7 @@ class BikeDynamics5D(DynamicalModel):
             [v * torch.cos(theta), v * torch.sin(theta), torch.tan(phi), a, phi_dot]
         )
 
-class QuadcopterDynamics(AnalyticalModel):
+class QuadcopterDynamics(DynamicalModel):
     def __init__(self, dt, *args, **kwargs):
         super().__init__(12, 4, dt)
         
