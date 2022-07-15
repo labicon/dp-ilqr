@@ -108,8 +108,8 @@ def face_goal(x0, x_goal):
     dX = x_goal[:, :2] - x0[:, :2]
     headings = np.arctan2(*np.rot90(dX, 1))
 
-    x0[:, 2] = headings + VAR * np.random.randn(x0.shape[0])
-    x_goal[:, 2] = headings + VAR * np.random.randn(x0.shape[0])
+    x0[:, -1] = headings + VAR * np.random.randn(x0.shape[0])
+    x_goal[:, -1] = headings + VAR * np.random.randn(x0.shape[0])
 
     return x0, x_goal
 

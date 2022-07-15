@@ -149,10 +149,9 @@ class UnicycleDynamics4D(DynamicalModel):
 
     @staticmethod
     def f(x, u):
-        *_, theta, v = x
+        *_, v, theta = x
         a, omega = u
         return torch.stack([v * torch.cos(theta), v * torch.sin(theta), a, omega])
-
 
 
 class UnicycleDynamics4dSymbolic(AnalyticalModel):
@@ -185,10 +184,10 @@ class BikeDynamics5D(DynamicalModel):
 
     @staticmethod
     def f(x, u):
-        *_, theta, v, phi = x
+        *_, v, theta, phi = x
         a, phi_dot = u
         return torch.stack(
-            [v * torch.cos(theta), v * torch.sin(theta), torch.tan(phi), a, phi_dot]
+            [v * torch.cos(theta), v * torch.sin(theta), a, torch.tan(phi), phi_dot]
         )
 
 
