@@ -8,7 +8,7 @@ import numpy as np
 import torch
 from scipy.optimize import approx_fprime
 
-from decentralized.util import compute_pairwise_distance, split_agents
+from decentralized.util import Point, compute_pairwise_distance, split_agents
 
 
 class Cost(abc.ABC):
@@ -107,7 +107,7 @@ class ProximityCost(Cost):
         self.x_dims = x_dims
         self.radius = radius
 
-    def __call__(self, x):
+    def __call__(self, x, *_):
         """Penalizes distances underneath some radius between agents"""
         if len(self.x_dims) == 1:
             return 0.0
@@ -117,6 +117,62 @@ class ProximityCost(Cost):
 
     def __repr__(self):
         return f"ProximityCost(x_dims: {self.x_dims}, radius: {self.radius})"
+
+
+class CouplingCost(Cost):
+    
+    """
+    Models the couplings between different agents in the MultiDynamicalModel sense, i.e.
+    how should we penalize two agents in the aggregate state for their relative distance?
+    
+    NOTE: This logic assumes that interactions between agents are symmetric, such that we
+    can add jacobians & hessians equally in both directions.
+    """
+    
+    def __init__(self, x_dims, radius):
+        self.x_dims = x_dims
+        self.radius = radius
+        self.n_agents = len(x_dims)
+    
+    def __call__(self, x):
+        if len(self.x_dims) == 1:
+            return 0.0
+        distances = compute_pairwise_distance(x, self.x_dims)
+        pair_costs = np.fmin(np.zeros(1), distances - self.radius) ** 2
+        return pair_costs.sum(axis=0)
+    
+    def quadraticize(self, x):
+        nx = sum(self.x_dims)
+        nx_per_agent = self.x_dims[0]
+        L_x = np.zeros((nx))
+        L_xx = np.zeros((nx, nx))
+        
+        for i in range(self.n_agents):            
+            for j in range(i+1, self.n_agents):
+                L_xi = np.zeros((nx))
+                L_xxi = np.zeros((nx, nx))
+                
+                L_x_pair, L_xx_pair = quadraticize_distance(
+                    Point(*x[..., nx_per_agent*i : nx_per_agent*i+2]), 
+                    Point(*x[..., nx_per_agent*j : nx_per_agent*j+2]), 
+                    self.radius
+                )
+                
+                ix, iy = nx_per_agent*i, nx_per_agent*i + 1
+                jx, jy = nx_per_agent*j, nx_per_agent*j + 1
+                
+                L_xi[ix] = +L_x_pair[0]
+                L_xi[jx] = -L_x_pair[0]
+                L_xi[iy] = +L_x_pair[1]
+                L_xi[jy] = -L_x_pair[1]
+                L_xxi[ix,ix] = L_xxi[jx,jx] = L_xx_pair[0,0]
+                L_xxi[iy,iy] = L_xxi[jy,jy] = L_xx_pair[1,1]
+                L_xxi[ix,iy] = L_xxi[iy,ix] = L_xxi[jx,jy] = L_xxi[jy,jx] = L_xx_pair[0,1]
+                
+                L_x += L_xi
+                L_xx += L_xxi
+                
+        return L_x, None, L_xx, None, None
 
 
 class GameCost(Cost):
@@ -167,6 +223,48 @@ class GameCost(Cost):
     def __repr__(self):
         ids = [ref_cost.id for ref_cost in self.ref_costs]
         return f"GameCost(\n\tids: {ids},\n\tprox_cost: {self.prox_cost}\n)"
+
+
+def quadraticize_distance(point_a, point_b, radius):
+    """Quadraticize the distance between two points thresholded by a radius,
+       returning the corresponding 2x1 jacobian and 2x2 hessian.
+       
+       NOTE: we assume that the states are organized in matrix form as [x, y, ...]
+       rather than [y, x].
+
+    """
+    
+    assert point_a.ndim == point_b.ndim
+
+    L_x = np.zeros((2))
+    L_xx = np.zeros((2, 2))
+    
+    dx = point_a.x - point_b.x
+    dy = point_a.y - point_b.y
+    distance = np.hypot(dx, dy)
+
+    if distance > radius:
+        return L_x, L_xx
+    
+    L_x = 2 * (distance - radius) / distance * np.array([dx, dy])
+
+    L_xx[0,0] = (
+        2*radius*dx**2 / distance**3
+      - 2*radius / distance 
+      + 2
+    )
+    L_xx[0,1] = L_xx[1,0] = \
+        2*radius*dx*dy / np.sqrt(
+            point_b.x**2 - 2*point_b.x*point_a.x + point_b.y**2 
+          + point_a.x**2 - 2*point_b.y*point_a.y + point_a.y**2
+        ) ** 3
+    L_xx[1,1] = (
+        2*radius*dy**2 / distance**3
+      - 2*radius / distance 
+      + 2
+    )
+
+    return L_x, L_xx
 
 
 def quadraticize_finite_difference(cost, x, u, terminal=False):

@@ -1,5 +1,5 @@
 from .control import ilqrSolver, RecedingHorizonController
-from .cost import Cost, ReferenceCost, ProximityCost, GameCost
+from .cost import Cost, ReferenceCost, ProximityCost, CouplingCost, GameCost, quadraticize_distance
 from .dynamics import (
     DynamicalModel,
     AnalyticalModel,
