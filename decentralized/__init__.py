@@ -2,10 +2,12 @@ from .control import ilqrSolver, RecedingHorizonController
 from .cost import Cost, ReferenceCost, ProximityCost, GameCost
 from .dynamics import (
     DynamicalModel,
+    AnalyticalModel,
     MultiDynamicalModel,
     DoubleIntDynamics4D,
     CarDynamics3D,
     UnicycleDynamics4D,
+    UnicycleDynamics4dSymbolic,
     BikeDynamics5D,
 )
 from .problem import (

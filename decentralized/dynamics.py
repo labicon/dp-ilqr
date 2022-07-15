@@ -72,7 +72,11 @@ class DynamicalModel(abc.ABC):
 class AnalyticalModel(DynamicalModel):
     """Mix-in for analytical linearization"""
 
+    def f(self, x, u):
+        return self._f(x, u)
+
     def linearize(self, x, u):
+        """Linearization via numerical Jacobians A_num and B_num"""
         return self.A_num(x, u), self.B_num(x, u)
 
 
@@ -172,10 +176,9 @@ class UnicycleDynamics4dSymbolic(AnalyticalModel):
         A = x_dot.jacobian(x)
         B = x_dot.jacobian(u)
 
-        
-
-
-
+        self._f = sym.lambdify((x, u), sym.Array(x_dot)[:,0])
+        self.A_num = sym.lambdify((x, u), A)
+        self.B_num = sym.lambdify((x, u), B)
 
 
 class BikeDynamics5D(DynamicalModel):
