@@ -2,6 +2,7 @@
 
 """Various utilities used in other areas of the code."""
 
+from dataclasses import dataclass
 import itertools
 import random
 
@@ -14,24 +15,29 @@ import torch
 π = np.pi
 
 
+@dataclass
 class Point(object):
-    """Point in 2D"""
+    """Point in 3D"""
 
-    def __init__(self, x, y):
-        self.x = x
-        self.y = y
+    x: float
+    y: float
+    z: float = 0
+
+    @property
+    def ndim(self):
+        return 2 if self.z == 0 else 3
 
     def __add__(self, other):
-        return Point(self.x + other.x, self.y + other.y)
+        return Point(self.x + other.x, self.y + other.y, self.z + other.z)
 
     def __sub__(self, other):
-        return Point(self.x - other.x, self.y - other.y)
+        return Point(self.x - other.x, self.y - other.y, self.z - other.z)
 
     def __mul__(self, other):
-        return Point(self.x * other.x, self.y * other.y)
+        return Point(self.x * other.x, self.y * other.y, self.z * other.z)
 
     def __repr__(self):
-        return str((self.x, self.y))
+        return str((self.x, self.y, self.z))
 
 
 def compute_pairwise_distance(X, x_dims):
