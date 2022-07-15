@@ -1,44 +1,69 @@
 #!/usr/bin/env python
 
-"""Unit test for dynamical models
-
-TODO
-
-"""
+"""Unit test for dynamical models"""
 
 import unittest
 
 import numpy as np
+import torch
 
-from decentralized import (
-    DoubleInt1dDynamics, DoubleInt2dDynamics, CarDynamics, UnicycleDynamics
-)
+from decentralized import UnicycleDynamics4D, UnicycleDynamics4dSymbolic
 
 
-class TestDoubleInt1dDynamics(unittest.TestCase):
-    
+class _TestUnicycleDynamics4D:
+    def _test_integrate(self, x0, u, X_truth):
+        x = x0.copy()
+        for x_expect in X_truth:
+            self.assertTrue(np.allclose(x, x_expect, atol=0.1))
+            x = self.model(x, u)
+
+
+class TestUnicycleAnalytical(_TestUnicycleDynamics4D, unittest.TestCase):
     def setUp(self):
-        self.model = DoubleInt1dDynamics(1.0)
+        self.mm = np
+        self.model = UnicycleDynamics4dSymbolic(1.0)
 
-    def test_call(self):
-        x0 = np.array()
+    def test_straight(self):
+        x0 = np.zeros(4)
+        u = np.array([1, 0])
+        X_truth = np.array([
+            [0, 0, 1, 0],
+            [1, 0, 2, 0],
+            [3, 0, 3, 0]
+        ])
+        super()._test_integrate(x0, u, X_truth)
 
+    def test_curve(self):
+        v = np.pi
+        r = 10
+        omega = v / r
+        theta0 = np.pi/2 + omega/2
+        x0 = np.array([r, 0, v, theta0])
+        u = np.array([0, omega])
+        theta = np.arange(0, 2*np.pi + omega, omega).reshape(-1,1)
+        X_truth = np.hstack([
+            r * np.cos(theta),
+            r * np.sin(theta),
+            np.full(theta.shape, v),
+            theta0 + theta
+        ])
+        super()._test_integrate(x0, u, X_truth)
 
-class TestDoubleInt2dDynamics(unittest.TestCase):
-
+class TestUnicycleDynamicsAutodiff(_TestUnicycleDynamics4D, unittest.TestCase):
     def setUp(self):
-        self.model = DoubleInt2dDynamics(1.0)
+        self.mm = torch
+        self.model = UnicycleDynamics4D(1.0)
+
+    def test_integrate(self):
+        x0 = torch.zeros(4)
+        u = torch.tensor([1.0, 0.0])
+        X_truth = torch.tensor([
+            [0, 0, 1, 0],
+            [1, 0, 2, 0],
+            [3, 0, 3, 0]
+        ])
+        super()._test_integrate(x0, u, X_truth)
 
 
-class TestCarDynamics(unittest.TestCase):
-
-    def setUp(self):
-        self.model = CarDynamics(1.0)
-
-
-class TestUnicycleDynamics(unittest.TestCase):
-
-    def setUp(self):
-        self.model = UnicycleDynamics(1.0)
-
-        
+if __name__ == "__main__":
+    unittest.main()
