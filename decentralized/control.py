@@ -8,6 +8,7 @@
 """
 
 
+import numpy as np
 import torch
 
 
@@ -53,6 +54,7 @@ class ilqrSolver:
 
         self.problem = problem
         self.N = N
+        self.mm = None
 
         self._reset_regularization()
 
@@ -80,22 +82,22 @@ class ilqrSolver:
         """Rollout the system from an initial state with a control sequence U."""
 
         N = U.shape[0]
-        X = torch.zeros((N + 1, self.n_x))
+        X = self.mm.zeros((N + 1, self.n_x))
         X[0] = x0.flatten()
         J = 0.0
 
         for t in range(N):
             X[t + 1] = self.dynamics(X[t], U[t])
             J += self.cost(X[t], U[t]).item()
-        J += self.cost(X[-1], torch.zeros(self.n_u), terminal=True).item()
+        J += self.cost(X[-1], self.mm.zeros(self.n_u), terminal=True).item()
 
         return X, J
 
     def _forward_pass(self, X, U, K, d, α):
         """Forward pass to rollout the control gains K and d."""
 
-        X_next = torch.zeros((self.N + 1, self.n_x))
-        U_next = torch.zeros((self.N, self.n_u))
+        X_next = self.mm.zeros((self.N + 1, self.n_x))
+        U_next = self.mm.zeros((self.N, self.n_u))
 
         X_next[0] = X[0]
         J = 0.0
@@ -108,21 +110,21 @@ class ilqrSolver:
             X_next[t + 1] = self.dynamics(X_next[t], U_next[t])
 
             J += self.cost(X_next[t], U_next[t]).item()
-        J += self.cost(X_next[-1], torch.zeros((self.n_u)), terminal=True).item()
+        J += self.cost(X_next[-1], self.mm.zeros((self.n_u)), terminal=True).item()
 
         return X_next, U_next, J
 
     def _backward_pass(self, X, U):
         """Backward pass to compute gain matrices K and d from the trajectory."""
 
-        K = torch.zeros((self.N, self.n_u, self.n_x))  # linear feedback gain
-        d = torch.zeros((self.N, self.n_u))  # feedforward gain
+        K = self.mm.zeros((self.N, self.n_u, self.n_x))  # linear feedback gain
+        d = self.mm.zeros((self.N, self.n_u))  # feedforward gain
 
         # self.μ = 0.0 # DBG
-        reg = self.μ * torch.eye(self.n_x)
+        reg = self.μ * np.eye(self.n_x)
 
         L_x, _, L_xx, _, _ = self.cost.quadraticize(
-            X[-1], torch.zeros(self.n_u), terminal=True
+            X[-1], self.mm.zeros(self.n_u), terminal=True
         )
         p = L_x
         P = L_xx
@@ -137,8 +139,8 @@ class ilqrSolver:
             Q_uu = L_uu + B.T @ (P + reg) @ B
             Q_ux = L_ux + B.T @ (P + reg) @ A
 
-            K[t] = -torch.linalg.solve(Q_uu, Q_ux)
-            d[t] = -torch.linalg.solve(Q_uu, Q_u)
+            K[t] = -self.mm.linalg.solve(Q_uu, Q_ux)
+            d[t] = -self.mm.linalg.solve(Q_uu, Q_u)
 
             p = Q_x + K[t].T @ Q_uu @ d[t] + K[t].T @ Q_u + Q_ux.T @ d[t]
             P = Q_xx + K[t].T @ Q_uu @ K[t] + K[t].T @ Q_ux + Q_ux.T @ K[t]
@@ -148,10 +150,12 @@ class ilqrSolver:
 
     def solve(self, x0, U=None, n_lqr_iter=50, tol=1e-3):
 
+        self.mm = torch if torch.is_tensor(x0) else np
+
         if U is None:
-            U = torch.zeros((self.N, self.n_u))
-            # U = torch.full((self.N, self.n_u), 0.1)
-            # U = 1e-3 * torch.rand((self.N, self.n_u))
+            U = self.mm.zeros((self.N, self.n_u))
+            # U = self.mm.full((self.N, self.n_u), 0.1)
+            # U = 1e-3 * self.mm.rand((self.N, self.n_u))
         if U.shape != (self.N, self.n_u):
             raise ValueError
 
@@ -159,7 +163,7 @@ class ilqrSolver:
 
         x0 = x0.reshape(-1, 1)
         is_converged = False
-        alphas = 1.1 ** (-torch.arange(self.N_LS_ITER, dtype=torch.float32) ** 2)
+        alphas = 1.1 ** (-self.mm.arange(self.N_LS_ITER, dtype=self.mm.float32) ** 2)
 
         X, J_star = self._rollout(x0, U)
 
@@ -295,7 +299,7 @@ class RecedingHorizonController:
             X, U, J = self._controller.solve(self.x, U, **kwargs)
 
             # Add random noise to the trajectory to add some realism.
-            # X += torch.random.normal(size=X.shape, scale=0.05)
+            # X += self.mm.random.normal(size=X.shape, scale=0.05)
 
             # Shift the state to our predicted value. NOTE: this can be
             # updated externally for actual sensor feedback.
@@ -304,7 +308,7 @@ class RecedingHorizonController:
             yield X[: self.step_size], U[: self.step_size], J
 
             U = U[self.step_size :]
-            U = torch.vstack([U, torch.zeros((self.step_size, self._controller.n_u))])
+            U = self.mm.vstack([U, self.mm.zeros((self.step_size, self._controller.n_u))])
 
             if J < J_converge:
                 print("Converged!")
