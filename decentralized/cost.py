@@ -70,12 +70,18 @@ class ReferenceCost(Cost):
             ReferenceCost._id += 1
 
         # Define states as rows so that xf doesn't broadcast x in __call__.
-        self.xf = xf.reshape(1, -1)
+        # self.xf = xf.reshape(1, -1)
+        self.xf = xf
 
         self.Q = Q
         self.R = R
         self.Qf = Qf
         self.id = id
+
+        self.Q_plus_QT = Q + Q.T
+        self.R_plus_RT = R + R.T
+        self.nx = Q.shape[0]
+        self.nu = R.shape[0]
 
     @property
     def x_dim(self):
@@ -94,6 +100,22 @@ class ReferenceCost(Cost):
             u = u.reshape(1, -1)
             return (x - self.xf) @ self.Q @ (x - self.xf).T + u @ self.R @ u.T
         return (x - self.xf) @ self.Qf @ (x - self.xf).T
+
+    def quadraticize(self, x, u, terminal=False):
+        
+        L_x = (x - self.xf).T @ self.Q_plus_QT
+        L_u = u.T @ self.R_plus_RT
+        L_xx = self.Q_plus_QT
+        L_uu = self.R_plus_RT
+        L_ux = np.zeros((self.nu, self.nx))
+        
+        if terminal:
+            L_x = (x - self.xf).T @ (self.Qf + self.Qf.T)
+            L_xx = self.Qf + self.Qf.T
+            L_u = np.zeros((self.nu))
+            L_uu = np.zeros((self.nu, self.nu))
+        
+        return L_x, L_u, L_xx, L_uu, L_ux
 
     def __repr__(self):
         return (

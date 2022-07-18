@@ -41,7 +41,6 @@ class TestCouplingCost(unittest.TestCase):
         self.assertTrue(np.allclose(Lxx, Lxx_diff, atol=0.1))
 
 
-@unittest.skip("TODO: switch to analytical")
 class TestReferenceCost(unittest.TestCase):
     
     def setUp(self):
