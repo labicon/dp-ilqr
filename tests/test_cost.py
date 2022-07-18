@@ -11,7 +11,7 @@ import unittest
 import numpy as np
 
 from decentralized import (
-    ReferenceCost, CouplingCost, quadraticize_finite_difference
+    ReferenceCost, CouplingCost, GameCost, quadraticize_finite_difference, split_agents
 )
 
 
@@ -82,6 +82,56 @@ class TestReferenceCost(unittest.TestCase):
         self.assertTrue(np.allclose(L_xx, L_xx_expect))
         self.assertTrue(np.allclose(L_uu, L_uu_expect))
         self.assertTrue(np.allclose(L_ux, L_ux_expect))
+
+
+class TestGameCost(unittest.TestCase):
+
+    def setUp(self):
+        pass
+
+    def test_single(self):
+        xf = np.zeros(4)
+        Q = np.eye(4)
+        R = np.eye(2)
+        player_cost = ReferenceCost(xf, Q, R)
+        game_cost = GameCost([player_cost])
+
+        x = np.random.rand(4)
+        u = np.random.rand(2)
+        cost_expect = np.sum(x**2) + np.sum(u**2)
+        self.assertAlmostEqual(player_cost(x, u), game_cost(x, u))
+        self.assertAlmostEqual(player_cost(x, u), cost_expect)
+
+        # Approximately validate with finite difference.
+        Lx, Lu, Lxx, Luu, _ = game_cost.quadraticize(x, u)
+        Lx_diff, Lu_diff, Lxx_diff, Luu_diff, _ = \
+            quadraticize_finite_difference(game_cost.__call__, x, u)
+
+        self.assertTrue(np.allclose(Lx, Lx_diff, atol=0.001))
+        self.assertTrue(np.allclose(Lu, Lu_diff, atol=0.001))
+        self.assertTrue(np.allclose(Lxx, Lxx_diff, atol=0.1))
+        self.assertTrue(np.allclose(Luu, Luu_diff, atol=0.1))
+
+    def test_multi(self):
+        xf = np.array([0, 0, -1, 2, 2, -1, 2, 0, -1])
+        Q = np.eye(3)
+        R = np.eye(2)
+        x_dims = [3, 3, 3]
+        radius = 5.0
+        player_costs = [ReferenceCost(xfi, Q, R) for xfi in split_agents(xf, x_dims)]
+        prox_cost = CouplingCost(x_dims, radius)
+        game_cost = GameCost(player_costs, prox_cost)
+
+        x = 5 * np.random.randn(9)
+        u = np.random.randn(6)
+        Lx, Lu, Lxx, Luu, _ = game_cost.quadraticize(x, u)
+        Lx_diff, Lu_diff, Lxx_diff, Luu_diff, _ = \
+            quadraticize_finite_difference(game_cost.__call__, x, u)
+
+        self.assertTrue(np.allclose(Lx, Lx_diff, atol=0.001))
+        self.assertTrue(np.allclose(Lu, Lu_diff, atol=0.001))
+        self.assertTrue(np.allclose(Lxx, Lxx_diff, atol=0.1))
+        self.assertTrue(np.allclose(Luu, Luu_diff, atol=0.1))
 
 
 if __name__ == "__main__":

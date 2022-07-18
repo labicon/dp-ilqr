@@ -6,6 +6,7 @@ import abc
 
 import numpy as np
 import torch
+from scipy.linalg import block_diag
 from scipy.optimize import approx_fprime
 
 from decentralized.util import Point, compute_pairwise_distance, split_agents
@@ -71,7 +72,7 @@ class ReferenceCost(Cost):
 
         # Define states as rows so that xf doesn't broadcast x in __call__.
         # self.xf = xf.reshape(1, -1)
-        self.xf = xf
+        self.xf = xf.flatten()
 
         self.Q = Q
         self.R = R
@@ -102,7 +103,9 @@ class ReferenceCost(Cost):
         return (x - self.xf) @ self.Qf @ (x - self.xf).T
 
     def quadraticize(self, x, u, terminal=False):
-        
+        x = x.flatten()
+        u = u.flatten()
+
         L_x = (x - self.xf).T @ self.Q_plus_QT
         L_u = u.T @ self.R_plus_RT
         L_xx = self.Q_plus_QT
@@ -154,7 +157,7 @@ class CouplingCost(Cost):
         pair_costs = np.fmin(np.zeros(1), distances - self.radius) ** 2
         return pair_costs.sum(axis=0)
     
-    def quadraticize(self, x):
+    def quadraticize(self, x, *_):
         nx = sum(self.x_dims)
         nx_per_agent = self.x_dims[0]
         L_x = np.zeros((nx))
@@ -180,7 +183,7 @@ class CouplingCost(Cost):
                 L_xi[jy] = -L_x_pair[1]
 
                 L_xxi[ix,ix] = L_xxi[jx,jx] = L_xx_pair[0,0]
-                L_xxi[iy,iy] = L_xxi[jy,jy] =  L_xx_pair[1,1]
+                L_xxi[iy,iy] = L_xxi[jy,jy] = L_xx_pair[1,1]
                 L_xxi[ix,iy] = L_xxi[iy,ix] = L_xxi[jx,jy] = L_xxi[jy,jx] = L_xx_pair[0,1]
 
                 L_xxi[ix,jx] = L_xxi[jx,ix] = -L_xx_pair[0,0]
@@ -198,7 +201,7 @@ class GameCost(Cost):
 
         if not proximity_cost:
 
-            def proximity_cost(*_):
+            def proximity_cost(_):
                 return 0.0
 
         self.ref_costs = reference_costs
@@ -210,6 +213,7 @@ class GameCost(Cost):
         self.x_dims = [ref_cost.x_dim for ref_cost in self.ref_costs]
         self.u_dims = [ref_cost.u_dim for ref_cost in self.ref_costs]
         self.ids = [ref_cost.id for ref_cost in self.ref_costs]
+        self.n_agents = len(reference_costs)
 
     def __call__(self, x, u, terminal=False):
         x_split = split_agents(x, self.x_dims)
@@ -220,6 +224,36 @@ class GameCost(Cost):
             ref_total += ref_cost(xi, ui, terminal)[0]
 
         return self.PROX_WEIGHT * self.prox_cost(x) + self.REF_WEIGHT * ref_total
+    
+    def quadraticize(self, x, u, terminal=False):
+        L_xs, L_us = [], []
+        L_xxs, L_uus, L_uxs = [], [], []
+        
+        x_split = split_agents(x, self.x_dims)
+        u_split = split_agents(u, self.u_dims)
+        
+        # Compute agent quadraticizations in individual state spaces.
+        for ref_cost, xi, ui in zip(self.ref_costs, x_split, u_split):
+            L_xi, L_ui, L_xxi, L_uui, L_uxi = ref_cost.quadraticize(xi.flatten(), ui.flatten(), terminal)
+            L_xs.append(L_xi)
+            L_us.append(L_ui)
+            L_xxs.append(L_xxi)
+            L_uus.append(L_uui)
+            L_uxs.append(L_uxi)
+        
+        L_x = np.hstack(L_xs)
+        L_u = np.hstack(L_us)
+        L_xx = block_diag(*L_xxs)
+        L_uu = block_diag(*L_uus)
+        L_ux = block_diag(*L_uxs)
+        
+        # Incorporate coupling costs in full cartesian state space.
+        if self.n_agents > 1:
+            L_x_prox, _, L_xx_prox, _, _ = self.prox_cost.quadraticize(x, u)
+            L_x += self.PROX_WEIGHT * L_x_prox
+            L_xx += self.PROX_WEIGHT * L_xx_prox
+        
+        return L_x, L_u, L_xx, L_uu, L_ux
 
     def split(self, graph):
         """Split this model into sub game-costs dictated by the interaction graph"""
