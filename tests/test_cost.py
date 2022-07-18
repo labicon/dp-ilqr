@@ -11,7 +11,7 @@ import unittest
 import numpy as np
 
 from decentralized import (
-    ReferenceCost, CouplingCost, GameCost, quadraticize_distance
+    ReferenceCost, CouplingCost, quadraticize_finite_difference
 )
 
 
@@ -28,19 +28,17 @@ class TestCouplingCost(unittest.TestCase):
         expected = (np.hypot(1, 2) - r)**2
         self.assertAlmostEqual(cost, expected)
 
-    def test_quadraticize_2(self):
-        r = 10.0
-        x = np.array([0, 0, 0, 1, 2, 0])
-        cost = CouplingCost([3, 3], r)
-        Lx, *_ = cost.quadraticize(x)
-        
-        dx = 1
-        dy = 2
-        dist = np.hypot(dx, dy)
-        Lx_half = 2 * (r - dist) / dist * np.array([dx, dy, 0])
-        Lx_expect = np.r_[Lx_half, -Lx_half]
+    def test_quadraticize_3(self):
+        x = np.arange(9)
+        cost = CouplingCost([3, 3, 3], 10.0)
+        Lx, _, Lxx, *_ = cost.quadraticize(x)
 
-        self.assertTrue(np.allclose(Lx, Lx_expect))
+        u = np.zeros(6)
+        Lx_diff, _, Lxx_diff, *_ = quadraticize_finite_difference(cost.__call__, x, u, False)
+
+        # Approximately validate with finite difference.
+        self.assertTrue(np.allclose(Lx, Lx_diff, atol=0.1))
+        self.assertTrue(np.allclose(Lxx, Lxx_diff, atol=0.1))
 
 
 @unittest.skip("TODO: switch to analytical")

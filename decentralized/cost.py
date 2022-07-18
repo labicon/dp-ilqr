@@ -120,21 +120,12 @@ class ProximityCost(Cost):
 
 
 class CouplingCost(Cost):
-    
-    """
-    Models the couplings between different agents in the MultiDynamicalModel sense, i.e.
-    how should we penalize two agents in the aggregate state for their relative distance?
-    
-    NOTE: This logic assumes that interactions between agents are symmetric, such that we
-    can add jacobians & hessians equally in both directions.
-    """
-    
     def __init__(self, x_dims, radius):
         self.x_dims = x_dims
         self.radius = radius
         self.n_agents = len(x_dims)
     
-    def __call__(self, x):
+    def __call__(self, x, *_):
         if len(self.x_dims) == 1:
             return 0.0
         distances = compute_pairwise_distance(x, self.x_dims)
@@ -160,15 +151,20 @@ class CouplingCost(Cost):
                 
                 ix, iy = nx_per_agent*i, nx_per_agent*i + 1
                 jx, jy = nx_per_agent*j, nx_per_agent*j + 1
-                
-                L_xi[ix] = +L_x_pair[0]
+
+                L_xi[ix] = L_x_pair[0]
+                L_xi[iy] = L_x_pair[1]
                 L_xi[jx] = -L_x_pair[0]
-                L_xi[iy] = +L_x_pair[1]
                 L_xi[jy] = -L_x_pair[1]
+
                 L_xxi[ix,ix] = L_xxi[jx,jx] = L_xx_pair[0,0]
-                L_xxi[iy,iy] = L_xxi[jy,jy] = L_xx_pair[1,1]
+                L_xxi[iy,iy] = L_xxi[jy,jy] =  L_xx_pair[1,1]
                 L_xxi[ix,iy] = L_xxi[iy,ix] = L_xxi[jx,jy] = L_xxi[jy,jx] = L_xx_pair[0,1]
-                
+
+                L_xxi[ix,jx] = L_xxi[jx,ix] = -L_xx_pair[0,0]
+                L_xxi[iy,jy] = L_xxi[jy,iy] = -L_xx_pair[1,1]
+                L_xxi[ix,jy] = L_xxi[jy,ix] = L_xxi[iy,jx] = L_xxi[jx,iy] = -L_xx_pair[0,1]
+
                 L_x += L_xi
                 L_xx += L_xxi
                 
