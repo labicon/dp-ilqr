@@ -7,7 +7,7 @@ import unittest
 import numpy as np
 import torch
 
-from decentralized import UnicycleDynamics4D, UnicycleDynamics4dSymbolic
+from decentralized import UnicycleDynamics4D, UnicycleDynamics4dSymbolic, linearize_finite_difference
 
 
 class _TestUnicycleDynamics4D:
@@ -21,15 +21,17 @@ class _TestUnicycleDynamics4D:
 class TestUnicycleAnalytical(_TestUnicycleDynamics4D, unittest.TestCase):
     def setUp(self):
         self.mm = np
-        self.model = UnicycleDynamics4dSymbolic(1.0)
+        self.model = UnicycleDynamics4dSymbolic(0.5)
 
     def test_straight(self):
         x0 = np.zeros(4)
         u = np.array([1, 0])
         X_truth = np.array([
+            [0, 0, 0, 0],
             [0, 0, 1, 0],
             [1, 0, 2, 0],
             [3, 0, 3, 0]
+
         ])
         super()._test_integrate(x0, u, X_truth)
 
@@ -48,6 +50,16 @@ class TestUnicycleAnalytical(_TestUnicycleDynamics4D, unittest.TestCase):
             theta0 + theta
         ])
         super()._test_integrate(x0, u, X_truth)
+    
+    def test_linearize(self):
+        x = 10 * np.random.randn(4)
+        u = 10 * np.random.randn(2)
+        A, B = self.model.linearize(x, u)
+        A_diff, B_diff = linearize_finite_difference(self.model.__call__, x, u)
+
+        self.assertTrue(np.allclose(A, A_diff, atol=1e-3))
+        self.assertTrue(np.allclose(B, B_diff, atol=1e-3))
+
 
 class TestUnicycleDynamicsAutodiff(_TestUnicycleDynamics4D, unittest.TestCase):
     def setUp(self):

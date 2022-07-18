@@ -76,8 +76,8 @@ class AnalyticalModel(DynamicalModel):
         return self._f(x, u)
 
     def linearize(self, x, u):
-        """Linearization via numerical Jacobians A_num and B_num"""
-        return self.A_num(x, u), self.B_num(x, u)
+        """Linearization via numerical Jacobians A_num and B_num with Euler method"""
+        return np.eye(x.size) + self.dt * self.A_num(x, u), self.dt * self.B_num(x, u)
 
 
 class MultiDynamicalModel(DynamicalModel):
@@ -180,6 +180,7 @@ class UnicycleDynamics4dSymbolic(AnalyticalModel):
         self.A_num = sym.lambdify((x, u), A)
         self.B_num = sym.lambdify((x, u), B)
         
+
 class QuadcopterDynamicsSymbolic(AnalyticalModel):
     def __init__(self, dt, *args, **kwargs):
         super().__init__(12, 4, dt , *args, **kwargs)
@@ -264,10 +265,6 @@ class QuadcopterDynamicsSymbolic(AnalyticalModel):
         self._f = sym.lambdify((x, u), sym.Array(f_sym)[:,0])
         self.A_num = sym.lambdify((x, u), A)
         self.B_num = sym.lambdify((x, u), B)
-
-
-
-
 
 
 class BikeDynamics5D(DynamicalModel):

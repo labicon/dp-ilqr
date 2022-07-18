@@ -9,6 +9,7 @@ from .dynamics import (
     UnicycleDynamics4D,
     UnicycleDynamics4dSymbolic,
     BikeDynamics5D,
+    linearize_finite_difference
 )
 from .problem import (
     solve_decentralized,

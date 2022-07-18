@@ -211,7 +211,9 @@ class ilqrSolver:
 
             print(f"{i+1}/{n_lqr_iter}\tJ: {J_star:g}\tμ: {self.μ:g}\tΔ: {self.Δ:g}")
 
-        return X.detach(), U.detach(), J
+        if torch.is_tensor(X) and torch.is_tensor(U):
+            return X.detach(), U.detach(), J
+        return X, U, J
 
     def _reset_regularization(self):
         """Reset regularization terms to their factory defaults."""
