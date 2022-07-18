@@ -5,33 +5,83 @@
 import unittest
 
 import numpy as np
-import torch
 
-from decentralized import UnicycleDynamics4D, UnicycleDynamics4dSymbolic, linearize_finite_difference
+import decentralized as dec
 
 
-class _TestUnicycleDynamics4D:
+class _TestDynamics:
     def _test_integrate(self, x0, u, X_truth):
         x = x0.copy()
         for x_expect in X_truth:
             self.assertTrue(np.allclose(x, x_expect, atol=0.1))
             x = self.model(x, u)
 
+    def _test_linearize(self, x0, u, **kwargs):
+        A, B = self.model.linearize(x0, u)
+        A_diff, B_diff = dec.linearize_finite_difference(self.model.__call__, x0, u)
 
-class TestUnicycleAnalytical(_TestUnicycleDynamics4D, unittest.TestCase):
+        self.assertTrue(np.allclose(A, A_diff, **kwargs))
+        self.assertTrue(np.allclose(B, B_diff, **kwargs))
+
+
+class TestDoubleInt4D(_TestDynamics, unittest.TestCase):
     def setUp(self):
-        self.mm = np
-        self.model = UnicycleDynamics4dSymbolic(0.5)
+        self.model = dec.DoubleIntDynamics4D(0.5)
+
+    def test_call(self):
+        x = np.array([0, 2, 0, -2])
+        u = np.array([0, 2])
+        X_truth = np.array([
+            [0, 2,   0, -2],
+            [0, 1,   0, -1],
+            [0, 0.5, 0,  0],
+            [0, 0.5, 0,  1],
+            [0, 1,   0,  2]
+        ])
+        super()._test_integrate(x, u, X_truth)
+
+    def test_integrate(self):
+        x = np.random.rand(4)
+        u = np.random.rand(2)
+        super()._test_linearize(x, u)
+
+
+class TestCarDynamics3D(_TestDynamics, unittest.TestCase):
+    def setUp(self):
+        self.model = dec.CarDynamics3D(0.5)
+
+    def test_call(self):
+        x0 = np.array([0, 0, np.pi/4])
+        u = np.array([1, 0])
+        X_truth = np.c_[
+            self.model.dt * np.sqrt(2)/2 * np.array([
+                [0, 0],
+                [1, 1],
+                [2, 2],
+                [3, 3]
+            ]),
+            np.full((4,1), np.pi/4)
+        ]
+        super()._test_integrate(x0, u, X_truth)
+
+    def test_linearize(self):
+        x0 = np.random.rand(3)
+        u = np.random.randn(2)
+        super()._test_linearize(x0, u)
+        
+
+class TestUnicycle4D(_TestDynamics, unittest.TestCase):
+    def setUp(self):
+        self.model = dec.UnicycleDynamics4D(1.0)
 
     def test_straight(self):
         x0 = np.zeros(4)
         u = np.array([1, 0])
-        X_truth = np.array([
-            [0, 0, 0, 0],
-            [0, 0, 1, 0],
-            [1, 0, 2, 0],
-            [3, 0, 3, 0]
-
+        X_truth = self.model.dt * np.array([
+            [              0, 0, 0, 0],
+            [              0, 0, 1, 0],
+            [  self.model.dt, 0, 2, 0],
+            [3*self.model.dt, 0, 3, 0]
         ])
         super()._test_integrate(x0, u, X_truth)
 
@@ -54,27 +104,17 @@ class TestUnicycleAnalytical(_TestUnicycleDynamics4D, unittest.TestCase):
     def test_linearize(self):
         x = 10 * np.random.randn(4)
         u = 10 * np.random.randn(2)
-        A, B = self.model.linearize(x, u)
-        A_diff, B_diff = linearize_finite_difference(self.model.__call__, x, u)
-
-        self.assertTrue(np.allclose(A, A_diff, atol=1e-3))
-        self.assertTrue(np.allclose(B, B_diff, atol=1e-3))
+        super()._test_linearize(x, u, atol=1e-3)
 
 
-class TestUnicycleDynamicsAutodiff(_TestUnicycleDynamics4D, unittest.TestCase):
+class TestBikeDynamics5D(_TestDynamics, unittest.TestCase):
     def setUp(self):
-        self.mm = torch
-        self.model = UnicycleDynamics4D(1.0)
+        self.model = dec.BikeDynamics5D(0.5)
 
-    def test_integrate(self):
-        x0 = torch.zeros(4)
-        u = torch.tensor([1.0, 0.0])
-        X_truth = torch.tensor([
-            [0, 0, 1, 0],
-            [1, 0, 2, 0],
-            [3, 0, 3, 0]
-        ])
-        super()._test_integrate(x0, u, X_truth)
+    def test_linearize(self):
+        x = np.random.rand(5)
+        u = np.random.rand(2)
+        super()._test_linearize(x, u)
 
 
 if __name__ == "__main__":

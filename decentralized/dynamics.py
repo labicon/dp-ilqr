@@ -8,7 +8,6 @@ import numpy as np
 from scipy.linalg import block_diag
 from scipy.optimize import approx_fprime
 import sympy as sym
-import torch
 
 from decentralized.util import split_agents
 
@@ -46,20 +45,10 @@ class DynamicalModel(abc.ABC):
         """Continuous derivative of dynamics with respect to time"""
         pass
 
-    def linearize(self, x: torch.tensor, u: torch.tensor, discrete=False):
-        """Compute the Jacobian linearization of the dynamics for a particular state
-        and controls for all players.
-        """
-
-        A, B = torch.autograd.functional.jacobian(self.f, (x, u))
-
-        if discrete:
-            return A, B
-
-        # Compute the discretized jacobians with euler integration.
-        A = self.dt * A.reshape(self.n_x, self.n_x) + self.NX_EYE
-        B = self.dt * B.reshape(self.n_x, self.n_u)
-        return A, B
+    @abc.abstractmethod
+    def linearize():
+        """Linearization that computes jacobian at the current operating point"""
+        pass
 
     @classmethod
     def _reset_ids(cls):
@@ -69,7 +58,7 @@ class DynamicalModel(abc.ABC):
         return f"{type(self).__name__}(n_x: {self.n_x}, n_u: {self.n_u}, id: {self.id})"
 
 
-class AnalyticalModel(DynamicalModel):
+class SymbolicModel(DynamicalModel):
     """Mix-in for analytical linearization"""
 
     def f(self, x, u):
@@ -144,7 +133,15 @@ class DoubleIntDynamics4D(DynamicalModel):
     def f(x, u):
         *_, vx, vy = x
         ax, ay = u
-        return torch.stack([vx, vy, ax, ay])
+        return np.stack([vx, vy, ax, ay])
+
+    def linearize(self, *_):
+        A = np.array(
+            [[1, 0, self.dt, 0], [0, 1, 0, self.dt], [0, 0, 1, 0], [0, 0, 0, 1]]
+        )
+        B = self.dt * np.array([[0, 0], [0, 0], [1, 0], [0, 1]])
+
+        return A, B
 
 
 class CarDynamics3D(DynamicalModel):
@@ -155,67 +152,101 @@ class CarDynamics3D(DynamicalModel):
     def f(x, u):
         *_, theta = x
         v, omega = u
-        return torch.stack([v * torch.cos(theta), v * torch.sin(theta), omega])
+        return np.stack([v * np.cos(theta), v * np.sin(theta), omega])
+
+    def linearize(self, x, u):
+
+        v = u[0]
+        theta = x[2]
+
+        A = np.array(
+            [
+                [1, 0, -v * self.dt * np.sin(theta)],
+                [0, 1, v * self.dt * np.cos(theta)],
+                [0, 0, 1],
+            ]
+        )
+        B = self.dt * np.array([[np.cos(theta), 0], [np.sin(theta), 0], [0, 1]])
+
+        return A, B
 
 
-class UnicycleDynamics4D(DynamicalModel):
+class UnicycleDynamics4D(SymbolicModel):
     def __init__(self, dt, *args, **kwargs):
         super().__init__(4, 2, dt, *args, **kwargs)
 
-    @staticmethod
-    def f(x, u):
-        *_, v, theta = x
-        a, omega = u
-        return torch.stack([v * torch.cos(theta), v * torch.sin(theta), a, omega])
-
-
-class UnicycleDynamics4dSymbolic(AnalyticalModel):
-    def __init__(self, dt, *args, **kwargs):
-        super().__init__(4, 2, dt, *args, **kwargs)
-
-        p_x, p_y, v, theta, omega, a = sym.symbols('p_x p_y v theta omega a')
+        p_x, p_y, v, theta, omega, a = sym.symbols("p_x p_y v theta omega a")
         x = sym.Matrix([p_x, p_y, v, theta])
         u = sym.Matrix([a, omega])
 
-        x_dot = sym.Matrix([
-            x[2]*sym.cos(x[3]),
-            x[2]*sym.sin(x[3]),
-            u[0],
-            u[1],
-        ])
+        x_dot = sym.Matrix(
+            [
+                x[2] * sym.cos(x[3]),
+                x[2] * sym.sin(x[3]),
+                u[0],
+                u[1],
+            ]
+        )
 
         A = x_dot.jacobian(x)
         B = x_dot.jacobian(u)
 
-        self._f = sym.lambdify((x, u), sym.Array(x_dot)[:,0])
+        self._f = sym.lambdify((x, u), sym.Array(x_dot)[:, 0])
         self.A_num = sym.lambdify((x, u), A)
         self.B_num = sym.lambdify((x, u), B)
-        
 
-class QuadcopterDynamicsSymbolic(AnalyticalModel):
+
+class BikeDynamics5D(SymbolicModel):
     def __init__(self, dt, *args, **kwargs):
-        super().__init__(12, 4, dt , *args, **kwargs)
-        
+        super().__init__(5, 2, dt, *args, **kwargs)
+
+        p_x, p_y, theta, v, phi, a, rho = sym.symbols("p_x p_y theta v phi a rho")
+        x = sym.Matrix([p_x, p_y, v, theta, phi])
+        u = sym.Matrix([a, rho])
+
+        x_dot = sym.Matrix(
+            [
+                x[2] * sym.cos(x[3]),
+                x[2] * sym.sin(x[3]),
+                u[0],
+                x[2] * sym.tan(x[4]),
+                u[1],
+            ]
+        )
+
+        A = x_dot.jacobian(x)
+        B = x_dot.jacobian(u)
+
+        self._f = sym.lambdify((x, u), sym.Array(x_dot)[:, 0])
+        self.A_num = sym.lambdify((x, u), A)
+        self.B_num = sym.lambdify((x, u), B)
+
+
+class QuadcopterDynamicsSymbolic(SymbolicModel):
+    def __init__(self, dt, *args, **kwargs):
+        super().__init__(12, 4, dt, *args, **kwargs)
+
         # components of position (meters)
-        o_x, o_y, o_z = sym.symbols('o_x, o_y, o_z')
+        o_x, o_y, o_z = sym.symbols("o_x, o_y, o_z")
 
         # yaw, pitch, and roll angles (radians)
-        psi, theta, phi = sym.symbols('psi, theta, phi')
+        psi, theta, phi = sym.symbols("psi, theta, phi")
 
         # components of linear velocity (meters / second)
-        v_x, v_y, v_z = sym.symbols('v_x, v_y, v_z')
+        v_x, v_y, v_z = sym.symbols("v_x, v_y, v_z")
 
         # components of angular velocity (radians / second)
-        w_x, w_y, w_z = sym.symbols('w_x, w_y, w_z')
+        w_x, w_y, w_z = sym.symbols("w_x, w_y, w_z")
 
         # components of net rotor torque
-        tau_x, tau_y, tau_z = sym.symbols('tau_x, tau_y, tau_z')
+        tau_x, tau_y, tau_z = sym.symbols("tau_x, tau_y, tau_z")
 
         # net rotor force
-        f_z = sym.symbols('f_z')
+        f_z = sym.symbols("f_z")
 
-        x = sym.Matrix([o_x, o_y, o_z, psi, theta, phi, v_x,
-                        v_y, v_z, w_x, w_y, w_z])  # state variables
+        x = sym.Matrix(
+            [o_x, o_y, o_z, psi, theta, phi, v_x, v_y, v_z, w_x, w_y, w_z]
+        )  # state variables
         u = sym.Matrix([tau_x, tau_y, tau_z, f_z])  # input variables
 
         m = sym.nsimplify(0.0315)  # mass of a Crazyflie drone
@@ -236,67 +267,68 @@ class QuadcopterDynamicsSymbolic(AnalyticalModel):
         J_in1 = sym.diag(J_x, J_y, J_z)
 
         # Z-Y-X rotation sequence
-        Rz = sym.Matrix([[sym.cos(psi), -sym.sin(psi), 0],
-                         [sym.sin(psi), sym.cos(psi), 0],
-                         [0, 0, 1]])
+        Rz = sym.Matrix(
+            [
+                [sym.cos(psi), -sym.sin(psi), 0],
+                [sym.sin(psi), sym.cos(psi), 0],
+                [0, 0, 1],
+            ]
+        )
 
-        Ry = sym.Matrix([[sym.cos(theta), 0, sym.sin(theta)],
-                         [0, 1, 0],
-                         [-sym.sin(theta), 0, sym.cos(theta)]])
+        Ry = sym.Matrix(
+            [
+                [sym.cos(theta), 0, sym.sin(theta)],
+                [0, 1, 0],
+                [-sym.sin(theta), 0, sym.cos(theta)],
+            ]
+        )
 
-        Rx = sym.Matrix([[1, 0, 0],
-                         [0, sym.cos(phi), -sym.sin(phi)],
-                         [0, sym.sin(phi), sym.cos(phi)]])
+        Rx = sym.Matrix(
+            [
+                [1, 0, 0],
+                [0, sym.cos(phi), -sym.sin(phi)],
+                [0, sym.sin(phi), sym.cos(phi)],
+            ]
+        )
 
         R_1in0 = Rz * Ry * Rx
 
         # Mapping from angular velocity to angular rates
         # Compute the invserse of the mapping first:
-        Ninv = sym.Matrix.hstack((Ry * Rx).T * sym.Matrix([[0], [0], [1]]),
-                                 (Rx).T * sym.Matrix([[0], [1], [0]]),
-                                 sym.Matrix([[1], [0], [0]]))
+        Ninv = sym.Matrix.hstack(
+            (Ry * Rx).T * sym.Matrix([[0], [0], [1]]),
+            (Rx).T * sym.Matrix([[0], [1], [0]]),
+            sym.Matrix([[1], [0], [0]]),
+        )
         N = sym.simplify(Ninv.inv())  # this matrix N is what we actually want
 
         # forces in world frame
-        f_in1 = R_1in0.T * \
-            sym.Matrix([[0], [0], [-m * g]]) + sym.Matrix([[0], [0], [f_z]])
+        f_in1 = R_1in0.T * sym.Matrix([[0], [0], [-m * g]]) + sym.Matrix(
+            [[0], [0], [f_z]]
+        )
 
         # torques in world frame
         tau_in1 = sym.Matrix([[tau_x], [tau_y], [tau_z]])
 
         # Full EOM:
-        f_sym = sym.Matrix.vstack(R_1in0 * v_01in1,
-                                  N * w_01in1,
-                                  (1 / m) * (f_in1 - w_01in1.cross(m * v_01in1)),
-                                  J_in1.inv() * (tau_in1 - w_01in1.cross(J_in1 * w_01in1)))
+        f_sym = sym.Matrix.vstack(
+            R_1in0 * v_01in1,
+            N * w_01in1,
+            (1 / m) * (f_in1 - w_01in1.cross(m * v_01in1)),
+            J_in1.inv() * (tau_in1 - w_01in1.cross(J_in1 * w_01in1)),
+        )
 
         A = f_sym.jacobian(x)
         B = f_sym.jacobian(u)
 
-        self._f = sym.lambdify((x, u), sym.Array(f_sym)[:,0])
+        self._f = sym.lambdify((x, u), sym.Array(f_sym)[:, 0])
         self.A_num = sym.lambdify((x, u), A)
         self.B_num = sym.lambdify((x, u), B)
 
 
-class BikeDynamics5D(DynamicalModel):
-    def __init__(self, dt, *args, **kwargs):
-        super().__init__(5, 2, dt)
-
-    @staticmethod
-    def f(x, u):
-        *_, v, theta, phi = x
-        a, phi_dot = u
-        return torch.stack(
-            [v * torch.cos(theta), v * torch.sin(theta), a, torch.tan(phi), phi_dot]
-        )
-
-
 # Based off of https://github.com/anassinator/ilqr/blob/master/ilqr/dynamics.py
 def linearize_finite_difference(f, x, u):
-    """ "Linearization using finite difference.
-
-    NOTE: deprecated in favor of automatic differentiation.
-    """
+    """Linearization using finite difference"""
 
     n_x = x.size
     jac_eps = np.sqrt(np.finfo(float).eps)
@@ -307,18 +339,25 @@ def linearize_finite_difference(f, x, u):
     return A, B
 
 
-def linearize_multi(submodels, partition, x, u):
-    """Compute the submodel-linearizations
+def linearize_autodiff(f, x, u, discrete=False, dt=1.0):
+    """Linearization via automatic differentation"""
 
-    NOTE: deprecated in favor of automatic differentiation.
-    """
+    import torch
 
-    sub_linearizations = [
-        submodel.linearize(xi.flatten(), ui.flatten())
-        for submodel, xi, ui in zip(submodels, *partition(x, u))
-    ]
+    if not torch.is_tensor(x):
+        x = torch.from_numpy(x)
+    if not torch.is_tensor(u):
+        u = torch.from_numpy(u)
 
-    sub_As = [AB[0] for AB in sub_linearizations]
-    sub_Bs = [AB[1] for AB in sub_linearizations]
+    nx = x.shape[0]
+    nu = u.shape[0]
 
-    return block_diag(*sub_As), block_diag(*sub_Bs)
+    A, B = torch.autograd.functional.jacobian(f, (x, u))
+
+    if discrete:
+        return A, B
+
+    # Compute the discretized jacobians with euler integration.
+    A = dt * A.reshape(nx, nx) + np.eye(nx)
+    B = dt * B.reshape(nx, nu)
+    return A, B

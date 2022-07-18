@@ -2,14 +2,14 @@ from .control import ilqrSolver, RecedingHorizonController
 from .cost import Cost, ReferenceCost, ProximityCost, CouplingCost, GameCost, quadraticize_distance, quadraticize_finite_difference
 from .dynamics import (
     DynamicalModel,
-    AnalyticalModel,
+    SymbolicModel,
     MultiDynamicalModel,
     DoubleIntDynamics4D,
     CarDynamics3D,
     UnicycleDynamics4D,
-    UnicycleDynamics4dSymbolic,
     BikeDynamics5D,
-    linearize_finite_difference
+    linearize_finite_difference,
+    linearize_autodiff
 )
 from .problem import (
     solve_decentralized,
