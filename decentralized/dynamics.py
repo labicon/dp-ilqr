@@ -30,7 +30,8 @@ class DynamicalModel(abc.ABC):
 
     def __call__(self, x, u):
         """Zero-order hold to integrate continuous dynamics f"""
-        return x + self.f(x, u) * self.dt
+        # print(type(x),type(self.f(x,u)),type(self.dt))
+        return x + np.asarray(self.f(x, u)) * self.dt
         # Single RK4 integration of continuous dynamics.
         # k1 = self.dt * self.f(x, u)
         # k2 = self.dt * self.f(x + 0.5 * k1, u)
@@ -226,7 +227,7 @@ class QuadcopterDynamics12D(SymbolicModel):
     def __init__(self, dt, *args, **kwargs):
         super().__init__(12, 4, dt, *args, **kwargs)
 
-        # components of position (meters)
+        # # components of position (meters)
         o_x, o_y, o_z = sym.symbols("o_x, o_y, o_z")
 
         # yaw, pitch, and roll angles (radians)
@@ -244,78 +245,114 @@ class QuadcopterDynamics12D(SymbolicModel):
         # net rotor force
         f_z = sym.symbols("f_z")
 
-        x = sym.Matrix(
-            [o_x, o_y, o_z, psi, theta, phi, v_x, v_y, v_z, w_x, w_y, w_z]
-        )  # state variables
-        u = sym.Matrix([tau_x, tau_y, tau_z, f_z])  # input variables
+        # x = sym.Matrix([o_x, o_y, o_z, psi, theta, phi, v_x,
+        #                 v_y, v_z, w_x, w_y, w_z])  # state variables
+        # u = sym.Matrix([tau_x, tau_y, tau_z, f_z])  # input variables
 
-        m = sym.nsimplify(0.0315)  # mass of a Crazyflie drone
+        # m = sym.nsimplify(0.0315)  # mass of a Crazyflie drone
 
-        # Principle moments of inertia of a Crazyflie drone
-        J_x = sym.nsimplify(1.7572149113694408e-05)
-        J_y = sym.nsimplify(1.856979710568617e-05)
-        J_z = sym.nsimplify(2.7159794713754086e-05)
+        # # Principle moments of inertia of a Crazyflie drone
+        # J_x = sym.nsimplify(1.7572149113694408e-05)
+        # J_y = sym.nsimplify(1.856979710568617e-05)
+        # J_z = sym.nsimplify(2.7159794713754086e-05)
 
-        # Acceleration of gravity
-        g = 9.81
+        # # Acceleration of gravity
+        # g = 9.81
 
-        # Linear and angular velocity vectors (in body frame)
-        v_01in1 = sym.Matrix([[v_x], [v_y], [v_z]])
-        w_01in1 = sym.Matrix([[w_x], [w_y], [w_z]])
+        # # Linear and angular velocity vectors (in body frame)
+        # v_01in1 = sym.Matrix([[v_x], [v_y], [v_z]])
+        # w_01in1 = sym.Matrix([[w_x], [w_y], [w_z]])
 
-        # Create moment of inertia matrix (in coordinates of the body frame).
-        J_in1 = sym.diag(J_x, J_y, J_z)
+        # # Create moment of inertia matrix (in coordinates of the body frame).
+        # J_in1 = sym.diag(J_x, J_y, J_z)
 
-        # Z-Y-X rotation sequence
-        Rz = sym.Matrix(
+        # # Z-Y-X rotation sequence
+        # Rz = sym.Matrix([[sym.cos(psi), -sym.sin(psi), 0],
+        #                  [sym.sin(psi), sym.cos(psi), 0],
+        #                  [0, 0, 1]])
+
+        # Ry = sym.Matrix([[sym.cos(theta), 0, sym.sin(theta)],
+        #                  [0, 1, 0],
+        #                  [-sym.sin(theta), 0, sym.cos(theta)]])
+
+        # Rx = sym.Matrix([[1, 0, 0],
+        #                  [0, sym.cos(phi), -sym.sin(phi)],
+        #                  [0, sym.sin(phi), sym.cos(phi)]])
+
+        # R_1in0 = Rz * Ry * Rx
+
+        # # Mapping from angular velocity to angular rates
+        # # Compute the invserse of the mapping first:
+        # Ninv = sym.Matrix.hstack((Ry * Rx).T * sym.Matrix([[0], [0], [1]]),
+        #                          (Rx).T * sym.Matrix([[0], [1], [0]]),
+        #                          sym.Matrix([[1], [0], [0]]))
+        # N = sym.simplify(Ninv.inv())  # this matrix N is what we actually want
+
+        # # forces in world frame
+        # f_in1 = R_1in0.T * \
+        #     sym.Matrix([[0], [0], [-m * g]]) + sym.Matrix([[0], [0], [f_z]])
+
+        # # torques in world frame
+        # tau_in1 = sym.Matrix([[tau_x], [tau_y], [tau_z]])
+
+        # # Full EOM:
+        # f_sym = sym.Matrix.vstack(R_1in0 * v_01in1,
+        #                           N * w_01in1,
+        #                           (1 / m) * (f_in1 - w_01in1.cross(m * v_01in1)),
+        #                           J_in1.inv() * (tau_in1 - w_01in1.cross(J_in1 * w_01in1)))
+
+        """However, the above model is not so practical when fed into the optimization altogrithm due to run time issues...
+        we switch to a modified model with 6 states & 6 inputs as shown below:
+        """
+        x = sym.Matrix([o_x, o_y, o_z, psi, theta, phi, v_x, v_y, v_z, w_x, w_y, w_z])
+        u = sym.Matrix([tau_x, tau_y, tau_z, f_z])
+
+        f_sym = sym.Matrix(
             [
-                [sym.cos(psi), -sym.sin(psi), 0],
-                [sym.sin(psi), sym.cos(psi), 0],
-                [0, 0, 1],
+                x[6] * sym.cos(x[3]) * sym.cos(x[4])
+                + x[7]
+                * (
+                    sym.sin(x[5]) * sym.sin(x[4]) * sym.cos(x[3])
+                    - sym.sin(x[3]) * sym.cos(x[5])
+                )
+                + x[8]
+                * (
+                    sym.sin(x[5]) * sym.sin(x[3])
+                    + sym.sin(x[4]) * sym.cos(x[5]) * sym.cos(x[3])
+                ),
+                x[6] * sym.sin(x[3]) * sym.cos(x[4])
+                + x[7]
+                * (
+                    sym.sin(x[5]) * sym.sin(x[3]) * sym.sin(x[4])
+                    + sym.cos(x[5]) * sym.cos(x[3])
+                )
+                + x[8]
+                * (
+                    -sym.sin(x[5]) * sym.cos(x[3])
+                    + sym.sin(x[3]) * sym.sin(x[4]) * sym.cos(x[5])
+                ),
+                -x[6] * sym.sin(x[4])
+                + x[7] * sym.sin(x[5]) * sym.cos(x[4])
+                + x[8] * sym.cos(x[5]) * sym.cos(x[4]),
+                x[10] * sym.sin(x[5]) / sym.cos(x[4])
+                + x[11] * sym.cos(x[5]) / sym.cos(x[4]),
+                x[10] * sym.cos(x[5]) - x[11] * sym.sin(x[5]),
+                x[9]
+                + x[10] * sym.sin(x[5]) * sym.tan(x[4])
+                + x[11] * sym.cos(x[5]) * sym.tan(x[4]),
+                x[7] * x[11] - x[8] * x[10] + 9.81 * sym.sin(x[4]),
+                -x[6] * x[11] + x[8] * x[9] - 9.81 * sym.sin(x[5]) * sym.cos(x[4]),
+                2000 / 63 * u[3]
+                + x[6] * x[10]
+                - x[7] * x[9]
+                - 9.81 * sym.cos(x[5]) * sym.cos(x[4]),
+                625000000000000000 / 10982593196059 * u[0]
+                - (85899976080679 / 175721491136944) * x[10] * x[11],
+                5000000000000000000 / 92848985528431 * u[1]
+                + (95876456000597 / 185697971056862) * x[9] * x[11],
+                10000000000000000000 / 271597947137541 * u[2]
+                - (9976479919918 / 271597947137541) * x[9] * x[10],
             ]
-        )
-
-        Ry = sym.Matrix(
-            [
-                [sym.cos(theta), 0, sym.sin(theta)],
-                [0, 1, 0],
-                [-sym.sin(theta), 0, sym.cos(theta)],
-            ]
-        )
-
-        Rx = sym.Matrix(
-            [
-                [1, 0, 0],
-                [0, sym.cos(phi), -sym.sin(phi)],
-                [0, sym.sin(phi), sym.cos(phi)],
-            ]
-        )
-
-        R_1in0 = Rz * Ry * Rx
-
-        # Mapping from angular velocity to angular rates
-        # Compute the invserse of the mapping first:
-        Ninv = sym.Matrix.hstack(
-            (Ry * Rx).T * sym.Matrix([[0], [0], [1]]),
-            (Rx).T * sym.Matrix([[0], [1], [0]]),
-            sym.Matrix([[1], [0], [0]]),
-        )
-        N = sym.simplify(Ninv.inv())  # this matrix N is what we actually want
-
-        # forces in world frame
-        f_in1 = R_1in0.T * sym.Matrix([[0], [0], [-m * g]]) + sym.Matrix(
-            [[0], [0], [f_z]]
-        )
-
-        # torques in world frame
-        tau_in1 = sym.Matrix([[tau_x], [tau_y], [tau_z]])
-
-        # Full EOM:
-        f_sym = sym.Matrix.vstack(
-            R_1in0 * v_01in1,
-            N * w_01in1,
-            (1 / m) * (f_in1 - w_01in1.cross(m * v_01in1)),
-            J_in1.inv() * (tau_in1 - w_01in1.cross(J_in1 * w_01in1)),
         )
 
         A = f_sym.jacobian(x)
