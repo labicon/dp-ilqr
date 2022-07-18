@@ -97,12 +97,23 @@ class MultiDynamicalModel(DynamicalModel):
 
     def f(self, x, u):
         """Integrate the dynamics for the combined decoupled dynamical model"""
-        return torch.cat(
+        return np.concatenate(
             [
                 submodel.f(xi.flatten(), ui.flatten())
                 for submodel, xi, ui in zip(self.submodels, *self.partition(x, u))
             ]
         )
+
+    def linearize(self, x, u):
+        sub_linearizations = [
+            submodel.linearize(xi.flatten(), ui.flatten())
+            for submodel, xi, ui in zip(self.submodels, *self.partition(x, u))
+        ]
+
+        sub_As = [AB[0] for AB in sub_linearizations]
+        sub_Bs = [AB[1] for AB in sub_linearizations]
+
+        return block_diag(*sub_As), block_diag(*sub_Bs)
 
     def partition(self, x, u):
         """Helper to split up the states and control for each subsystem"""
