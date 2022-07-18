@@ -11,11 +11,9 @@ scipy = "^1.8.1"
 matplotlib = "^3.5.2"
 ipympl = "^0.9.1"
 jupyter = "^1.0.0"
-scikit-learn = "^1.1.1"
-torch = {url = "https://download.pytorch.org/whl/cpu/torch-1.11.0%2Bcpu-cp310-cp310-linux_x86_64.whl"}
+sympy = "^1.10.1"
 
 [tool.poetry.dev-dependencies]
-sympy = "^1.10.1"
 seaborn = "^0.11.2"
 jupyterlab = "^3.4.3"
 jupyterlab-git = "^0.37.1"
