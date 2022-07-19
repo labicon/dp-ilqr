@@ -222,7 +222,7 @@ class BikeDynamics5D(SymbolicModel):
         self.B_num = sym.lambdify((x, u), B)
 
 
-class QuadcopterDynamicsSymbolic(SymbolicModel):
+class QuadcopterDynamics12D(SymbolicModel):
     def __init__(self, dt, *args, **kwargs):
         super().__init__(12, 4, dt, *args, **kwargs)
 

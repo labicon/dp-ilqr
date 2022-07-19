@@ -8,6 +8,7 @@ from .dynamics import (
     CarDynamics3D,
     UnicycleDynamics4D,
     BikeDynamics5D,
+    QuadcopterDynamics12D,
     linearize_finite_difference,
     linearize_autodiff
 )
