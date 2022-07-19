@@ -337,27 +337,3 @@ def linearize_finite_difference(f, x, u):
     B = np.vstack([approx_fprime(u, lambda u: f(x, u)[i], jac_eps) for i in range(n_x)])
 
     return A, B
-
-
-def linearize_autodiff(f, x, u, discrete=False, dt=1.0):
-    """Linearization via automatic differentation"""
-
-    import torch
-
-    if not torch.is_tensor(x):
-        x = torch.from_numpy(x)
-    if not torch.is_tensor(u):
-        u = torch.from_numpy(u)
-
-    nx = x.shape[0]
-    nu = u.shape[0]
-
-    A, B = torch.autograd.functional.jacobian(f, (x, u))
-
-    if discrete:
-        return A, B
-
-    # Compute the discretized jacobians with euler integration.
-    A = dt * A.reshape(nx, nx) + np.eye(nx)
-    B = dt * B.reshape(nx, nu)
-    return A, B

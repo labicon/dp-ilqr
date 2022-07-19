@@ -5,7 +5,6 @@
 import abc
 
 import numpy as np
-import torch
 from scipy.linalg import block_diag
 from scipy.optimize import approx_fprime
 
@@ -22,36 +21,12 @@ class Cost(abc.ABC):
         """Returns the cost evaluated at the given state and control"""
         pass
 
-    def quadraticize(self, x, u, **kwargs):
+    @abc.abstractmethod
+    def quadraticize():
+        """Compute the jacobians and hessians of the operating point wrt. the states
+        and controls
         """
-        Compute a quadratic approximation to the overall cost for a
-        particular choice of state `x`, and controls `u` for each player.
-        Returns the gradient and Hessian of the overall cost such that:
-        ```
-        cost(x + dx, [ui + dui]) \approx
-                cost(x, u1, u2) +
-                grad_x^T dx +
-                0.5 * (dx^T hess_x dx + sum_i dui^T hess_ui dui)
-        ```
-        REF: [1]
-        """
-
-        n_x = x.numel()
-        n_u = u.numel()
-
-        def cost_fn(x, u):
-            return self.__call__(x, u, **kwargs)
-
-        L_x, L_u = torch.autograd.functional.jacobian(cost_fn, (x, u))
-        L_x = L_x.reshape(n_x)
-        L_u = L_u.reshape(n_u)
-
-        (L_xx, _), (L_ux, L_uu) = torch.autograd.functional.hessian(cost_fn, (x, u))
-        L_xx = L_xx.reshape(n_x, n_x)
-        L_ux = L_ux.reshape(n_u, n_x)
-        L_uu = L_uu.reshape(n_u, n_u)
-
-        return L_x, L_u, L_xx, L_uu, L_ux
+        pass
 
 
 class ReferenceCost(Cost):
@@ -64,7 +39,7 @@ class ReferenceCost(Cost):
     def __init__(self, xf, Q, R, Qf=None, id=None):
 
         if Qf is None:
-            Qf = torch.eye(Q.shape[0])
+            Qf = np.eye(Q.shape[0])
 
         if not id:
             id = ReferenceCost._id

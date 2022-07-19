@@ -10,7 +10,6 @@ import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
 from scipy.spatial.transform import Rotation
-import torch
 
 π = np.pi
 
@@ -43,6 +42,7 @@ class Point(object):
 def compute_pairwise_distance(X, x_dims):
     """Compute the distance between each pair of agents"""
     assert len(set(x_dims)) == 1
+    assert isinstance(X, np.ndarray)
 
     n_agents = len(x_dims)
     n_states = x_dims[0]
@@ -53,17 +53,12 @@ def compute_pairwise_distance(X, x_dims):
     pair_inds = np.array(list(itertools.combinations(range(n_agents), 2)))
     X_agent = X.reshape(-1, n_agents, n_states).swapaxes(0, 2)
     dX = X_agent[:2, pair_inds[:, 0]] - X_agent[:2, pair_inds[:, 1]]
-
-    if isinstance(X, np.ndarray):
-        return np.linalg.norm(dX, axis=0)
-    elif torch.is_tensor(X):
-        return torch.linalg.norm(dX, dim=0)
+    return np.linalg.norm(dX, axis=0)
 
 
 def split_agents(Z, z_dims):
     """Partition a cartesian product state or control for individual agents"""
-    if torch.is_tensor(Z):
-        return torch.split(torch.atleast_2d(Z), z_dims, dim=1)
+    assert isinstance(Z, np.ndarray)
     return np.split(np.atleast_2d(Z), np.cumsum(z_dims[:-1]), axis=1)
 
 
@@ -78,7 +73,9 @@ def split_graph(Z, z_dims, graph):
     z_split = []
     for n, ids in graph.items():
         inds = [mapping[id_] for id_ in ids]
-        z_split.append(torch.cat([Z[:, i * n_z : (i + 1) * n_z] for i in inds], dim=1))
+        z_split.append(
+            np.concatenate([Z[:, i * n_z : (i + 1) * n_z] for i in inds], axis=1)
+        )
 
     return z_split
 
@@ -137,9 +134,6 @@ def random_setup(n_agents, n_states, is_rotation=False, **kwargs):
     x0 = np.c_[x_i, np.zeros((n_agents, n_states - 2))]
     x_goal = np.c_[x_f, np.zeros((n_agents, n_states - 2))]
     x0, x_goal = face_goal(x0, x_goal)
-
-    x0 = torch.from_numpy(x0).type(torch.float)
-    x_goal = torch.from_numpy(x_goal).type(torch.float)
 
     return x0.reshape(-1, 1), x_goal.reshape(-1, 1)
 

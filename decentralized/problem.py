@@ -7,8 +7,6 @@ import multiprocessing as mp
 from time import perf_counter as pc
 
 import numpy as np
-from sklearn.cluster import DBSCAN
-import torch
 
 from decentralized.control import ilqrSolver
 from decentralized.cost import ReferenceCost, GameCost
@@ -35,8 +33,8 @@ def solve_decentralized(problem, X, U, radius, is_mp=False):
     x0_split = split_graph(X[np.newaxis, 0], x_dims, graph)
     U_split = split_graph(U, u_dims, graph)
 
-    X_dec = torch.zeros((N + 1, n_agents * n_states))
-    U_dec = torch.zeros((N, n_agents * n_controls))
+    X_dec = np.zeros((N + 1, n_agents * n_states))
+    U_dec = np.zeros((N, n_agents * n_controls))
 
     # Solve all problems in one process, keeping results for each agent in *_dec.
     if not is_mp:
@@ -54,7 +52,8 @@ def solve_decentralized(problem, X, U, radius, is_mp=False):
     else:
         # NOTE: torch requires this context due to this:
         # https://github.com/pytorch/pytorch/wiki/Autograd-and-Fork
-        ctx = mp.get_context("spawn")
+        # ctx = mp.get_context("spawn")
+        ctx = mp.get_context("fork")
 
         # Package up arguments for the subproblem solver.
         args = zip(problem.split(graph), x0_split, U_split, ids)
@@ -163,48 +162,11 @@ def define_inter_graph_threshold(X, radius, x_dims, ids):
     graph = {id_: [id_] for id_ in ids}
     pair_inds = np.array(list(itertools.combinations(ids, 2)))
     for i, pair in enumerate(pair_inds):
-        if torch.any(rel_dists[sample_slice, i] < planning_radii):
+        if np.any(rel_dists[sample_slice, i] < planning_radii):
             graph[pair[0]].append(pair[1])
             graph[pair[1]].append(pair[0])
 
     graph = {agent_id: sorted(prob_ids) for agent_id, prob_ids in graph.items()}
-    return graph
-
-
-def define_inter_graph_dbscan(X, n_agents, n_states, radius):
-    """Determine the interaction graph between agents depending on whether
-    they share clusters over.
-
-    NOTE: deprecated in favor of the speed and simplicity of
-    ``define_inter_graph_threshold``.
-    """
-
-    # Organize states by agent keeping only position.
-    X_pos = X.reshape(-1, n_agents, n_states)[..., :2]
-
-    # Setup the DBSCAN clusterer, where the cluster threshold (ϵ) of
-    # defining a cluster is the planning radius.
-    planning_radii = 4 * radius
-    dbscan = DBSCAN(min_samples=1, eps=planning_radii)
-
-    # Sample some number of clusterings from the full trajectory.
-    N = X.shape[0]
-    n_samples = 10
-    sample_step = max(N // n_samples, 1)
-    sample_iter = range(0, N + 1, sample_step)
-    labels = np.zeros((len(sample_iter), n_agents), dtype=int)
-    for i, t in enumerate(sample_iter):
-        labels[i] = dbscan.fit_predict(X_pos[t])
-
-    # Define the interaction graph by matching up agents when they share a cluster.
-    graph = {i: set([i]) for i in range(n_agents)}
-    pair_inds = np.array(list(itertools.combinations(range(n_agents), 2)))
-    for pair in pair_inds:
-        intersect = np.intersect1d(labels[:, pair[0]], labels[:, pair[1]])
-        if intersect.size:
-            graph[pair[0]].add(pair[1])
-            graph[pair[1]].add(pair[0])
-
     return graph
 
 

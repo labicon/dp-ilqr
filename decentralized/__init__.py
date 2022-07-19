@@ -1,5 +1,12 @@
 from .control import ilqrSolver, RecedingHorizonController
-from .cost import Cost, ReferenceCost, ProximityCost, CouplingCost, GameCost, quadraticize_distance, quadraticize_finite_difference
+from .cost import (
+    Cost,
+    ReferenceCost,
+    ProximityCost,
+    GameCost,
+    quadraticize_distance,
+    quadraticize_finite_difference,
+)
 from .dynamics import (
     DynamicalModel,
     SymbolicModel,
@@ -10,13 +17,11 @@ from .dynamics import (
     BikeDynamics5D,
     QuadcopterDynamics12D,
     linearize_finite_difference,
-    linearize_autodiff
 )
 from .problem import (
     solve_decentralized,
     ilqrProblem,
     define_inter_graph_threshold,
-    define_inter_graph_dbscan,
     _reset_ids,
 )
 from .util import (
