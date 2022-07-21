@@ -28,17 +28,21 @@ class DynamicalModel(abc.ABC):
         self.id = id
         self.NX_EYE = np.eye(self.n_x, dtype=np.float32)
 
-    def __call__(self, x, u):
+    def __call__(self, x, u, dT = None):
         """Zero-order hold to integrate continuous dynamics f"""
-        # print(type(x),type(self.f(x,u)),type(self.dt))
-        return x + np.asarray(self.f(x, u)) * self.dt
+        # return x + self.f(x, u) * self.dt
         # Single RK4 integration of continuous dynamics.
-        # k1 = self.dt * self.f(x, u)
-        # k2 = self.dt * self.f(x + 0.5 * k1, u)
-        # k3 = self.dt * self.f(x + 0.5 * k2, u)
-        # k4 = self.dt * self.f(x + k3, u)
-        # x += (k1 + 2.0 * k2 + 2.0 * k3 + k4) / 6.0
-        # return x
+
+        while dT != self.dt:
+
+            dt = self.dt * 0.1
+            k1 = self.f(x, u)
+            k2 = self.f(x + 0.5 * dt * k1, u + dt * 0.5)
+            k3 = self.f(x + 0.5 * dt * k2, u + dt * 0.5)
+            k4 = self.f(x + k3 * dt, u + dt)
+            x += (k1 + 2.0 * k2 + 2.0 * k3 + k4) / 6.0 * dt
+
+        return x
 
     @staticmethod
     @abc.abstractmethod
