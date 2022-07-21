@@ -28,13 +28,14 @@ class DynamicalModel(abc.ABC):
         self.id = id
         self.NX_EYE = np.eye(self.n_x, dtype=np.float32)
 
-    def __call__(self, x, u):
+    def __call__(self, x, u, dT = None):
         """Zero-order hold to integrate continuous dynamics f"""
         # return x + self.f(x, u) * self.dt
         # Single RK4 integration of continuous dynamics.
 
         if dT is None:
             dT = 0.1*self.dt
+
 
         t = 0.0
         x = x.copy()
