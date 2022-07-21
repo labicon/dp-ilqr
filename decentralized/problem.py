@@ -50,16 +50,11 @@ def solve_decentralized(problem, X, U, radius, is_mp=False):
 
     # Solve in separate processes using imap.
     else:
-        # NOTE: torch requires this context due to this:
-        # https://github.com/pytorch/pytorch/wiki/Autograd-and-Fork
-        # ctx = mp.get_context("spawn")
-        ctx = mp.get_context("fork")
-
         # Package up arguments for the subproblem solver.
         args = zip(problem.split(graph), x0_split, U_split, ids)
 
         t0 = pc()
-        with ctx.Pool(processes=n_agents) as pool:
+        with mp.Pool(processes=n_agents) as pool:
             for i, (Xi_agent, Ui_agent, id_) in enumerate(
                 pool.imap_unordered(solve_subproblem, args)
             ):
