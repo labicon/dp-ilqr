@@ -203,11 +203,11 @@ class GameCost(Cost):
             L_uus.append(L_uui)
             L_uxs.append(L_uxi)
 
-        L_x = np.hstack(L_xs)
-        L_u = np.hstack(L_us)
-        L_xx = block_diag(*L_xxs)
-        L_uu = block_diag(*L_uus)
-        L_ux = block_diag(*L_uxs)
+        L_x = self.REF_WEIGHT * np.hstack(L_xs)
+        L_u = self.REF_WEIGHT * np.hstack(L_us)
+        L_xx = self.REF_WEIGHT * block_diag(*L_xxs)
+        L_uu = self.REF_WEIGHT * block_diag(*L_uus)
+        L_ux = self.REF_WEIGHT * block_diag(*L_uxs)
 
         # Incorporate coupling costs in full cartesian state space.
         if self.n_agents > 1:
