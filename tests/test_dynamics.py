@@ -29,7 +29,7 @@ class TestDoubleInt4D(_TestDynamics, unittest.TestCase):
         self.model = dec.DoubleIntDynamics4D(0.5)
 
     def test_call(self):
-        x = np.array([0, 2, 0, -2])
+        x = np.array([0., 2, 0, -2])
         u = np.array([0, 2])
         X_truth = np.array([
             [0, 2,   0, -2],
@@ -76,12 +76,12 @@ class TestUnicycle4D(_TestDynamics, unittest.TestCase):
 
     def test_straight(self):
         x0 = np.zeros(4)
-        u = np.array([1, 0])
+        u = np.array([1., 0.])
         X_truth = self.model.dt * np.array([
-            [              0, 0, 0, 0],
-            [              0, 0, 1, 0],
-            [  self.model.dt, 0, 2, 0],
-            [3*self.model.dt, 0, 3, 0]
+            [              0., 0., 0., 0.],
+            [              0., 0., 1., 0.],
+            [  self.model.dt, 0., 2., 0.],
+            [3*self.model.dt, 0., 3., 0.]
         ])
         super()._test_integrate(x0, u, X_truth)
 
