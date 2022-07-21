@@ -42,7 +42,6 @@ class Point(object):
 def compute_pairwise_distance(X, x_dims):
     """Compute the distance between each pair of agents"""
     assert len(set(x_dims)) == 1
-    assert isinstance(X, np.ndarray)
 
     n_agents = len(x_dims)
     n_states = x_dims[0]
@@ -58,7 +57,6 @@ def compute_pairwise_distance(X, x_dims):
 
 def split_agents(Z, z_dims):
     """Partition a cartesian product state or control for individual agents"""
-    assert isinstance(Z, np.ndarray)
     return np.split(np.atleast_2d(Z), np.cumsum(z_dims[:-1]), axis=1)
 
 
