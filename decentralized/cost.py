@@ -283,13 +283,14 @@ def quadraticize_distance(point_a, point_b, radius):
     return L_x, L_xx
 
 
-def quadraticize_finite_difference(cost, x, u, terminal=False):
+def quadraticize_finite_difference(cost, x, u, terminal=False, jac_eps=None):
     """Finite difference quadraticized cost
 
     NOTE: deprecated in favor of automatic differentiation in lieu of speed and
     consistency.
     """
-    jac_eps = np.sqrt(np.finfo(float).eps)
+    if not jac_eps:
+        jac_eps = np.sqrt(np.finfo(float).eps)
     hess_eps = np.sqrt(jac_eps)
 
     n_x = x.shape[0]
