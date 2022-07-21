@@ -8,10 +8,10 @@ from time import perf_counter as pc
 
 import numpy as np
 
-from decentralized.control import ilqrSolver
-from decentralized.cost import ReferenceCost, GameCost
-from decentralized.dynamics import DynamicalModel, MultiDynamicalModel
-from decentralized.util import compute_pairwise_distance, split_agents, split_graph
+from .control import ilqrSolver
+from .cost import ReferenceCost, GameCost
+from .dynamics import DynamicalModel, MultiDynamicalModel
+from .util import compute_pairwise_distance, split_agents, split_graph
 
 
 def solve_decentralized(problem, X, U, radius, is_mp=False):

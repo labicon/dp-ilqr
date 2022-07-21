@@ -9,7 +9,7 @@ from scipy.linalg import block_diag
 from scipy.optimize import approx_fprime
 import sympy as sym
 
-from decentralized.util import split_agents
+from .util import split_agents
 
 
 class DynamicalModel(abc.ABC):

@@ -8,7 +8,7 @@ import numpy as np
 from scipy.linalg import block_diag
 from scipy.optimize import approx_fprime
 
-from decentralized.util import Point, compute_pairwise_distance, split_agents
+from .util import Point, compute_pairwise_distance, split_agents
 
 
 class Cost(abc.ABC):
