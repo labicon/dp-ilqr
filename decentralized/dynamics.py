@@ -62,6 +62,17 @@ class DynamicalModel(abc.ABC):
 class SymbolicModel(DynamicalModel):
     """Mix-in for analytical linearization"""
 
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        del state['A_num']
+        del state['B_num']
+        del state['_f']
+        return state
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        self.__init__(self.dt)
+
     def f(self, x, u):
         return self._f(x, u)
 
