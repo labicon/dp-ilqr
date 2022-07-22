@@ -16,6 +16,7 @@ from .dynamics import (
     UnicycleDynamics4D,
     BikeDynamics5D,
     QuadcopterDynamics12D,
+    QuadcopterDynamics6D,
     linearize_finite_difference,
 )
 from .problem import (
