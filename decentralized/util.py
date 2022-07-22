@@ -39,7 +39,7 @@ class Point(object):
         return str((self.x, self.y, self.z))
 
 
-def compute_pairwise_distance(X, x_dims):
+def compute_pairwise_distance(X, x_dims, n_d=2):
     """Compute the distance between each pair of agents"""
     assert len(set(x_dims)) == 1
 
@@ -51,7 +51,7 @@ def compute_pairwise_distance(X, x_dims):
 
     pair_inds = np.array(list(itertools.combinations(range(n_agents), 2)))
     X_agent = X.reshape(-1, n_agents, n_states).swapaxes(0, 2)
-    dX = X_agent[:2, pair_inds[:, 0]] - X_agent[:2, pair_inds[:, 1]]
+    dX = X_agent[:n_d, pair_inds[:, 0]] - X_agent[:n_d, pair_inds[:, 1]]
     return np.linalg.norm(dX, axis=0)
 
 
@@ -78,14 +78,14 @@ def split_graph(Z, z_dims, graph):
     return z_split
 
 
-def randomize_locs(n_pts, min_sep=3.0, var=3.0, n_dim=2):
+def randomize_locs(n_pts, min_sep=3.0, var=3.0, n_d=2):
     """Uniformly randomize locations of points in N-D while enforcing
     a minimum separation between them.
     """
 
     # Distance to move away from center if we're too close.
     Δ = 0.1 * n_pts
-    x = var * np.random.uniform(-1, 1, (n_pts, n_dim))
+    x = var * np.random.uniform(-1, 1, (n_pts, n_d))
 
     # Determine the pair-wise indicies for an arbitrary number of agents.
     pair_inds = np.array(list(itertools.combinations(range(n_pts), 2)))
@@ -94,7 +94,7 @@ def randomize_locs(n_pts, min_sep=3.0, var=3.0, n_dim=2):
     # Keep moving points away from center until we satisfy radius
     while move_inds.size:
         center = np.mean(x, axis=0)
-        distances = compute_pairwise_distance(x.flatten(), [n_dim] * n_pts)
+        distances = compute_pairwise_distance(x.flatten(), [n_d] * n_pts)
 
         move_inds = pair_inds[distances.flatten() <= min_sep]
         x[move_inds] += Δ * (x[move_inds] - center)
@@ -123,8 +123,8 @@ def random_setup(n_agents, n_states, is_rotation=False, **kwargs):
 
     # Rotate the initial points by some amount about the center.
     if is_rotation:
-        theta = π + random.uniform(-π / 4, π / 4)
-        R = Rotation.from_euler("z", theta).as_matrix()[:2, :2]
+        θ = π + random.uniform(-π / 4, π / 4)
+        R = Rotation.from_euler("z", θ).as_matrix()[:2, :2]
         x_f = x_i @ R + x_i.mean(axis=0)
     else:
         x_f = randomize_locs(n_agents, **kwargs)
