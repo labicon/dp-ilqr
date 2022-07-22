@@ -30,26 +30,19 @@ class DynamicalModel(abc.ABC):
 
     def __call__(self, x, u):
         """Zero-order hold to integrate continuous dynamics f"""
+
         return x + self.f(x, u) * self.dt
         # Single RK4 integration of continuous dynamics.
 
-        # if dT is None:
-        #     dT = 0.1*self.dt
+        """Note: I have no idea why RK4 is not working here... all kinds of errors pop up"""
+        # k1 = self.dt * np.asarray(self.f(x, u), dtype='float64')
+        # k2 = self.dt * np.asarray(self.f(x + 0.5 * k1, u +
+        #                           0.5 * self.dt), dtype='float64')
+        # k3 = self.dt * np.asarray(self.f(x + 0.5 * k2, u +
+        #                           0.5 * self.dt), dtype='float64')
+        # k4 = self.dt * np.asarray(self.f(x + k3, u + self.dt), dtype='float64')
 
-
-        # t = 0.0
-        # x = x.copy()
-        # while t < self.dt - 1e-8:
-        #     step = min(dT, self.dt - t)
-
-        #     k1 = step * np.asarray(self.f(x, u),dtype='float64')
-        #     k2 = step * np.asarray(self.f(x + 0.5 * k1, u + 0.5 * step),dtype='float64')
-        #     k3 = step * np.asarray(self.f(x + 0.5 * k2, u + 0.5 * step),dtype='float64')
-        #     k4 = step * np.asarray(self.f(x + k3, u + step),dtype='float64')
-            
-        #     x += x + (k1 + 2.0 * k2 + 2.0 * k3 + k4) / 6.0 
-        #     t += step
-        # return x
+        # return x + (k1 + 2.0 * k2 + 2.0 * k3 + k4) / 6.0
 
     @staticmethod
     @abc.abstractmethod
@@ -245,6 +238,98 @@ class BikeDynamics5D(SymbolicModel):
         self.B_num = sym.lambdify((x, u), B)
 
 
+class QuadcopterDynamics6D(SymbolicModel):
+    def __init__(self, dt, *args, **kwargs):
+        super().__init__(6, 6, dt, *args, **kwargs)
+
+        # components of position (meters)
+        o_x, o_y, o_z = sym.symbols("o_x, o_y, o_z")
+
+        # yaw, pitch, and roll angles (radians)
+        psi, theta, phi = sym.symbols("psi, theta, phi")
+
+        # components of linear velocity (meters / second)
+        v_x, v_y, v_z = sym.symbols("v_x, v_y, v_z")
+
+        # components of angular velocity (radians / second)
+        w_x, w_y, w_z = sym.symbols("w_x, w_y, w_z")
+
+        # components of net rotor torque
+        tau_x, tau_y, tau_z = sym.symbols("tau_x, tau_y, tau_z")
+
+        # net rotor force
+        f_z = sym.symbols("f_z")
+
+        x = sym.Matrix([o_x, o_y, o_z, psi, theta, phi])
+        u = sym.Matrix([v_x, v_y, v_z, w_x, w_y, w_z])
+
+        m = sym.nsimplify(0.0315)  # mass of a Crazyflie drone
+
+        # Principle moments of inertia of a Crazyflie drone
+        J_x = sym.nsimplify(1.7572149113694408e-05)
+        J_y = sym.nsimplify(1.856979710568617e-05)
+        J_z = sym.nsimplify(2.7159794713754086e-05)
+
+        # Acceleration of gravity
+        g = 9.81
+
+        # Linear and angular velocity vectors (in body frame)
+        v_01in1 = sym.Matrix([[v_x], [v_y], [v_z]])
+        w_01in1 = sym.Matrix([[w_x], [w_y], [w_z]])
+
+        # Create moment of inertia matrix (in coordinates of the body frame).
+        J_in1 = sym.diag(J_x, J_y, J_z)
+
+        # Z-Y-X rotation sequence
+        Rz = sym.Matrix(
+            [
+                [sym.cos(psi), -sym.sin(psi), 0],
+                [sym.sin(psi), sym.cos(psi), 0],
+                [0, 0, 1],
+            ]
+        )
+
+        Ry = sym.Matrix(
+            [
+                [sym.cos(theta), 0, sym.sin(theta)],
+                [0, 1, 0],
+                [-sym.sin(theta), 0, sym.cos(theta)],
+            ]
+        )
+
+        Rx = sym.Matrix(
+            [
+                [1, 0, 0],
+                [0, sym.cos(phi), -sym.sin(phi)],
+                [0, sym.sin(phi), sym.cos(phi)],
+            ]
+        )
+
+        R_1in0 = Rz * Ry * Rx
+
+        # Mapping from angular velocity to angular rates
+        # Compute the invserse of the mapping first:
+        Ninv = sym.Matrix.hstack(
+            (Ry * Rx).T * sym.Matrix([[0], [0], [1]]),
+            (Rx).T * sym.Matrix([[0], [1], [0]]),
+            sym.Matrix([[1], [0], [0]]),
+        )
+        N = sym.simplify(Ninv.inv())  # this matrix N is what we actually want
+
+        # Full EOM: (the full EOM is a nonlinear function of [states, inputs, and fixed parameters])
+        f_sym = sym.Matrix.vstack(
+            R_1in0 * v_01in1,
+            N * w_01in1,
+        )
+
+        A = f_sym.jacobian(x)  # here the state vector is 6-dimensional
+        B = f_sym.jacobian(u)  # here the input vector is also 6-dimensional
+
+        self._f = sym.lambdify((x, u), sym.Array(f_sym)[:, 0])
+        self.A_num = sym.lambdify((x, u), A)
+        self.B_num = sym.lambdify((x, u), B)
+
+
 class QuadcopterDynamics12D(SymbolicModel):
     def __init__(self, dt, *args, **kwargs):
         super().__init__(12, 4, dt, *args, **kwargs)
@@ -341,8 +426,8 @@ class QuadcopterDynamics12D(SymbolicModel):
             J_in1.inv() * (tau_in1 - w_01in1.cross(J_in1 * w_01in1)),
         )
 
-        A = f_sym.jacobian(x)
-        B = f_sym.jacobian(u)
+        A = f_sym.jacobian(x)  # here the state vector is 12-dimensional
+        B = f_sym.jacobian(u)  # here the input vector is 6-dimensional
 
         self._f = sym.lambdify((x, u), sym.Array(f_sym)[:, 0])
         self.A_num = sym.lambdify((x, u), A)
