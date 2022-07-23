@@ -31,16 +31,25 @@ class DynamicalModel(abc.ABC):
     def __call__(self, x, u):
         """Zero-order hold to integrate continuous dynamics f"""
 
-        return x + self.f(x, u) * self.dt
-        # Single RK4 integration of continuous dynamics.
+        # return x + self.f(x, u) * self.dt
+        # RK4 integration of continuous dynamics.
 
-        """Note: I have no idea why RK4 is not working here... all kinds of errors pop up"""
-        # k1 = self.dt * np.asarray(self.f(x, u), dtype='float64')
-        # k2 = self.dt * np.asarray(self.f(x + 0.5 * k1, u), dtype='float64')
-        # k3 = self.dt * np.asarray(self.f(x + 0.5 * k2, u ), dtype='float64')
-        # k4 = self.dt * np.asarray(self.f(x + k3, u ), dtype='float64')
+        dT = 0.1 * self.dt
+        t = 0.0
+        x_new = x.copy()
 
-        # return x + (k1 + 2.0 * k2 + 2.0 * k3 + k4) / 6.0
+        while t < self.dt - 1e-8:
+            step = min(dT, self.dt - t)
+
+            k1 = step * np.asarray(self.f(x, u), dtype='float64')
+            k2 = step * np.asarray(self.f(x + 0.5 * k1, u), dtype='float64')
+            k3 = step * np.asarray(self.f(x + 0.5 * k2, u), dtype='float64')
+            k4 = step * np.asarray(self.f(x + k3, u), dtype='float64')
+
+            x_new += (k1 + 2.0 * k2 + 2.0 * k3 + k4) / 6.0
+            t += step
+
+        return x_new
 
     @staticmethod
     @abc.abstractmethod
@@ -249,12 +258,12 @@ class QuadcopterDynamics6D(SymbolicModel):
         # components of linear velocity (meters / second)
         v_x, v_y, v_z = sym.symbols("v_x, v_y, v_z")
 
-        # net rotor force 
+        # net rotor force
         tau = sym.symbols("tau")
 
         x = sym.Matrix([o_x, o_y, o_z, v_x, v_y, v_z])
         u = sym.Matrix([tau, phi, theta])
-        
+
         g = sym.nsimplify(9.81)
 
         # Full EOM: (the full EOM is a nonlinear function of [states, inputs, and fixed parameters])
@@ -266,7 +275,6 @@ class QuadcopterDynamics6D(SymbolicModel):
             -g*sym.tan(phi),
             tau - g
         ])
-
 
         A = f_sym.jacobian(x)  # here the state vector is 6-dimensional
         B = f_sym.jacobian(u)  # here the input vector is also 6-dimensional
