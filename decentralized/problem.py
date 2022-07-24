@@ -67,7 +67,7 @@ def solve_decentralized(problem, X, U, radius, is_mp=False):
 
     # Evaluate the cost of this combined trajectory.
     full_solver = ilqrSolver(problem, N)
-    _, J_full = full_solver._rollout(X[0], U)
+    _, J_full = full_solver._rollout(X[0], U_dec)
 
     return X_dec, U_dec, J_full
 
