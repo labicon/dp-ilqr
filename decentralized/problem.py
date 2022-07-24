@@ -135,6 +135,32 @@ class ilqrProblem:
 
         return Xi, Ui
 
+    def selfish_warmstart(self, x0, N):
+        """Compute a 'selfish' warmstart by ignoring other agents"""
+
+        print("=" * 80 + "\nComputing warmstart...")
+        # Split out the full problem into separate problems for each agent.
+        x0 = x0.reshape(1, -1)
+        selfish_graph = {id_: [id_] for id_ in self.ids}
+        subproblems = self.split(selfish_graph)
+        x0s = split_agents(x0, self.game_cost.x_dims)
+
+        U_warm = np.zeros((N, self.dynamics.n_u))
+        t0_all = pc()
+        for problem, x0i, id_ in zip(subproblems, x0s, self.ids):
+            t0 = pc()
+            solver = ilqrSolver(problem, N)
+            _, Ui, _ = solver.solve(x0i)
+            print(f"Problem {id_}: Took {pc() - t0} seconds\n" + "=" * 60)
+
+            nu_i = problem.dynamics.n_u
+            ind_i = self.ids.index(id_)
+            U_warm[:, nu_i * ind_i : nu_i * (ind_i + 1)] = Ui
+
+        print(f"All: {self.ids}\nTook {pc() - t0_all} seconds\n" + "=" * 80)
+
+        return U_warm
+
     def __repr__(self):
         return f"ilqrProblem(\n\t{self.dynamics},\n\t{self.game_cost}\n)"
 
