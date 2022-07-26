@@ -7,6 +7,7 @@ import abc
 import numpy as np
 from scipy.linalg import block_diag
 from scipy.optimize import approx_fprime
+from scipy.integrate import solve_ivp
 import sympy as sym
 
 from .util import split_agents
@@ -34,22 +35,26 @@ class DynamicalModel(abc.ABC):
         # return x + self.f(x, u) * self.dt
         # RK4 integration of continuous dynamics.
 
-        dT = 0.1 * self.dt
-        t = 0.0
-        x_new = x.copy()
+        # dT = 0.05 * self.dt
+        # t = 0.0
+        # x_new = x.copy()
 
-        while t < self.dt - 1e-8:
-            step = min(dT, self.dt - t)
+        # while t < self.dt - 1e-8:
+        #     step = min(dT, self.dt - t)
 
-            k1 = step * np.asarray(self.f(x, u), dtype='float64')
-            k2 = step * np.asarray(self.f(x + 0.5 * k1, u), dtype='float64')
-            k3 = step * np.asarray(self.f(x + 0.5 * k2, u), dtype='float64')
-            k4 = step * np.asarray(self.f(x + k3, u), dtype='float64')
+        #     k1 = step * np.asarray(self.f(x, u), dtype='float64')
+        #     k2 = step * np.asarray(self.f(x + 0.5 * k1, u), dtype='float64')
+        #     k3 = step * np.asarray(self.f(x + 0.5 * k2, u), dtype='float64')
+        #     k4 = step * np.asarray(self.f(x + k3, u), dtype='float64')
 
-            x_new += (k1 + 2.0 * k2 + 2.0 * k3 + k4) / 6.0
-            t += step
+        #     x_new += (k1 + 2.0 * k2 + 2.0 * k3 + k4) / 6.0
+        #     t += step
 
-        return x_new
+        # return x_new
+
+        sol = solve_ivp(lambda _,x,u: self.f(x,u), [0, self.dt] , x , args = (u,) , t_eval = [self.dt], method='RK45')
+        
+        return sol.y.T.flatten()
 
     @staticmethod
     @abc.abstractmethod
