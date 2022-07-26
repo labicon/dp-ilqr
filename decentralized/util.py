@@ -78,7 +78,7 @@ def split_graph(Z, z_dims, graph):
     return z_split
 
 
-def randomize_locs(n_pts, min_sep=3.0, var=3.0, n_d=2):
+def randomize_locs(n_pts, random=False, rel_dist=3.0, var=3.0, n_d=2):
     """Uniformly randomize locations of points in N-D while enforcing
     a minimum separation between them.
     """
@@ -86,6 +86,9 @@ def randomize_locs(n_pts, min_sep=3.0, var=3.0, n_d=2):
     # Distance to move away from center if we're too close.
     Δ = 0.1 * n_pts
     x = var * np.random.uniform(-1, 1, (n_pts, n_d))
+
+    if random:
+        return x
 
     # Determine the pair-wise indicies for an arbitrary number of agents.
     pair_inds = np.array(list(itertools.combinations(range(n_pts), 2)))
@@ -96,7 +99,7 @@ def randomize_locs(n_pts, min_sep=3.0, var=3.0, n_d=2):
         center = np.mean(x, axis=0)
         distances = compute_pairwise_distance(x.flatten(), [n_d] * n_pts)
 
-        move_inds = pair_inds[distances.flatten() <= min_sep]
+        move_inds = pair_inds[distances.flatten() <= rel_dist]
         x[move_inds] += Δ * (x[move_inds] - center)
 
     return x
@@ -115,23 +118,24 @@ def face_goal(x0, x_goal):
     return x0, x_goal
 
 
-def random_setup(n_agents, n_states, is_rotation=False, **kwargs):
+def random_setup(n_agents, n_states, is_rotation=False, n_d=2, **kwargs):
     """Create a randomized set up of initial and final positions"""
 
     # We don't have to normlize for energy here
-    x_i = randomize_locs(n_agents, **kwargs)
+    x_i = randomize_locs(n_agents, n_d=n_d, **kwargs)
 
     # Rotate the initial points by some amount about the center.
     if is_rotation:
         θ = π + random.uniform(-π / 4, π / 4)
         R = Rotation.from_euler("z", θ).as_matrix()[:2, :2]
-        x_f = x_i @ R + x_i.mean(axis=0)
+        x_f = x_i @ R - x_i.mean(axis=0)
     else:
-        x_f = randomize_locs(n_agents, **kwargs)
+        x_f = randomize_locs(n_agents, n_d=n_d, **kwargs)
 
-    x0 = np.c_[x_i, np.zeros((n_agents, n_states - 2))]
-    x_goal = np.c_[x_f, np.zeros((n_agents, n_states - 2))]
-    x0, x_goal = face_goal(x0, x_goal)
+    x0 = np.c_[x_i, np.zeros((n_agents, n_states - n_d))]
+    x_goal = np.c_[x_f, np.zeros((n_agents, n_states - n_d))]
+    # NOTE: not facing the goal since not consistent between dynamical models.
+    # x0, x_goal = face_goal(x0, x_goal)
 
     return x0.reshape(-1, 1), x_goal.reshape(-1, 1)
 
