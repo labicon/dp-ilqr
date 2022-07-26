@@ -1,4 +1,4 @@
-from .control import ilqrSolver, RecedingHorizonController
+from .control import ilqrSolver, solve_centralized_rhc, RecedingHorizonController
 from .cost import (
     Cost,
     ReferenceCost,
@@ -20,6 +20,7 @@ from .dynamics import (
 )
 from .problem import (
     solve_decentralized,
+    solve_decentralized_rhc,
     ilqrProblem,
     define_inter_graph_threshold,
     _reset_ids,

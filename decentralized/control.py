@@ -240,6 +240,34 @@ class ilqrSolver:
         )
 
 
+def solve_centralized_rhc(problem, x0, U0, step_size=1, J_converge=1.0, **kwargs):
+    """Solve the centralized RHC Problem until a J_converge is satisfied"""
+
+    n_x = x0.size
+    n_u = U0.shape[1]
+
+    xi = x0.copy()
+    U = U0.copy()
+
+    controller = ilqrSolver(problem, U0.shape[0])
+
+    J = np.inf
+    X_full = np.zeros((0, n_x))
+    U_full = np.zeros((0, n_u))
+
+    while J >= J_converge:
+
+        X, U, J = controller.solve(xi, U, **kwargs)
+
+        U_full = np.vstack([U_full, U[:step_size]])
+        X_full = np.vstack([X_full, X[:step_size]])
+
+        xi = X[step_size]
+        U = np.vstack([U[step_size:], np.zeros((step_size, n_u))])
+
+    return X_full, U_full, J
+
+
 # Based off of: [2] ilqr/controller.py
 class RecedingHorizonController:
     """Receding horizon controller
