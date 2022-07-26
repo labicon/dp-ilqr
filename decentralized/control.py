@@ -146,12 +146,12 @@ class ilqrSolver:
 
         return K, d
 
-    def solve(self, x0, U=None, n_lqr_iter=50, tol=1e-3):
+    def solve(self, x0, U=None, n_lqr_iter=50, tol=1e-3, verbose=True):
 
         if U is None:
             U = np.zeros((self.N, self.n_u))
             # U = np.full((self.N, self.n_u), 0.1)
-            # U = 1e-3 * np.rand((self.N, self.n_u))
+            # U = 1e-3 * np.random.rand(self.N, self.n_u)
         if U.shape != (self.N, self.n_u):
             raise ValueError
 
@@ -163,7 +163,9 @@ class ilqrSolver:
 
         X, J_star = self._rollout(x0, U)
 
-        print(f"0/{n_lqr_iter}\tJ: {J_star:g}")
+        if verbose:
+            print(f"0/{n_lqr_iter}\tJ: {J_star:g}")
+
         for i in range(n_lqr_iter):
             accept = False
 
@@ -192,7 +194,8 @@ class ilqrSolver:
             if not accept:
 
                 # DBG: bail out since regularization doesn't seem to help.
-                print("Failed line search, giving up.")
+                if verbose:
+                    print("Failed line search, giving up.")
                 break
 
                 # Increase regularization if we're not converging.
@@ -205,7 +208,10 @@ class ilqrSolver:
             if is_converged:
                 break
 
-            print(f"{i+1}/{n_lqr_iter}\tJ: {J_star:g}\tμ: {self.μ:g}\tΔ: {self.Δ:g}")
+            if verbose:
+                print(
+                    f"{i+1}/{n_lqr_iter}\tJ: {J_star:g}\tμ: {self.μ:g}\tΔ: {self.Δ:g}"
+                )
 
         return X, U, J
 
@@ -258,7 +264,7 @@ class RecedingHorizonController:
     def N(self):
         return self._controller.N
 
-    def solve(self, U_init, J_converge=1.0, **kwargs):
+    def solve(self, U0, J_converge=1.0, **kwargs):
         """Optimize the system controls from the current state
 
         Parameters
@@ -283,7 +289,7 @@ class RecedingHorizonController:
         """
 
         i = 0
-        U = U_init
+        U = U0
         while True:
             print("-" * 50 + f"\nHorizon {i}")
             i += 1

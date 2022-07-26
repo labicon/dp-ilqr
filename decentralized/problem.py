@@ -14,8 +14,8 @@ from .dynamics import DynamicalModel, MultiDynamicalModel
 from .util import compute_pairwise_distance, split_agents, split_graph
 
 
-def solve_decentralized(problem, X, U, radius, is_mp=False):
-    """Solve the centralized problem in parallel with multiprocessing"""
+def solve_decentralized(problem, X, U, radius, is_mp=False, verbose=True):
+    """Solve the problem via decentralization into subproblems"""
 
     x_dims = problem.game_cost.x_dims
     u_dims = problem.game_cost.u_dims
@@ -42,8 +42,15 @@ def solve_decentralized(problem, X, U, radius, is_mp=False):
             zip(problem.split(graph), x0_split, U_split, ids)
         ):
             t0 = pc()
-            Xi_agent, Ui_agent, id_ = solve_subproblem((subproblem, x0i, Ui, id_))
-            print(f"Problem {id_}: {graph[id_]}\nTook {pc() - t0} seconds\n" + "=" * 60)
+            Xi_agent, Ui_agent, id_ = solve_subproblem(
+                (subproblem, x0i, Ui, id_, verbose)
+            )
+
+            if verbose:
+                print(
+                    f"Problem {id_}: {graph[id_]}\nTook {pc() - t0} seconds\n"
+                    + "=" * 60
+                )
 
             X_dec[:, i * n_states : (i + 1) * n_states] = Xi_agent
             U_dec[:, i * n_controls : (i + 1) * n_controls] = Ui_agent
@@ -51,17 +58,19 @@ def solve_decentralized(problem, X, U, radius, is_mp=False):
     # Solve in separate processes using imap.
     else:
         # Package up arguments for the subproblem solver.
-        args = zip(problem.split(graph), x0_split, U_split, ids)
+        args = zip(problem.split(graph), x0_split, U_split, ids, [verbose] * len(graph))
 
         t0 = pc()
         with mp.Pool(processes=n_agents) as pool:
             for i, (Xi_agent, Ui_agent, id_) in enumerate(
                 pool.imap_unordered(solve_subproblem, args)
             ):
-                print(
-                    "=" * 60
-                    + f"\nProblem {id_}: {graph[id_]}\nTook {pc() - t0} seconds"
-                )
+
+                if verbose:
+                    print(
+                        "=" * 60
+                        + f"\nProblem {id_}: {graph[id_]}\nTook {pc() - t0} seconds"
+                    )
                 X_dec[:, i * n_states : (i + 1) * n_states] = Xi_agent
                 U_dec[:, i * n_controls : (i + 1) * n_controls] = Ui_agent
 
@@ -72,14 +81,46 @@ def solve_decentralized(problem, X, U, radius, is_mp=False):
     return X_dec, U_dec, J_full
 
 
+def solve_decentralized_rhc(
+    problem, x0, N, *args, step_size=1, J_converge=1.0, **kwargs
+):
+    """Solve the problem via decentralization in receding horizon steps"""
+
+    n_x = problem.dynamics.n_x
+    n_u = problem.dynamics.n_u
+    x0 = x0.reshape(1, -1)
+
+    Xi = np.tile(x0, (N, 1))
+    Ui = np.zeros((N, n_u))
+    X_dec = np.zeros((0, n_x))
+    U_dec = np.zeros((0, n_u))
+    Ji = np.inf
+
+    while Ji >= J_converge:
+        Xi, Ui, Ji = solve_decentralized(problem, Xi, Ui, *args, **kwargs)
+
+        X_dec = np.r_[X_dec, Xi[:step_size]]
+        U_dec = np.r_[U_dec, Ui[:step_size]]
+
+        # Seed the next solve by staying at the last visited state.
+        Xi = np.r_[Xi[step_size:], np.tile(Xi[-1], (step_size, 1))]
+        Ui = np.r_[Ui[step_size:], np.zeros((step_size, n_u))]
+
+    # Evaluate the cost of this combined trajectory.
+    full_solver = ilqrSolver(problem, N)
+    _, J_dec = full_solver._rollout(x0, U_dec)
+
+    return X_dec, U_dec, J_dec
+
+
 def solve_subproblem(args):
     """Solve the sub-problem and extract results for this agent"""
 
-    subproblem, x0, U, id_ = args
+    subproblem, x0, U, id_, verbose = args
     N = U.shape[0]
 
     subsolver = ilqrSolver(subproblem, N)
-    Xi, Ui, _ = subsolver.solve(x0, U)
+    Xi, Ui, _ = subsolver.solve(x0, U, verbose=verbose)
     return *subproblem.extract(Xi, Ui, id_), id_
 
 
