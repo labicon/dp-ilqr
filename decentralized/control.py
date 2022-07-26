@@ -240,16 +240,15 @@ class ilqrSolver:
         )
 
 
-def solve_centralized_rhc(problem, x0, U0, step_size=1, J_converge=1.0, **kwargs):
+def solve_centralized_rhc(problem, x0, N, step_size=1, J_converge=1.0, **kwargs):
     """Solve the centralized RHC Problem until a J_converge is satisfied"""
 
-    n_x = x0.size
-    n_u = U0.shape[1]
+    n_x = problem.dynamics.n_x
+    n_u = problem.dynamics.n_u
 
     xi = x0.copy()
-    U = U0.copy()
-
-    controller = ilqrSolver(problem, U0.shape[0])
+    Ui = np.zeros((N, n_u))
+    controller = ilqrSolver(problem, N)
 
     J = np.inf
     X_full = np.zeros((0, n_x))
@@ -257,13 +256,13 @@ def solve_centralized_rhc(problem, x0, U0, step_size=1, J_converge=1.0, **kwargs
 
     while J >= J_converge:
 
-        X, U, J = controller.solve(xi, U, **kwargs)
+        X, Ui, J = controller.solve(xi, Ui, **kwargs)
 
-        U_full = np.vstack([U_full, U[:step_size]])
+        U_full = np.vstack([U_full, Ui[:step_size]])
         X_full = np.vstack([X_full, X[:step_size]])
 
         xi = X[step_size]
-        U = np.vstack([U[step_size:], np.zeros((step_size, n_u))])
+        Ui = np.vstack([Ui[step_size:], np.zeros((step_size, n_u))])
 
     return X_full, U_full, J
 
