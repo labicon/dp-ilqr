@@ -13,6 +13,42 @@ import sympy as sym
 from .util import split_agents
 
 
+def rk4_integration(f, x, u, h, dh=None):
+    """Classic Runge-Kutta Method with sub-integration"""
+
+    if not dh:
+        dh = h
+
+    t = 0.0
+    x_new = x.copy()
+
+    while t < h - 1e-8:
+        step = min(dh, h - t)
+
+        k1 = step * f(x, u)
+        k2 = step * f(x + 0.5 * k1, u)
+        k3 = step * f(x + 0.5 * k2, u)
+        k4 = step * f(x + k3, u)
+
+        x_new += (k1 + 2.0 * k2 + 2.0 * k3 + k4) / 6.0
+        t += step
+
+    return x_new
+
+
+def forward_euler_integration(f, x, u, h):
+    """Simple 1st Order Method to integrate f with step size h"""
+    return x + f(x, u) * h
+
+
+def scipy_integration(f, x, u, h, **kwargs):
+    sol = solve_ivp(lambda _, x, u: f(x, u), [0, h], x, args=(u,), t_eval=[h], **kwargs)
+    if not sol.success:
+        raise RuntimeError(sol.message)
+
+    return sol.y.flatten()
+
+
 class DynamicalModel(abc.ABC):
     """Simulation of a dynamical model to be applied in the iLQR solution."""
 
@@ -32,29 +68,9 @@ class DynamicalModel(abc.ABC):
     def __call__(self, x, u):
         """Zero-order hold to integrate continuous dynamics f"""
 
-        # return x + self.f(x, u) * self.dt
-        # RK4 integration of continuous dynamics.
-
-        # dT = 0.05 * self.dt
-        # t = 0.0
-        # x_new = x.copy()
-
-        # while t < self.dt - 1e-8:
-        #     step = min(dT, self.dt - t)
-
-        #     k1 = step * np.asarray(self.f(x, u), dtype='float64')
-        #     k2 = step * np.asarray(self.f(x + 0.5 * k1, u), dtype='float64')
-        #     k3 = step * np.asarray(self.f(x + 0.5 * k2, u), dtype='float64')
-        #     k4 = step * np.asarray(self.f(x + k3, u), dtype='float64')
-
-        #     x_new += (k1 + 2.0 * k2 + 2.0 * k3 + k4) / 6.0
-        #     t += step
-
-        # return x_new
-
-        sol = solve_ivp(lambda _,x,u: self.f(x,u), [0, self.dt] , x , args = (u,) , t_eval = [self.dt], method='RK45')
-        
-        return sol.y.T.flatten()
+        # return forward_euler_integration(self.f, x, u, self.dt)
+        return rk4_integration(self.f, x, u, self.dt, self.dt)
+        # return scipy_integration(self.f, x, u, self.dt, method="RK23")
 
     @staticmethod
     @abc.abstractmethod
@@ -80,9 +96,9 @@ class SymbolicModel(DynamicalModel):
 
     def __getstate__(self):
         state = self.__dict__.copy()
-        del state['A_num']
-        del state['B_num']
-        del state['_f']
+        del state["A_num"]
+        del state["B_num"]
+        del state["_f"]
         return state
 
     def __setstate__(self, state):
@@ -272,14 +288,9 @@ class QuadcopterDynamics6D(SymbolicModel):
         g = sym.nsimplify(9.81)
 
         # Full EOM: (the full EOM is a nonlinear function of [states, inputs, and fixed parameters])
-        f_sym = sym.Matrix([
-            v_x,
-            v_y,
-            v_z,
-            g*sym.tan(theta),
-            -g*sym.tan(phi),
-            tau - g
-        ])
+        f_sym = sym.Matrix(
+            [v_x, v_y, v_z, g * sym.tan(theta), -g * sym.tan(phi), tau - g]
+        )
 
         A = f_sym.jacobian(x)  # here the state vector is 6-dimensional
         B = f_sym.jacobian(u)  # here the input vector is also 6-dimensional
