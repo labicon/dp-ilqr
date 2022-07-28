@@ -254,7 +254,7 @@ def define_inter_graph_threshold(X, radius, x_dims, ids):
     for each pair of agents sampled over the trajectory
     """
 
-    planning_radii = 4 * radius
+    planning_radii = 2 * radius
     rel_dists = compute_pairwise_distance(X, x_dims).T
 
     N = X.shape[0]
