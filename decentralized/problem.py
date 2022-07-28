@@ -81,36 +81,77 @@ def solve_decentralized(problem, X, U, radius, is_mp=False, verbose=True):
     return X_dec, U_dec, J_full
 
 
-def solve_decentralized_rhc(
-    problem, x0, N, *args, step_size=1, J_converge=1.0, **kwargs
+def solve_rhc(
+    problem,
+    x0,
+    N,
+    *args,
+    centralized=True,
+    n_d=2,
+    step_size=1,
+    J_converge=None,
+    dist_converge=None,
+    **kwargs,
 ):
-    """Solve the problem via decentralization in receding horizon steps"""
+    """Solve the problem in a receding horizon fashion either centralized or
+    decentralized
+    """
+
+    if (J_converge is None) == (dist_converge is None):
+        raise ValueError("Must either specify a convergence cost or distance")
+
+    if J_converge:
+
+        def predicate(_, J):
+            return J >= J_converge
+
+    elif dist_converge:
+        x_goal = problem.game_cost.x_goal
+        n_states = problem.dynamics.x_dims[0]
+        n_agents = problem.n_agents
+
+        def predicate(x, _):
+            dist_to_goal = np.linalg.norm(
+                (x - x_goal).reshape(n_agents, n_states)[:, :n_d], axis=1
+            )
+            return np.any(dist_to_goal > dist_converge)
 
     n_x = problem.dynamics.n_x
     n_u = problem.dynamics.n_u
-    x0 = x0.reshape(1, -1)
 
-    Xi = np.tile(x0, (N, 1))
-    Ui = np.zeros((N, n_u))
-    X_dec = np.zeros((0, n_x))
-    U_dec = np.zeros((0, n_u))
-    Ji = np.inf
+    xi = x0.reshape(1, -1)
+    X = xi.copy()
+    U = np.zeros((N, n_u))
+    centralized_solver = ilqrSolver(problem, N)
 
-    while Ji >= J_converge:
-        Xi, Ui, Ji = solve_decentralized(problem, Xi, Ui, *args, **kwargs)
+    J = np.inf
+    X_full = np.zeros((0, n_x))
+    U_full = np.zeros((0, n_u))
 
-        X_dec = np.r_[X_dec, Xi[:step_size]]
-        U_dec = np.r_[U_dec, Ui[:step_size]]
+    while predicate(xi, J):
+
+        if centralized:
+            X, U, J = centralized_solver.solve(xi, U, **kwargs)
+        else:
+            X, U, J = solve_decentralized(problem, X, U, *args, **kwargs)
+
+        xi = X[step_size]
+
+        X_full = np.r_[X_full, X[:step_size]]
+        U_full = np.r_[U_full, U[:step_size]]
 
         # Seed the next solve by staying at the last visited state.
-        Xi = np.r_[Xi[step_size:], np.tile(Xi[-1], (step_size, 1))]
-        Ui = np.r_[Ui[step_size:], np.zeros((step_size, n_u))]
+        X = np.r_[X[step_size:], np.tile(X[-1], (step_size, 1))]
+        U = np.r_[U[step_size:], np.zeros((step_size, n_u))]
 
-    # Evaluate the cost of this combined trajectory.
-    full_solver = ilqrSolver(problem, N)
-    _, J_dec = full_solver._rollout(x0, U_dec)
+    _, J_full = centralized_solver._rollout(x0, U_full)
 
-    return X_dec, U_dec, J_dec
+    # Handle immediate convergence condition without any optimization.
+    if not X_full.size and not U_full.size:
+        X_full = x0.copy()
+        U_full = np.zeros((problem.dynamics.n_u))
+
+    return X_full, U_full, J_full
 
 
 def solve_subproblem(args):

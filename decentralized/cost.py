@@ -175,6 +175,10 @@ class GameCost(Cost):
         self.ids = [ref_cost.id for ref_cost in self.ref_costs]
         self.n_agents = len(reference_costs)
 
+    @property
+    def x_goal(self):
+        return np.concatenate([ref_cost.xf for ref_cost in self.ref_costs])
+
     def __call__(self, x, u, terminal=False):
         x_split = split_agents(x, self.x_dims)
         u_split = split_agents(u, self.u_dims)
