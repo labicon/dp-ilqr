@@ -14,7 +14,7 @@ from .dynamics import DynamicalModel, MultiDynamicalModel
 from .util import compute_pairwise_distance, split_agents, split_graph
 
 
-def solve_decentralized(problem, X, U, radius, is_mp=False, verbose=True):
+def solve_decentralized(problem, X, U, radius, is_mp=False, verbose=True, **kwargs):
     """Solve the problem via decentralization into subproblems"""
 
     x_dims = problem.game_cost.x_dims
@@ -28,6 +28,8 @@ def solve_decentralized(problem, X, U, radius, is_mp=False, verbose=True):
 
     # Compute interaction graph based on relative distances.
     graph = define_inter_graph_threshold(X, radius, x_dims, ids)
+    if verbose:
+        print(f"Interaction Graph: {graph}")
 
     # Split up the initial state and control for each subproblem.
     x0_split = split_graph(X[np.newaxis, 0], x_dims, graph)
@@ -43,7 +45,7 @@ def solve_decentralized(problem, X, U, radius, is_mp=False, verbose=True):
         ):
             t0 = pc()
             Xi_agent, Ui_agent, id_ = solve_subproblem(
-                (subproblem, x0i, Ui, id_, verbose)
+                (subproblem, x0i, Ui, id_), verbose=verbose, **kwargs
             )
 
             if verbose:
@@ -154,14 +156,14 @@ def solve_rhc(
     return X_full, U_full, J_full
 
 
-def solve_subproblem(args):
+def solve_subproblem(args, **kwargs):
     """Solve the sub-problem and extract results for this agent"""
 
-    subproblem, x0, U, id_, verbose = args
+    subproblem, x0, U, id_ = args
     N = U.shape[0]
 
     subsolver = ilqrSolver(subproblem, N)
-    Xi, Ui, _ = subsolver.solve(x0, U, verbose=verbose)
+    Xi, Ui, _ = subsolver.solve(x0, U, **kwargs)
     return *subproblem.extract(Xi, Ui, id_), id_
 
 
