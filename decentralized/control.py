@@ -7,6 +7,7 @@
 
 """
 
+from time import perf_counter
 
 import numpy as np
 
@@ -146,11 +147,10 @@ class ilqrSolver:
 
         return K, d
 
-    def solve(self, x0, U=None, n_lqr_iter=50, tol=1e-3, verbose=True):
+    def solve(self, x0, U=None, n_lqr_iter=50, tol=1e-3, t_kill=None, verbose=True):
 
         if U is None:
             U = np.zeros((self.N, self.n_u))
-            # U = np.full((self.N, self.n_u), 0.1)
             # U = 1e-3 * np.random.rand(self.N, self.n_u)
         if U.shape != (self.N, self.n_u):
             raise ValueError
@@ -166,6 +166,7 @@ class ilqrSolver:
         if verbose:
             print(f"0/{n_lqr_iter}\tJ: {J_star:g}")
 
+        t0 = perf_counter()
         for i in range(n_lqr_iter):
             accept = False
 
@@ -206,6 +207,13 @@ class ilqrSolver:
                     break
 
             if is_converged:
+                break
+
+            if t_kill and perf_counter() - t0 > t_kill:
+                if verbose:
+                    print(
+                        f"Killing due to exceeded computation time {perf_counter() - t0:.3g} > {t_kill} s."
+                    )
                 break
 
             if verbose:
