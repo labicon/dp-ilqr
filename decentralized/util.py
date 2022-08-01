@@ -105,17 +105,17 @@ def randomize_locs(n_pts, random=False, rel_dist=3.0, var=3.0, n_d=2):
     return x
 
 
-def face_goal(x0, x_goal):
+def face_goal(x0, xf):
     """Make the agents face the direction of their goal with a little noise"""
 
     VAR = 0.01
-    dX = x_goal[:, :2] - x0[:, :2]
+    dX = xf[:, :2] - x0[:, :2]
     headings = np.arctan2(*np.rot90(dX, 1))
 
     x0[:, -1] = headings + VAR * np.random.randn(x0.shape[0])
-    x_goal[:, -1] = headings + VAR * np.random.randn(x0.shape[0])
+    xf[:, -1] = headings + VAR * np.random.randn(x0.shape[0])
 
-    return x0, x_goal
+    return x0, xf
 
 
 def random_setup(n_agents, n_states, is_rotation=False, n_d=2, **kwargs):

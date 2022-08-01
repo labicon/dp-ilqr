@@ -176,7 +176,7 @@ class GameCost(Cost):
         self.n_agents = len(reference_costs)
 
     @property
-    def x_goal(self):
+    def xf(self):
         return np.concatenate([ref_cost.xf for ref_cost in self.ref_costs])
 
     def __call__(self, x, u, terminal=False):

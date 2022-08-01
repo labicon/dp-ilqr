@@ -108,13 +108,13 @@ def solve_rhc(
             return J >= J_converge
 
     elif dist_converge:
-        x_goal = problem.game_cost.x_goal
+        xf = problem.game_cost.xf
         n_states = problem.dynamics.x_dims[0]
         n_agents = problem.n_agents
 
         def predicate(x, _):
             dist_to_goal = np.linalg.norm(
-                (x - x_goal).reshape(n_agents, n_states)[:, :n_d], axis=1
+                (x - xf).reshape(n_agents, n_states)[:, :n_d], axis=1
             )
             return np.any(dist_to_goal > dist_converge)
 
