@@ -31,8 +31,7 @@ from .util import (
     compute_pairwise_distance,
     split_agents,
     split_graph,
-    randomize_locs,
-    face_goal,
-    random_setup,
     plot_interaction_graph,
+    pos_mask,
+    π,
 )

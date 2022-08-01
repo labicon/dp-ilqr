@@ -78,6 +78,11 @@ def split_graph(Z, z_dims, graph):
     return z_split
 
 
+def pos_mask(x_dims, n_d=2):
+    """Return a mask that's true wherever there's a spatial position"""
+    return np.array([i % x_dims[0] < n_d for i in range(sum(x_dims))])
+
+
 def randomize_locs(n_pts, random=False, rel_dist=3.0, var=3.0, n_d=2):
     """Uniformly randomize locations of points in N-D while enforcing
     a minimum separation between them.
@@ -118,7 +123,7 @@ def face_goal(x0, xf):
     return x0, xf
 
 
-def random_setup(n_agents, n_states, is_rotation=False, n_d=2, **kwargs):
+def random_setup(n_agents, n_states, is_rotation=False, n_d=2, energy=None, **kwargs):
     """Create a randomized set up of initial and final positions"""
 
     # We don't have to normlize for energy here
@@ -132,12 +137,46 @@ def random_setup(n_agents, n_states, is_rotation=False, n_d=2, **kwargs):
     else:
         x_f = randomize_locs(n_agents, n_d=n_d, **kwargs)
 
-    x0 = np.c_[x_i, np.zeros((n_agents, n_states - n_d))]
-    x_goal = np.c_[x_f, np.zeros((n_agents, n_states - n_d))]
-    # NOTE: not facing the goal since not consistent between dynamical models.
-    # x0, x_goal = face_goal(x0, x_goal)
+    x0 = np.c_[x_i, np.zeros((n_agents, n_states - n_d))].reshape(-1, 1)
+    xf = np.c_[x_f, np.zeros((n_agents, n_states - n_d))].reshape(-1, 1)
 
-    return x0.reshape(-1, 1), x_goal.reshape(-1, 1)
+    # Normalize to satisfy the desired energy of the problem.
+    if energy:
+        x0 = normalize_energy(x0, [n_states] * n_agents, energy, n_d)
+        xf = normalize_energy(xf, [n_states] * n_agents, energy, n_d)
+
+    return x0, xf
+
+
+def compute_energy(x, x_dims, n_d=2):
+    """Determine the sum of distances from the origin"""
+    return np.linalg.norm(x[pos_mask(x_dims, n_d)].reshape(-1, n_d), axis=1).sum()
+
+
+def normalize_energy(x, x_dims, energy=10.0, n_d=2):
+    """Zero-center the coordinates and then ensure the sum of
+    squared distances == energy
+    """
+
+    # Don't mutate x's data for this function, keep it pure.
+    x = x.copy()
+    n_agents = len(x_dims)
+    center = x[pos_mask(x_dims, n_d)].reshape(-1, n_d).mean(0)
+
+    x[pos_mask(x_dims, n_d)] -= np.tile(center, n_agents).reshape(-1, 1)
+    x[pos_mask(x_dims, n_d)] *= energy / compute_energy(x, x_dims, n_d)
+    assert x.size == sum(x_dims)
+
+    return x
+
+
+def perturb_state(x, x_dims, n_d=2, var=0.5):
+    """Add a little noise to the start to knock off perfect symmetries"""
+
+    x = x.copy()
+    x[pos_mask(x_dims, n_d)] += var * np.random.randn(*x[pos_mask(x_dims, n_d)].shape)
+
+    return x
 
 
 def plot_interaction_graph(graph):
