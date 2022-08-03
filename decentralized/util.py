@@ -4,11 +4,13 @@
 
 from dataclasses import dataclass
 import itertools
+from pathlib import Path
 import random
 
 import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
+import pandas as pd
 from scipy.spatial.transform import Rotation
 
 π = np.pi
@@ -199,3 +201,17 @@ def plot_interaction_graph(graph):
     nx.draw_networkx(G, nx.spring_layout(G, k=1.5), **options)
     plt.margins(0.1)
     plt.draw()
+
+
+
+def evaluate_results(csvname):
+    """Look through the result log file and compute some statistics"""
+    
+    df = pd.read_csv(csvname)
+    print(df)
+
+
+if __name__ == "__main__":
+    logfile = Path(__file__).parent.parent / "logs" / "dec-mc_08-02-22_17:01:25.csv"
+    evaluate_results(logfile)
+    
