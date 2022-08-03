@@ -3,6 +3,7 @@
 """Logic to combine dynamics and cost in one framework"""
 
 import itertools
+import logging
 import multiprocessing as mp
 from time import perf_counter as pc
 
@@ -25,6 +26,7 @@ def solve_decentralized(problem, X, U, radius, is_mp=False, verbose=True, **kwar
     n_controls = u_dims[0]
     n_agents = len(x_dims)
     ids = problem.ids
+    solve_times = {}
 
     # Compute interaction graph based on relative distances.
     graph = define_inter_graph_threshold(X, radius, x_dims, ids)
@@ -47,15 +49,15 @@ def solve_decentralized(problem, X, U, radius, is_mp=False, verbose=True, **kwar
             Xi_agent, Ui_agent, id_ = solve_subproblem(
                 (subproblem, x0i, Ui, id_), verbose=verbose, **kwargs
             )
+            Δt = pc() - t0
 
             if verbose:
-                print(
-                    f"Problem {id_}: {graph[id_]}\nTook {pc() - t0} seconds\n"
-                    + "=" * 60
-                )
+                print(f"Problem {id_}: {graph[id_]}\nTook {Δt} seconds\n" + "=" * 60)
 
             X_dec[:, i * n_states : (i + 1) * n_states] = Xi_agent
             U_dec[:, i * n_controls : (i + 1) * n_controls] = Ui_agent
+
+            solve_times[id_] = Δt
 
     # Solve in separate processes using imap.
     else:
@@ -80,7 +82,7 @@ def solve_decentralized(problem, X, U, radius, is_mp=False, verbose=True, **kwar
     full_solver = ilqrSolver(problem, N)
     _, J_full = full_solver._rollout(X[0], U_dec)
 
-    return X_dec, U_dec, J_full
+    return X_dec, U_dec, J_full, solve_times
 
 
 def solve_rhc(
@@ -93,6 +95,7 @@ def solve_rhc(
     step_size=1,
     J_converge=None,
     dist_converge=None,
+    i_trial=None,
     **kwargs,
 ):
     """Solve the problem in a receding horizon fashion either centralized or
@@ -120,39 +123,63 @@ def solve_rhc(
 
     n_x = problem.dynamics.n_x
     n_u = problem.dynamics.n_u
+    model_name = problem.dynamics.submodels[0].__class__.__name__
 
     xi = x0.reshape(1, -1)
     X = xi.copy()
     U = np.zeros((N, n_u))
     centralized_solver = ilqrSolver(problem, N)
+    rhc_solve_times = {id_: 0.0 for id_ in problem.ids}
 
+    t = 0
     J = np.inf
+    dt = problem.dynamics.dt
     X_full = np.zeros((0, n_x))
     U_full = np.zeros((0, n_u))
-
+    
     while predicate(xi, J):
 
         if centralized:
+            t0 = pc()
             X, U, J = centralized_solver.solve(xi, U, **kwargs)
+            Δt = pc() - t0
+            solve_times = {id_: Δt for id_ in problem.ids}
         else:
-            X, U, J = solve_decentralized(problem, X, U, *args, **kwargs)
-
+            X, U, J, solve_times = solve_decentralized(problem, X, U, *args, **kwargs)
         xi = X[step_size]
 
         X_full = np.r_[X_full, X[:step_size]]
         U_full = np.r_[U_full, U[:step_size]]
-
+        
         # Seed the next solve by staying at the last visited state.
         X = np.r_[X[step_size:], np.tile(X[-1], (step_size, 1))]
         U = np.r_[U[step_size:], np.zeros((step_size, n_u))]
 
-    _, J_full = centralized_solver._rollout(x0, U_full)
+        times = list(solve_times.values())
+        logging.info(
+            f'"{model_name}",{problem.n_agents},{i_trial},{centralized},'
+            f'{False},{t},{J},{N},{dt},"{problem.ids}","{times}"'
+        )
 
+        # Keep track of simulation time as we go.
+        t += step_size
+        
     # Handle immediate convergence condition without any optimization.
     if not X_full.size and not U_full.size:
         X_full = x0.copy()
-        U_full = np.zeros((problem.dynamics.n_u))
+        U_full = np.zeros((1, problem.dynamics.n_u))
 
+    # Rollout the final control sequence to evaluate the cost.
+    _, J_full = centralized_solver._rollout(x0, U_full)
+    # Final simulation time where the predicate was satisfied.
+    tf = U_full.shape[0] * dt
+
+    logging.info(
+        f'"{model_name}",{problem.n_agents},{i_trial},{centralized},'
+        f'{True},{tf},{J_full},{N},{dt},"{problem.ids}","{times}"'
+    )
+
+    
     return X_full, U_full, J_full
 
 

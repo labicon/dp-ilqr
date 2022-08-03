@@ -287,7 +287,8 @@ class QuadcopterDynamics6D(SymbolicModel):
 
         g = sym.nsimplify(9.81)
 
-        # Full EOM: (the full EOM is a nonlinear function of [states, inputs, and fixed parameters])
+        # Full EOM: (the full EOM is a nonlinear function of [states, inputs, and fixed
+        # parameters])
         f_sym = sym.Matrix(
             [v_x, v_y, v_z, g * sym.tan(theta), -g * sym.tan(phi), tau - g]
         )
