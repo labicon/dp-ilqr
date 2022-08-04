@@ -106,7 +106,7 @@ def multi_agent_run(model, x_dims, dt, N, radius, energy=10.0, n_d=2, **kwargs):
 def setup_logger(limit_solve_time):
     analysis = "1" if limit_solve_time else "2"
     LOG_PATH = Path(__file__).parent.parent / "logs"
-    LOG_FILE = LOG_PATH / strftime(f"dec-mc-{analysis}_%m-%d-%y_%X.csv")
+    LOG_FILE = LOG_PATH / strftime(f"dec-mc-{analysis}_%m-%d-%y_%H.%M.%S.csv")
     if not LOG_PATH.is_dir():
         LOG_PATH.mkdir()
     print(f"Logging results to {LOG_FILE}")
