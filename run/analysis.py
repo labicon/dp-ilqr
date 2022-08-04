@@ -111,7 +111,9 @@ def setup_logger(limit_solve_time):
         LOG_PATH.mkdir()
     print(f"Logging results to {LOG_FILE}")
     logging.basicConfig(filename=LOG_FILE, format="%(message)s", level=logging.INFO)
-    logging.info("dynamics,n_agents,trial,centralized,last,t,J,horizon,dt,ids,times")
+    logging.info(
+        "dynamics,n_agents,trial,centralized,last,t,J,horizon,dt,ids,times,subgraphs"
+    )
 
 
 def monte_carlo_analysis(limit_solve_time=False):

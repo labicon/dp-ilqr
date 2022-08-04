@@ -16,6 +16,7 @@ from scipy.spatial.transform import Rotation
 π = np.pi
 
 
+# Global to get to the top of the repository.
 repopath = Path(__file__).parent.parent.resolve()
 
 

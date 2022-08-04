@@ -26,7 +26,7 @@ def solve_decentralized(problem, X, U, radius, is_mp=False, verbose=True, **kwar
     n_controls = u_dims[0]
     n_agents = len(x_dims)
     ids = problem.ids
-    solve_times = {}
+    solve_info = {}
 
     # Compute interaction graph based on relative distances.
     graph = define_inter_graph_threshold(X, radius, x_dims, ids)
@@ -57,10 +57,13 @@ def solve_decentralized(problem, X, U, radius, is_mp=False, verbose=True, **kwar
             X_dec[:, i * n_states : (i + 1) * n_states] = Xi_agent
             U_dec[:, i * n_controls : (i + 1) * n_controls] = Ui_agent
 
-            solve_times[id_] = Δt
+            solve_info[id_] = (Δt, graph[id_])
 
     # Solve in separate processes using imap.
     else:
+        # Not a great way to keep track of this accurately across processes.
+        solve_info = None
+
         # Package up arguments for the subproblem solver.
         args = zip(problem.split(graph), x0_split, U_split, ids, [verbose] * len(graph))
 
@@ -82,7 +85,7 @@ def solve_decentralized(problem, X, U, radius, is_mp=False, verbose=True, **kwar
     full_solver = ilqrSolver(problem, N)
     _, J_full = full_solver._rollout(X[0], U_dec)
 
-    return X_dec, U_dec, J_full, solve_times
+    return X_dec, U_dec, J_full, solve_info
 
 
 def solve_rhc(
@@ -133,6 +136,7 @@ def solve_rhc(
     t = 0
     J = np.inf
     dt = problem.dynamics.dt
+    ids = problem.ids.copy()
     X_full = np.zeros((0, n_x))
     U_full = np.zeros((0, n_u))
 
@@ -142,9 +146,9 @@ def solve_rhc(
             t0 = pc()
             X, U, J = centralized_solver.solve(xi, U, **kwargs)
             Δt = pc() - t0
-            solve_times = {id_: Δt for id_ in problem.ids}
+            solve_info = {id_: (Δt, ids) for id_ in ids}
         else:
-            X, U, J, solve_times = solve_decentralized(problem, X, U, *args, **kwargs)
+            X, U, J, solve_info = solve_decentralized(problem, X, U, *args, **kwargs)
         xi = X[step_size]
 
         X_full = np.r_[X_full, X[:step_size]]
@@ -154,14 +158,15 @@ def solve_rhc(
         X = np.r_[X[step_size:], np.tile(X[-1], (step_size, 1))]
         U = np.r_[U[step_size:], np.zeros((step_size, n_u))]
 
-        times = list(solve_times.values())
+        times = [tup[0] for tup in solve_info.values()]
+        subgraphs = [tup[1] for tup in solve_info.values()]
         logging.info(
             f'"{model_name}",{problem.n_agents},{i_trial},{centralized},'
-            f'{False},{t},{J},{N},{dt},"{problem.ids}","{times}"'
+            f'{False},{t},{J},{N},{dt},"{ids}","{times}","{subgraphs}"'
         )
 
         # Keep track of simulation time as we go.
-        t += step_size
+        t += step_size * dt
 
     # Handle immediate convergence condition without any optimization.
     if not X_full.size and not U_full.size:
@@ -175,7 +180,7 @@ def solve_rhc(
 
     logging.info(
         f'"{model_name}",{problem.n_agents},{i_trial},{centralized},'
-        f'{True},{tf},{J_full},{N},{dt},"{problem.ids}","{times}"'
+        f'{True},{tf},{J_full},{N},{dt},"{ids}","{times}","{subgraphs}"'
     )
 
     return X_full, U_full, J_full
