@@ -129,14 +129,13 @@ def solve_rhc(
     X = xi.copy()
     U = np.zeros((N, n_u))
     centralized_solver = ilqrSolver(problem, N)
-    rhc_solve_times = {id_: 0.0 for id_ in problem.ids}
 
     t = 0
     J = np.inf
     dt = problem.dynamics.dt
     X_full = np.zeros((0, n_x))
     U_full = np.zeros((0, n_u))
-    
+
     while predicate(xi, J):
 
         if centralized:
@@ -150,7 +149,7 @@ def solve_rhc(
 
         X_full = np.r_[X_full, X[:step_size]]
         U_full = np.r_[U_full, U[:step_size]]
-        
+
         # Seed the next solve by staying at the last visited state.
         X = np.r_[X[step_size:], np.tile(X[-1], (step_size, 1))]
         U = np.r_[U[step_size:], np.zeros((step_size, n_u))]
@@ -163,7 +162,7 @@ def solve_rhc(
 
         # Keep track of simulation time as we go.
         t += step_size
-        
+
     # Handle immediate convergence condition without any optimization.
     if not X_full.size and not U_full.size:
         X_full = x0.copy()
@@ -179,7 +178,6 @@ def solve_rhc(
         f'{True},{tf},{J_full},{N},{dt},"{problem.ids}","{times}"'
     )
 
-    
     return X_full, U_full, J_full
 
 

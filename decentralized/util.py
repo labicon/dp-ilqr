@@ -206,10 +206,9 @@ def plot_interaction_graph(graph):
     plt.draw()
 
 
-
 def evaluate_results(csvname):
     """Look through the result log file and compute some statistics"""
-    
+
     df = pd.read_csv(csvname)
     print(df)
 
@@ -217,4 +216,3 @@ def evaluate_results(csvname):
 if __name__ == "__main__":
     logfile = Path(__file__).parent.parent / "logs" / "dec-mc_08-02-22_17:01:25.csv"
     evaluate_results(logfile)
-    
