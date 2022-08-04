@@ -36,6 +36,7 @@ from .util import (
     pos_mask,
     random_setup,
     randomize_locs,
+    repopath,
     split_agents,
     split_graph,
     π,

@@ -16,6 +16,9 @@ from scipy.spatial.transform import Rotation
 π = np.pi
 
 
+repopath = Path(__file__).parent.parent.resolve()
+
+
 @dataclass
 class Point(object):
     """Point in 3D"""
