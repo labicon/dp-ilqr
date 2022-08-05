@@ -7,6 +7,7 @@ from .cost import (
     quadraticize_distance,
     quadraticize_finite_difference,
 )
+from .decentralized import define_inter_graph_threshold, solve_decentralized, solve_rhc
 from .dynamics import (
     BikeDynamics5D,
     CarDynamics3D,
@@ -19,13 +20,7 @@ from .dynamics import (
     UnicycleDynamics4D,
     linearize_finite_difference,
 )
-from .problem import (
-    _reset_ids,
-    define_inter_graph_threshold,
-    ilqrProblem,
-    solve_decentralized,
-    solve_rhc,
-)
+from .problem import _reset_ids, ilqrProblem
 from .util import (
     Point,
     compute_energy,
