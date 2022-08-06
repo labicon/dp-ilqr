@@ -104,7 +104,9 @@ def solve_rhc(
     step_size=1,
     J_converge=None,
     dist_converge=None,
+    t_diverge=None,
     i_trial=None,
+    verbose=False,
     **kwargs,
 ):
     """Solve the problem in a receding horizon fashion either centralized or
@@ -114,21 +116,23 @@ def solve_rhc(
     if (J_converge is None) == (dist_converge is None):
         raise ValueError("Must either specify a convergence cost or distance")
 
+    xf = problem.game_cost.xf
+
+    def distance_to_goal(x):
+        return np.linalg.norm((x - xf).reshape(n_agents, n_states)[:, :n_d], axis=1)
+
     if J_converge:
 
         def predicate(_, J):
             return J >= J_converge
 
     elif dist_converge:
-        xf = problem.game_cost.xf
+
         n_states = problem.dynamics.x_dims[0]
         n_agents = problem.n_agents
 
         def predicate(x, _):
-            dist_to_goal = np.linalg.norm(
-                (x - xf).reshape(n_agents, n_states)[:, :n_d], axis=1
-            )
-            return np.any(dist_to_goal > dist_converge)
+            return np.any(distance_to_goal(x) > dist_converge)
 
     n_x = problem.dynamics.n_x
     n_u = problem.dynamics.n_u
@@ -141,20 +145,25 @@ def solve_rhc(
 
     t = 0
     J = np.inf
+    converged = True
     dt = problem.dynamics.dt
     ids = problem.ids.copy()
     X_full = np.zeros((0, n_x))
     U_full = np.zeros((0, n_u))
 
     while predicate(xi, J):
+        if verbose:
+            print(f"t: {t:.3g}")
 
         if centralized:
             t0 = pc()
-            X, U, J = centralized_solver.solve(xi, U, **kwargs)
+            X, U, J = centralized_solver.solve(xi, U, verbose=verbose, **kwargs)
             Δt = pc() - t0
             solve_info = {id_: (Δt, ids) for id_ in ids}
         else:
-            X, U, J, solve_info = solve_decentralized(problem, X, U, *args, **kwargs)
+            X, U, J, solve_info = solve_decentralized(
+                problem, X, U, *args, verbose=verbose, **kwargs
+            )
         xi = X[step_size]
 
         X_full = np.r_[X_full, X[:step_size]]
@@ -166,10 +175,18 @@ def solve_rhc(
 
         times = [tup[0] for tup in solve_info.values()]
         subgraphs = [tup[1] for tup in solve_info.values()]
+        distance_left = distance_to_goal(xi).tolist()
         logging.info(
             f'"{model_name}",{problem.n_agents},{i_trial},{centralized},'
-            f'{False},{t},{J},{N},{dt},"{ids}","{times}","{subgraphs}"'
+            f'{False},{t},{J},{N},{dt},{converged},"{ids}","{times}","{subgraphs}",'
+            f'"{distance_left}"'
         )
+
+        if t_diverge and t >= t_diverge:
+            converged = False
+            if verbose:
+                print("Failed to converge within allotted time...")
+            break
 
         # Keep track of simulation time as we go.
         t += step_size * dt
@@ -186,7 +203,8 @@ def solve_rhc(
 
     logging.info(
         f'"{model_name}",{problem.n_agents},{i_trial},{centralized},'
-        f'{True},{tf},{J_full},{N},{dt},"{ids}","{times}","{subgraphs}"'
+        f'{True},{tf},{J_full},{N},{dt},{converged},"{ids}","{times}","{subgraphs}",'
+        f'"{distance_left}"'
     )
 
     return X_full, U_full, J_full

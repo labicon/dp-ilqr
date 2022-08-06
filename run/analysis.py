@@ -112,7 +112,8 @@ def setup_logger(limit_solve_time):
     print(f"Logging results to {LOG_FILE}")
     logging.basicConfig(filename=LOG_FILE, format="%(message)s", level=logging.INFO)
     logging.info(
-        "dynamics,n_agents,trial,centralized,last,t,J,horizon,dt,ids,times,subgraphs"
+        "dynamics,n_agents,trial,centralized,last,t,J,horizon,dt,converged,ids,times,"
+        "subgraphs,dist_left"
     )
 
 
