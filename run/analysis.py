@@ -22,12 +22,12 @@ from decentralized.cost import GameCost, ProximityCost, ReferenceCost
 from decentralized.dynamics import (
     DoubleIntDynamics4D,
     UnicycleDynamics4D,
-    BikeDynamics5D,
     QuadcopterDynamics6D,
     MultiDynamicalModel,
 )
-from decentralized.problem import ilqrProblem, solve_rhc
-from decentralized.util import split_agents, random_setup, compute_energy
+from decentralized.decentralized import solve_rhc
+from decentralized.problem import ilqrProblem
+from decentralized.util import split_agents, random_setup
 
 
 def multi_agent_run(model, x_dims, dt, N, radius, energy=10.0, n_d=2, **kwargs):
@@ -38,6 +38,7 @@ def multi_agent_run(model, x_dims, dt, N, radius, energy=10.0, n_d=2, **kwargs):
 
     n_agents = len(x_dims)
     n_states = x_dims[0]
+    STEP_SIZE = 1
 
     x0, xf = random_setup(
         n_agents,
@@ -49,9 +50,6 @@ def multi_agent_run(model, x_dims, dt, N, radius, energy=10.0, n_d=2, **kwargs):
         random=True,
         energy=energy,
     )
-
-    e0 = compute_energy(x0, x_dims, n_d)
-    ef = compute_energy(xf, x_dims, n_d)
 
     x_dims = [n_states] * n_agents
 
@@ -85,7 +83,7 @@ def multi_agent_run(model, x_dims, dt, N, radius, energy=10.0, n_d=2, **kwargs):
         radius,
         centralized=True,
         n_d=n_d,
-        step_size=1,
+        step_size=STEP_SIZE,
         **kwargs,
     )
 
@@ -98,13 +96,13 @@ def multi_agent_run(model, x_dims, dt, N, radius, energy=10.0, n_d=2, **kwargs):
         radius,
         centralized=False,
         n_d=n_d,
-        step_size=1,
+        step_size=STEP_SIZE,
         **kwargs,
     )
 
 
 def setup_logger(limit_solve_time):
-    analysis = "1" if limit_solve_time else "2"
+    analysis = "1" if not limit_solve_time else "2"
     LOG_PATH = Path(__file__).parent.parent / "logs"
     LOG_FILE = LOG_PATH / strftime(f"dec-mc-{analysis}_%m-%d-%y_%H.%M.%S.csv")
     if not LOG_PATH.is_dir():
@@ -122,12 +120,11 @@ def monte_carlo_analysis(limit_solve_time=False):
 
     setup_logger(limit_solve_time)
 
-    n_trials_iter = range(3)
-    n_agents_iter = range(3, 6)
+    n_trials_iter = range(30)
+    n_agents_iter = range(3, 8)
     models = [
         DoubleIntDynamics4D,
         UnicycleDynamics4D,
-        # BikeDynamics5D,
         QuadcopterDynamics6D,
     ]
 
@@ -138,8 +135,7 @@ def monte_carlo_analysis(limit_solve_time=False):
 
     t_kill = None
     if limit_solve_time:
-        # TODO: get this down.
-        t_kill = 20 * dt
+        t_kill = dt
 
     for model in models:
         print(f"{model.__name__}")
@@ -157,7 +153,8 @@ def monte_carlo_analysis(limit_solve_time=False):
                     radius,
                     n_d=n_d,
                     t_kill=t_kill,
-                    dist_converge=0.5,
+                    dist_converge=0.1,
+                    t_diverge=5 * N * dt,
                     energy=ENERGY,
                     i_trial=i_trial,
                     verbose=False,
@@ -165,8 +162,8 @@ def monte_carlo_analysis(limit_solve_time=False):
 
 
 def main():
-    monte_carlo_analysis(False)  # analysis 1
-    # monte_carlo_analysis(True)  # analysis 2
+    # monte_carlo_analysis(False)  # analysis 1
+    monte_carlo_analysis(True)  # analysis 2
 
 
 if __name__ == "__main__":
