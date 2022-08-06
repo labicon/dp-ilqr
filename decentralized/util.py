@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-"""Various utilities used in other areas of the code."""
+"""Various utilities"""
 
 from dataclasses import dataclass
 import itertools
@@ -10,7 +10,6 @@ import random
 import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
-import pandas as pd
 from scipy.spatial.transform import Rotation
 
 π = np.pi
@@ -207,13 +206,40 @@ def plot_interaction_graph(graph):
     plt.draw()
 
 
-def evaluate_results(csvname):
-    """Look through the result log file and compute some statistics"""
+def plot_solve(X, J, x_goal, x_dims=None, n_d=2):
+    """Plot the resultant trajectory on plt.gcf()"""
 
-    df = pd.read_csv(csvname)
-    print(df)
+    if n_d not in (2, 3):
+        raise ValueError()
 
+    if not x_dims:
+        x_dims = [X.shape[1]]
 
-if __name__ == "__main__":
-    logfile = Path(__file__).parent.parent / "logs" / "dec-mc_08-02-22_17:01:25.csv"
-    evaluate_results(logfile)
+    if n_d == 2:
+        ax = plt.gca()
+    else:
+        ax = plt.gcf().add_subplot(projection="3d")
+
+    N = X.shape[0]
+    n = np.arange(N)
+
+    X_split = split_agents(X, x_dims)
+    x_goal_split = split_agents(x_goal.reshape(1, -1), x_dims)
+
+    for Xi, xg in zip(X_split, x_goal_split):
+        if n_d == 2:
+            ax.scatter(Xi[:, 0], Xi[:, 1], c=n)
+            ax.scatter(Xi[0, 0], Xi[0, 1], 80, "g", "x", label="$x_0$")
+            ax.scatter(xg[0, 0], xg[0, 1], 80, "r", "x", label="$x_f$")
+        else:
+            ax.scatter(Xi[:, 0], Xi[:, 1], Xi[:, 2], c=n)
+            ax.scatter(
+                Xi[0, 0], Xi[0, 1], Xi[0, 2], s=80, c="g", marker="x", label="$x_0$"
+            )
+            ax.scatter(
+                xg[0, 0], xg[0, 1], xg[0, 2], s=80, c="r", marker="x", label="$x_f$"
+            )
+
+    plt.margins(0.1)
+    plt.title(f"Final Cost: {J:.3g}")
+    plt.draw()

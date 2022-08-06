@@ -28,6 +28,7 @@ from .util import (
     normalize_energy,
     perturb_state,
     plot_interaction_graph,
+    plot_solve,
     pos_mask,
     random_setup,
     randomize_locs,
