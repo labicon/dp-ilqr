@@ -49,6 +49,13 @@ hardware with quadcopters.
 
 [//]: # (Randy)
 
+### Hardware
+We test our algorithm on a Crazyflie 2.0, a micro-scale quadcopter platform. The algorithm will run on a terminal in real time while sending commands to the Crazyflie drone. The VICON system is used for real-time state estimation of the drone. 
+
+
+
+
+
 ## Conclusion
 
 _______________________________________________________________________________________
