@@ -133,9 +133,12 @@ def monte_carlo_analysis(limit_solve_time=False):
     ENERGY = 10.0
     radius = 0.5
 
-    t_kill = None
     if limit_solve_time:
         t_kill = dt
+        t_diverge = N * dt
+    else:
+        t_kill = None
+        t_diverge = 5 * N * dt
 
     for model in models:
         print(f"{model.__name__}")
@@ -154,7 +157,7 @@ def monte_carlo_analysis(limit_solve_time=False):
                     n_d=n_d,
                     t_kill=t_kill,
                     dist_converge=0.1,
-                    t_diverge=5 * N * dt,
+                    t_diverge=t_diverge,
                     energy=ENERGY,
                     i_trial=i_trial,
                     verbose=False,
