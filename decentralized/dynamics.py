@@ -130,12 +130,20 @@ class MultiDynamicalModel(DynamicalModel):
 
     def f(self, x, u):
         """Integrate the dynamics for the combined decoupled dynamical model"""
-        return np.concatenate(
-            [
-                submodel.f(xi.flatten(), ui.flatten())
-                for submodel, xi, ui in zip(self.submodels, *self.partition(x, u))
-            ]
-        )
+        xn = np.zeros_like(x)
+        nx = self.x_dims[0]
+        nu = self.u_dims[0]
+        for i, model in enumerate(self.submodels):
+            xn[i * nx : (i + 1) * nx] = model.f(
+                x[i * nx : (i + 1) * nx], u[i * nu : (i + 1) * nu]
+            )
+        return xn
+
+    def __call__(self, x, u):
+        """Zero-order hold to integrate continuous dynamics f"""
+
+        # return forward_euler_integration(self.f, x, u, self.dt)
+        return rk4_integration(self.f, x, u, self.dt, self.dt)
 
     def linearize(self, x, u):
         sub_linearizations = [
