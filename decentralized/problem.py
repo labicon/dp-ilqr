@@ -9,7 +9,7 @@ import numpy as np
 from .control import ilqrSolver
 from .cost import ReferenceCost, GameCost
 from .dynamics import DynamicalModel, MultiDynamicalModel
-from .util import split_agents
+from .util import split_agents_gen
 
 
 class ilqrProblem:
@@ -54,9 +54,12 @@ class ilqrProblem:
         if id_ not in self.ids:
             raise IndexError(f"Index {id_} not in ids: {self.ids}.")
 
+        # NOTE: Assume uniform dynamical models.
         ext_ind = self.ids.index(id_)
-        Xi = split_agents(X, self.game_cost.x_dims)[ext_ind]
-        Ui = split_agents(U, self.game_cost.u_dims)[ext_ind]
+        x_dim = self.game_cost.x_dims[0]
+        u_dim = self.game_cost.u_dims[0]
+        Xi = X[:, ext_ind * x_dim : (ext_ind + 1) * x_dim]
+        Ui = U[:, ext_ind * u_dim : (ext_ind + 1) * u_dim]
 
         return Xi, Ui
 
@@ -68,11 +71,12 @@ class ilqrProblem:
         x0 = x0.reshape(1, -1)
         selfish_graph = {id_: [id_] for id_ in self.ids}
         subproblems = self.split(selfish_graph)
-        x0s = split_agents(x0, self.game_cost.x_dims)
 
         U_warm = np.zeros((N, self.dynamics.n_u))
         t0_all = pc()
-        for problem, x0i, id_ in zip(subproblems, x0s, self.ids):
+        for problem, x0i, id_ in zip(
+            subproblems, split_agents_gen(x0, self.game_cost.x_dims), self.ids
+        ):
             t0 = pc()
             solver = ilqrSolver(problem, N)
             _, Ui, _ = solver.solve(x0i)

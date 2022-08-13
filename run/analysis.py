@@ -27,7 +27,7 @@ from decentralized.dynamics import (
 )
 from decentralized.decentralized import solve_rhc
 from decentralized.problem import ilqrProblem
-from decentralized.util import split_agents, random_setup
+from decentralized.util import split_agents_gen, random_setup
 
 
 def multi_agent_run(model, x_dims, dt, N, radius, energy=10.0, n_d=2, **kwargs):
@@ -67,7 +67,7 @@ def multi_agent_run(model, x_dims, dt, N, radius, energy=10.0, n_d=2, **kwargs):
 
     goal_costs = [
         ReferenceCost(xf_i, Q.copy(), R.copy(), Qf.copy(), id_)
-        for xf_i, id_ in zip(split_agents(xf.T, x_dims), ids)
+        for xf_i, id_ in zip(split_agents_gen(xf, x_dims), ids)
     ]
     prox_cost = ProximityCost(x_dims, radius)
     game_cost = GameCost(goal_costs, prox_cost)

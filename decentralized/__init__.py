@@ -34,6 +34,7 @@ from .util import (
     randomize_locs,
     repopath,
     split_agents,
+    split_agents_gen,
     split_graph,
     uniform_block_diag,
     π,

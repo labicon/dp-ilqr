@@ -7,7 +7,7 @@ import abc
 import numpy as np
 from scipy.optimize import approx_fprime
 
-from .util import Point, compute_pairwise_distance, split_agents, uniform_block_diag
+from .util import Point, compute_pairwise_distance, split_agents_gen, uniform_block_diag
 
 
 class Cost(abc.ABC):
@@ -179,12 +179,13 @@ class GameCost(Cost):
         return np.concatenate([ref_cost.xf for ref_cost in self.ref_costs])
 
     def __call__(self, x, u, terminal=False):
-        x_split = split_agents(x, self.x_dims)
-        u_split = split_agents(u, self.u_dims)
-
         ref_total = 0.0
-        for ref_cost, xi, ui in zip(self.ref_costs, x_split, u_split):
-            ref_total += ref_cost(xi, ui, terminal)[0]
+        for ref_cost, xi, ui in zip(
+            self.ref_costs,
+            split_agents_gen(x, self.x_dims),
+            split_agents_gen(u, self.u_dims),
+        ):
+            ref_total += ref_cost(xi, ui, terminal)
 
         return self.PROX_WEIGHT * self.prox_cost(x) + self.REF_WEIGHT * ref_total
 
@@ -192,11 +193,12 @@ class GameCost(Cost):
         L_xs, L_us = [], []
         L_xxs, L_uus, L_uxs = [], [], []
 
-        x_split = split_agents(x, self.x_dims)
-        u_split = split_agents(u, self.u_dims)
-
         # Compute agent quadraticizations in individual state spaces.
-        for ref_cost, xi, ui in zip(self.ref_costs, x_split, u_split):
+        for ref_cost, xi, ui in zip(
+            self.ref_costs,
+            split_agents_gen(x, self.x_dims),
+            split_agents_gen(u, self.u_dims),
+        ):
             L_xi, L_ui, L_xxi, L_uui, L_uxi = ref_cost.quadraticize(
                 xi.flatten(), ui.flatten(), terminal
             )

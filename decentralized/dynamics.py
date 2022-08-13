@@ -9,7 +9,7 @@ from scipy.optimize import approx_fprime
 from scipy.integrate import solve_ivp
 import sympy as sym
 
-from .util import split_agents, uniform_block_diag
+from .util import split_agents, split_agents_gen, uniform_block_diag
 
 
 def rk4_integration(f, x, u, h, dh=None):
@@ -147,17 +147,17 @@ class MultiDynamicalModel(DynamicalModel):
     def linearize(self, x, u):
         sub_linearizations = [
             submodel.linearize(xi.flatten(), ui.flatten())
-            for submodel, xi, ui in zip(self.submodels, *self.partition(x, u))
+            for submodel, xi, ui in zip(
+                self.submodels,
+                split_agents_gen(x, self.x_dims),
+                split_agents_gen(u, self.u_dims),
+            )
         ]
 
         sub_As = [AB[0] for AB in sub_linearizations]
         sub_Bs = [AB[1] for AB in sub_linearizations]
 
         return uniform_block_diag(*sub_As), uniform_block_diag(*sub_Bs)
-
-    def partition(self, x, u):
-        """Helper to split up the states and control for each subsystem"""
-        return split_agents(x, self.x_dims), split_agents(u, self.u_dims)
 
     def split(self, graph):
         """Split this model into submodels dictated by the interaction graph"""

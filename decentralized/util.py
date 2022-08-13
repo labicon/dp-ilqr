@@ -65,6 +65,13 @@ def split_agents(Z, z_dims):
     return np.split(np.atleast_2d(Z), np.cumsum(z_dims[:-1]), axis=1)
 
 
+def split_agents_gen(z, z_dims):
+    """Generator version of ``split_agents``"""
+    dim = z_dims[0]
+    for i in range(len(z_dims)):
+        yield z[i * dim : (i + 1) * dim]
+
+
 def split_graph(Z, z_dims, graph):
     """Split up the state or control by grouping their ID's according to the graph"""
     assert len(set(z_dims)) == 1
