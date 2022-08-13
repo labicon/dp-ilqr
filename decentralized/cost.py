@@ -5,10 +5,9 @@
 import abc
 
 import numpy as np
-from scipy.linalg import block_diag
 from scipy.optimize import approx_fprime
 
-from .util import Point, compute_pairwise_distance, split_agents
+from .util import Point, compute_pairwise_distance, split_agents, uniform_block_diag
 
 
 class Cost(abc.ABC):
@@ -209,9 +208,9 @@ class GameCost(Cost):
 
         L_x = self.REF_WEIGHT * np.hstack(L_xs)
         L_u = self.REF_WEIGHT * np.hstack(L_us)
-        L_xx = self.REF_WEIGHT * block_diag(*L_xxs)
-        L_uu = self.REF_WEIGHT * block_diag(*L_uus)
-        L_ux = self.REF_WEIGHT * block_diag(*L_uxs)
+        L_xx = self.REF_WEIGHT * uniform_block_diag(*L_xxs)
+        L_uu = self.REF_WEIGHT * uniform_block_diag(*L_uus)
+        L_ux = self.REF_WEIGHT * uniform_block_diag(*L_uxs)
 
         # Incorporate coupling costs in full cartesian state space.
         if self.n_agents > 1:

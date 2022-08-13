@@ -184,6 +184,16 @@ def perturb_state(x, x_dims, n_d=2, var=0.5):
     return x
 
 
+def uniform_block_diag(*arrs):
+    """Block diagonal matrix construction for uniformly shaped arrays"""
+    rdim, cdim = arrs[0].shape
+    blocked = np.zeros((len(arrs) * rdim, len(arrs) * cdim))
+    for i, arr in enumerate(arrs):
+        blocked[rdim * i : rdim * (i + 1), cdim * i : cdim * (i + 1)] = arr
+
+    return blocked
+
+
 def plot_interaction_graph(graph):
     """Visualize the interaction graph using networkx"""
 

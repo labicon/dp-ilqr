@@ -35,5 +35,6 @@ from .util import (
     repopath,
     split_agents,
     split_graph,
+    uniform_block_diag,
     π,
 )

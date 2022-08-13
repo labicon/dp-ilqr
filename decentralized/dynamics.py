@@ -5,12 +5,11 @@
 import abc
 
 import numpy as np
-from scipy.linalg import block_diag
 from scipy.optimize import approx_fprime
 from scipy.integrate import solve_ivp
 import sympy as sym
 
-from .util import split_agents
+from .util import split_agents, uniform_block_diag
 
 
 def rk4_integration(f, x, u, h, dh=None):
@@ -154,7 +153,7 @@ class MultiDynamicalModel(DynamicalModel):
         sub_As = [AB[0] for AB in sub_linearizations]
         sub_Bs = [AB[1] for AB in sub_linearizations]
 
-        return block_diag(*sub_As), block_diag(*sub_Bs)
+        return uniform_block_diag(*sub_As), uniform_block_diag(*sub_Bs)
 
     def partition(self, x, u):
         """Helper to split up the states and control for each subsystem"""
