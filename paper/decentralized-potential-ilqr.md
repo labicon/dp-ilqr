@@ -66,6 +66,8 @@ ________________________________________________________________________________
 
 - iLQR Implementation - [Synthesis and Stabilization of Complex Behaviors through Online Trajectory Optimization](https://homes.cs.washington.edu/~todorov/papers/TassaIROS12.pdf)
 
+- Hardware implementation -[Flying Multiple UAVs Using ROS](https://link.springer.com/chapter/10.1007/978-3-319-54927-9_3)
+
 ### Limitations
 
 - **Sensitivity to Tuning**: The realism of the resulting trajectory is sensitive to the
