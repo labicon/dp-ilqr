@@ -99,7 +99,7 @@ def randomize_locs(n_pts, random=False, rel_dist=3.0, var=3.0, n_d=2):
 
     if random:
         return x
-
+    
     # Determine the pair-wise indicies for an arbitrary number of agents.
     pair_inds = np.array(list(itertools.combinations(range(n_pts), 2)))
     move_inds = np.arange(n_pts)

@@ -19,6 +19,7 @@ class ilqrProblem:
         self.dynamics = dynamics
         self.game_cost = cost
         self.n_agents = 1
+        
         if isinstance(cost, GameCost):
             self.n_agents = len(cost.ref_costs)
 

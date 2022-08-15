@@ -129,6 +129,7 @@ def solve_rhc(
     elif dist_converge:
 
         n_states = problem.dynamics.x_dims[0]
+        
         n_agents = problem.n_agents
 
         def predicate(x, _):
@@ -137,7 +138,7 @@ def solve_rhc(
     n_x = problem.dynamics.n_x
     n_u = problem.dynamics.n_u
     model_name = problem.dynamics.submodels[0].__class__.__name__
-
+                
     xi = x0.reshape(1, -1)
     X = xi.copy()
     U = np.zeros((N, n_u))
