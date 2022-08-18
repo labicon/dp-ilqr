@@ -3,3 +3,9 @@
 *.lock
 notebooks/
 logs/
+
+# Cython files
+build/
+decentralized/bbdynamicswrap.cpp
+decentralized/bbdynamicswrap.cpython-310-x86_64-linux-gnu.so
+
