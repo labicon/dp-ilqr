@@ -5,12 +5,15 @@
 import abc
 
 import numpy as np
+from scipy.constants import g
 from scipy.optimize import approx_fprime
 from scipy.integrate import solve_ivp
 import sympy as sym
 
-from .util import split_agents, split_agents_gen, uniform_block_diag
+from .util import split_agents_gen, uniform_block_diag
+from .bbdynamicswrap import integrate, linearize, f, Model
 
+np.set_printoptions(precision=3)
 
 
 def rk4_integration(f, x0, u, h, dh=None):
@@ -73,7 +76,6 @@ class DynamicalModel(abc.ABC):
         # return scipy_integration(self.f, x, u, self.dt, method="RK23")
 
     @staticmethod
-    @abc.abstractmethod
     def f():
         """Continuous derivative of dynamics with respect to time"""
         pass
@@ -113,6 +115,22 @@ class SymbolicModel(DynamicalModel):
         return np.eye(x.size) + self.dt * self.A_num(x, u), self.dt * self.B_num(x, u)
 
 
+class CppModel(DynamicalModel):
+    """Implementation using a C++ dynamics library via Cython"""
+
+    def __init__(self, dt, *args, **kwargs):
+        super().__init__(dt, *args, **kwargs)
+
+    def __call__(self, x, u):
+        return integrate(x, u, self.dt, self.model)
+
+    def f(self, x, u):
+        return f(x, u, self.model)
+
+    def linearize(self, x, u):
+        return linearize(x, u, self.dt, self.model)
+
+
 class MultiDynamicalModel(DynamicalModel):
     """Encompasses the dynamical simulation and linearization for a collection of
     DynamicalModel's
@@ -129,7 +147,7 @@ class MultiDynamicalModel(DynamicalModel):
         super().__init__(sum(self.x_dims), sum(self.u_dims), submodels[0].dt, -1)
 
     def f(self, x, u):
-        """Integrate the dynamics for the combined decoupled dynamical model"""
+        """Derivative of the current combined states and controls"""
         xn = np.zeros_like(x)
         nx = self.x_dims[0]
         nu = self.u_dims[0]
@@ -177,77 +195,31 @@ class MultiDynamicalModel(DynamicalModel):
         return f"MultiDynamicalModel(\n\t{sub_reprs}\n)"
 
 
-class DoubleIntDynamics4D(DynamicalModel):
+class DoubleIntDynamics4D(CppModel):
     def __init__(self, dt, *args, **kwargs):
         super().__init__(4, 2, dt, *args, **kwargs)
-
-    @staticmethod
-    def f(x, u):
-        *_, vx, vy = x
-        ax, ay = u
-        return np.stack([vx, vy, ax, ay])
-
-    def linearize(self, *_):
-        A = np.array(
-            [[1, 0, self.dt, 0], [0, 1, 0, self.dt], [0, 0, 1, 0], [0, 0, 0, 1]]
-        )
-        B = self.dt * np.array([[0, 0], [0, 0], [1, 0], [0, 1]])
-
-        return A, B
+        self.model = Model.DoubleInt4D
 
 
-class CarDynamics3D(DynamicalModel):
+class CarDynamics3D(CppModel):
     def __init__(self, dt, *args, **kwargs):
         super().__init__(3, 2, dt, *args, **kwargs)
-
-    @staticmethod
-    def f(x, u):
-        *_, theta = x
-        v, omega = u
-        return np.stack([v * np.cos(theta), v * np.sin(theta), omega])
-
-    def linearize(self, x, u):
-
-        v = u[0]
-        theta = x[2]
-
-        A = np.array(
-            [
-                [1, 0, -v * self.dt * np.sin(theta)],
-                [0, 1, v * self.dt * np.cos(theta)],
-                [0, 0, 1],
-            ]
-        )
-        B = self.dt * np.array([[np.cos(theta), 0], [np.sin(theta), 0], [0, 1]])
-
-        return A, B
+        self.model = Model.Car3D
 
 
-class UnicycleDynamics4D(SymbolicModel):
+class UnicycleDynamics4D(CppModel):
     def __init__(self, dt, *args, **kwargs):
         super().__init__(4, 2, dt, *args, **kwargs)
-
-        p_x, p_y, v, theta, omega, a = sym.symbols("p_x p_y v theta omega a")
-        x = sym.Matrix([p_x, p_y, v, theta])
-        u = sym.Matrix([a, omega])
-
-        x_dot = sym.Matrix(
-            [
-                x[2] * sym.cos(x[3]),
-                x[2] * sym.sin(x[3]),
-                u[0],
-                u[1],
-            ]
-        )
-
-        A = x_dot.jacobian(x)
-        B = x_dot.jacobian(u)
-
-        self._f = sym.lambdify((x, u), sym.Array(x_dot)[:, 0])
-        self.A_num = sym.lambdify((x, u), A)
-        self.B_num = sym.lambdify((x, u), B)
+        self.model = Model.Unicycle4D
 
 
+class QuadcopterDynamics6D(CppModel):
+    def __init__(self, dt, *args, **kwargs):
+        super().__init__(6, 3, dt, *args, **kwargs)
+        self.model = Model.Quadcopter6D
+
+
+# TODO: Consider making a CPP model for these two.
 class BikeDynamics5D(SymbolicModel):
     def __init__(self, dt, *args, **kwargs):
         super().__init__(5, 2, dt, *args, **kwargs)
@@ -270,41 +242,6 @@ class BikeDynamics5D(SymbolicModel):
         B = x_dot.jacobian(u)
 
         self._f = sym.lambdify((x, u), sym.Array(x_dot)[:, 0])
-        self.A_num = sym.lambdify((x, u), A)
-        self.B_num = sym.lambdify((x, u), B)
-
-
-class QuadcopterDynamics6D(SymbolicModel):
-    def __init__(self, dt, *args, **kwargs):
-        super().__init__(6, 3, dt, *args, **kwargs)
-
-        # components of position (meters)
-        o_x, o_y, o_z = sym.symbols("o_x, o_y, o_z")
-
-        # pitch, and roll angles (radians)
-        theta, phi = sym.symbols("theta, phi")
-
-        # components of linear velocity (meters / second)
-        v_x, v_y, v_z = sym.symbols("v_x, v_y, v_z")
-
-        # net rotor force
-        tau = sym.symbols("tau")
-
-        x = sym.Matrix([o_x, o_y, o_z, v_x, v_y, v_z])
-        u = sym.Matrix([tau, phi, theta])
-
-        g = sym.nsimplify(9.81)
-
-        # Full EOM: (the full EOM is a nonlinear function of [states, inputs, and fixed
-        # parameters])
-        f_sym = sym.Matrix(
-            [v_x, v_y, v_z, g * sym.tan(theta), -g * sym.tan(phi), tau - g]
-        )
-
-        A = f_sym.jacobian(x)  # here the state vector is 6-dimensional
-        B = f_sym.jacobian(u)  # here the input vector is also 6-dimensional
-
-        self._f = sym.lambdify((x, u), sym.Array(f_sym)[:, 0])
         self.A_num = sym.lambdify((x, u), A)
         self.B_num = sym.lambdify((x, u), B)
 

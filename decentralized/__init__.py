@@ -1,3 +1,4 @@
+from .bbdynamicswrap import Model, integrate, linearize, f
 from .control import RecedingHorizonController, ilqrSolver
 from .cost import (
     Cost,
