@@ -23,6 +23,12 @@ your `PYTHONPATH` environment variable. On unix, this can be accomplished by:
 
     export PYTHONPATH=${PYTHONPATH}:/absolute/path/to/decentralized/
 
+Additionally, you must compile the C++ extensions using Cython by running:
+
+    python setup.py build_ext --inplace
+
+This should create a `bbdynamicswrap.cpp` as well as a `*.so` file that
+`decentralized` will automatically include in the package namespace.
 
 ### Environment
 There are a few different python packages that this project relies on listed
