@@ -12,27 +12,28 @@ import sympy as sym
 from .util import split_agents, split_agents_gen, uniform_block_diag
 
 
-def rk4_integration(f, x, u, h, dh=None):
+
+def rk4_integration(f, x0, u, h, dh=None):
     """Classic Runge-Kutta Method with sub-integration"""
 
     if not dh:
         dh = h
 
     t = 0.0
-    x_new = x.copy()
+    x = x0.copy()
 
     while t < h - 1e-8:
         step = min(dh, h - t)
 
-        k1 = step * f(x, u)
-        k2 = step * f(x + 0.5 * k1, u)
-        k3 = step * f(x + 0.5 * k2, u)
-        k4 = step * f(x + k3, u)
+        k0 = f(x, u)
+        k1 = f(x + 0.5 * k0 * step, u)
+        k2 = f(x + 0.5 * k1 * step, u)
+        k3 = f(x + k2 * step, u)
 
-        x_new += (k1 + 2.0 * k2 + 2.0 * k3 + k4) / 6.0
+        x += step * (k0 + 2.0 * k1 + 2.0 * k2 + k3) / 6.0
         t += step
 
-    return x_new
+    return x
 
 
 def forward_euler_integration(f, x, u, h):
@@ -68,7 +69,7 @@ class DynamicalModel(abc.ABC):
         """Zero-order hold to integrate continuous dynamics f"""
 
         # return forward_euler_integration(self.f, x, u, self.dt)
-        return rk4_integration(self.f, x, u, self.dt, self.dt)
+        return rk4_integration(self.f, x, u, self.dt, self.dt / 5.0)
         # return scipy_integration(self.f, x, u, self.dt, method="RK23")
 
     @staticmethod
