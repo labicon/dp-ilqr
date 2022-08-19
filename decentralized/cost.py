@@ -254,13 +254,14 @@ class GameCost(Cost):
         # Assume all states and radii are the same between agents.
         n_states = self.ref_costs[0].x_dim
         radius = self.prox_cost.radius
+        n_dim = self.prox_cost.n_dim
 
         game_costs = []
         for problem in graph:
             goal_costs_i = [
                 ref_cost for ref_cost in self.ref_costs if ref_cost.id in graph[problem]
             ]
-            prox_cost_i = ProximityCost([n_states] * len(graph[problem]), radius)
+            prox_cost_i = ProximityCost([n_states] * len(graph[problem]), radius, n_dim)
             game_costs.append(GameCost(goal_costs_i, prox_cost_i))
 
         return game_costs
