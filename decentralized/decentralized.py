@@ -155,10 +155,7 @@ def solve_rhc(
             print(f"t: {t:.3g}")
 
         if centralized:
-            t0 = pc()
-            X, U, J = centralized_solver.solve(xi, U, verbose=verbose, **kwargs)
-            Δt = pc() - t0
-            solve_info = {id_: (Δt, ids) for id_ in ids}
+            X, U, J, solve_info = solve_centralized(centralized_solver, xi, U, ids, verbose, **kwargs)
         else:
             X, U, J, solve_info = solve_decentralized(
                 problem, X, U, *args, verbose=verbose, **kwargs
@@ -233,3 +230,14 @@ def define_inter_graph_threshold(X, radius, x_dims, ids):
 
     graph = {agent_id: sorted(prob_ids) for agent_id, prob_ids in graph.items()}
     return graph
+
+
+def solve_centralized(solver, xi, U, ids, verbose, **kwargs):
+    """Thin function call to unify profiling function traces"""
+
+    t0 = pc()
+    X, U, J = solver.solve(xi, U, verbose=verbose, **kwargs)
+    Δt = pc() - t0
+    solve_info = {id_: (Δt, ids) for id_ in ids}
+
+    return X, U, J, solve_info
