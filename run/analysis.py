@@ -14,6 +14,7 @@ uniform random initial positions with stationary agents.
 
 import logging
 from pathlib import Path
+import multiprocessing as mp
 from time import strftime
 
 import numpy as np
@@ -89,6 +90,7 @@ def multi_agent_run(model, x_dims, dt, N, radius, energy=10.0, n_d=2, **kwargs):
 
     # Solve the problem decentralized.
     print("\t\t\tdecentralized")
+    pool = mp.Pool()
     Xd, Ud, Jd = solve_rhc(
         problem,
         x0,
@@ -97,8 +99,10 @@ def multi_agent_run(model, x_dims, dt, N, radius, energy=10.0, n_d=2, **kwargs):
         centralized=False,
         n_d=n_d,
         step_size=STEP_SIZE,
+        pool=pool,
         **kwargs,
     )
+    
 
 
 def setup_logger(limit_solve_time):

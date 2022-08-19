@@ -81,7 +81,7 @@ def split_graph(Z, z_dims, graph):
 
     n_z = z_dims[0]
     z_split = []
-    for n, ids in graph.items():
+    for ids in graph.values():
         inds = [mapping[id_] for id_ in ids]
         z_split.append(
             np.concatenate([Z[:, i * n_z : (i + 1) * n_z] for i in inds], axis=1)

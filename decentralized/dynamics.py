@@ -72,7 +72,7 @@ class DynamicalModel(abc.ABC):
         """Zero-order hold to integrate continuous dynamics f"""
 
         # return forward_euler_integration(self.f, x, u, self.dt)
-        return rk4_integration(self.f, x, u, self.dt, self.dt / 5.0)
+        return rk4_integration(self.f, x, u, self.dt, self.dt)
         # return scipy_integration(self.f, x, u, self.dt, method="RK23")
 
     @staticmethod
@@ -161,7 +161,15 @@ class MultiDynamicalModel(DynamicalModel):
         """Zero-order hold to integrate continuous dynamics f"""
 
         # return forward_euler_integration(self.f, x, u, self.dt)
-        return rk4_integration(self.f, x, u, self.dt, self.dt)
+        # return rk4_integration(self.f, x, u, self.dt, self.dt)
+        xn = np.zeros_like(x)
+        nx = self.x_dims[0]
+        nu = self.u_dims[0]
+        for i, model in enumerate(self.submodels):
+            xn[i * nx : (i + 1) * nx] = model.__call__(
+                x[i * nx : (i + 1) * nx], u[i * nu : (i + 1) * nu]
+            )
+        return xn
 
     def linearize(self, x, u):
         sub_linearizations = [

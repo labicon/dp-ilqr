@@ -19,7 +19,7 @@ class ilqrProblem:
         self.dynamics = dynamics
         self.game_cost = cost
         self.n_agents = 1
-        
+
         if isinstance(cost, GameCost):
             self.n_agents = len(cost.ref_costs)
 
@@ -97,11 +97,11 @@ class ilqrProblem:
 def solve_subproblem(args, **kwargs):
     """Solve the sub-problem and extract results for this agent"""
 
-    subproblem, x0, U, id_ = args
+    subproblem, x0, U, id_, verbose = args
     N = U.shape[0]
 
     subsolver = ilqrSolver(subproblem, N)
-    Xi, Ui, _ = subsolver.solve(x0, U, **kwargs)
+    Xi, Ui, _ = subsolver.solve(x0, U, verbose=verbose, **kwargs)
     return *subproblem.extract(Xi, Ui, id_), id_
 
 

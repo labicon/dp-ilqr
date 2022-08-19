@@ -21,7 +21,7 @@ from .problem import solve_subproblem
 from .util import split_graph, compute_pairwise_distance
 
 
-def solve_decentralized(problem, X, U, radius, is_mp=False, verbose=True, **kwargs):
+def solve_decentralized(problem, X, U, radius, pool=None, verbose=True, **kwargs):
     """Solve the problem via decentralization into subproblems"""
 
     x_dims = problem.game_cost.x_dims
@@ -47,13 +47,13 @@ def solve_decentralized(problem, X, U, radius, is_mp=False, verbose=True, **kwar
     U_dec = np.zeros((N, n_agents * n_controls))
 
     # Solve all problems in one process, keeping results for each agent in *_dec.
-    if not is_mp:
+    if not pool:
         for i, (subproblem, x0i, Ui, id_) in enumerate(
             zip(problem.split(graph), x0_split, U_split, ids)
         ):
             t0 = pc()
             Xi_agent, Ui_agent, id_ = solve_subproblem(
-                (subproblem, x0i, Ui, id_), verbose=verbose, **kwargs
+                (subproblem, x0i, Ui, id_, verbose), **kwargs
             )
             Δt = pc() - t0
 
@@ -67,25 +67,25 @@ def solve_decentralized(problem, X, U, radius, is_mp=False, verbose=True, **kwar
 
     # Solve in separate processes using imap.
     else:
-        # Not a great way to keep track of this accurately across processes.
-        solve_info = None
-
         # Package up arguments for the subproblem solver.
         args = zip(problem.split(graph), x0_split, U_split, ids, [verbose] * len(graph))
 
         t0 = pc()
-        with mp.Pool(processes=n_agents) as pool:
-            for i, (Xi_agent, Ui_agent, id_) in enumerate(
-                pool.imap_unordered(solve_subproblem, args)
-            ):
+        for i, (Xi_agent, Ui_agent, id_) in enumerate(
+            pool.imap_unordered(solve_subproblem, args)
+        ):
 
-                if verbose:
-                    print(
-                        "=" * 60
-                        + f"\nProblem {id_}: {graph[id_]}\nTook {pc() - t0} seconds"
-                    )
-                X_dec[:, i * n_states : (i + 1) * n_states] = Xi_agent
-                U_dec[:, i * n_controls : (i + 1) * n_controls] = Ui_agent
+            Δt = pc() - t0
+            if verbose:
+                print(
+                    "=" * 60 + f"\nProblem {id_}: {graph[id_]}\nTook {Δt} seconds"
+                )
+            X_dec[:, i * n_states : (i + 1) * n_states] = Xi_agent
+            U_dec[:, i * n_controls : (i + 1) * n_controls] = Ui_agent
+
+            # NOTE: This cannot be compared to the single-processed version due to
+            # multi-processing overhead.
+            solve_info[id_] = (Δt, graph[id_])
 
     # Evaluate the cost of this combined trajectory.
     full_solver = ilqrSolver(problem, N)
@@ -127,9 +127,7 @@ def solve_rhc(
             return J >= J_converge
 
     elif dist_converge:
-
         n_states = problem.dynamics.x_dims[0]
-        
         n_agents = problem.n_agents
 
         def predicate(x, _):
@@ -138,7 +136,7 @@ def solve_rhc(
     n_x = problem.dynamics.n_x
     n_u = problem.dynamics.n_u
     model_name = problem.dynamics.submodels[0].__class__.__name__
-                
+
     xi = x0.reshape(1, -1)
     X = xi.copy()
     U = np.zeros((N, n_u))
