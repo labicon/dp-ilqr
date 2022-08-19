@@ -20,17 +20,17 @@ cdef extern from "bbdynamics.cpp":
         f_func dxdt, double dt, double x0[], double u[], size_t n_x, double x_new[]
     )
     
-    void f_double_int_4d(double x[], double u[], double x_dot[]);
-    void linearize_double_int_4d(double dt, double A[], double B[]);
+    void f_double_int_4d(double x[], double u[], double x_dot[])
+    void linearize_double_int_4d(double dt, double A[], double B[])
 
-    void f_car_3d(double x[], double u[], double x_dot[]);
-    void linearize_car_3d(double x[], double u[], double dt, double A[], double B[]);
+    void f_car_3d(double x[], double u[], double x_dot[])
+    void linearize_car_3d(double x[], double u[], double dt, double A[], double B[])
 
-    void f_unicycle_4d(double x[], double u[], double x_dot[]);
-    void linearize_unicycle_4d(double x[], double u[], double dt, double A[], double B[]);
+    void f_unicycle_4d(double x[], double u[], double x_dot[])
+    void linearize_unicycle_4d(double x[], double u[], double dt, double A[], double B[])
 
-    void f_quad_6d(double x[], double u[], double x_dot[]);
-    void linearize_quad_6d(double x[], double u[], double dt, double A[], double B[]);
+    void f_quad_6d(double x[], double u[], double x_dot[])
+    void linearize_quad_6d(double x[], double u[], double dt, double A[], double B[])
 
 
 def _common_validation(model, x, u):
@@ -52,7 +52,7 @@ def f(x, u, model):
     cdef double[::1] u_view = u
     cdef double[::1] x_dot_view = x_dot
 
-    cdef f_func f;
+    cdef f_func f
     if model is Model.DoubleInt4D:
         f = f_double_int_4d
     elif model is Model.Car3D:
