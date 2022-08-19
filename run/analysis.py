@@ -90,7 +90,8 @@ def multi_agent_run(model, x_dims, dt, N, radius, energy=10.0, n_d=2, **kwargs):
 
     # Solve the problem decentralized.
     print("\t\t\tdecentralized")
-    pool = mp.Pool()
+    # pool = mp.Pool()
+    pool = None
     Xd, Ud, Jd = solve_rhc(
         problem,
         x0,

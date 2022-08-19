@@ -8,7 +8,7 @@ from .cost import (
     quadraticize_distance,
     quadraticize_finite_difference,
 )
-from .decentralized import define_inter_graph_threshold, solve_decentralized, solve_rhc
+from .decentralized import define_inter_graph_threshold, solve_decentralized, solve_centralized, solve_rhc
 from .dynamics import (
     BikeDynamics5D,
     CarDynamics3D,

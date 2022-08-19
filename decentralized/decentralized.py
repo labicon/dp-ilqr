@@ -37,7 +37,7 @@ def solve_decentralized(problem, X, U, radius, pool=None, verbose=True, **kwargs
     # Compute interaction graph based on relative distances.
     graph = define_inter_graph_threshold(X, radius, x_dims, ids)
     if verbose:
-        print(f"Interaction Graph: {graph}")
+        print("=" * 80 + f"Interaction Graph: {graph}")
 
     # Split up the initial state and control for each subproblem.
     x0_split = split_graph(X[np.newaxis, 0], x_dims, graph)
@@ -53,12 +53,12 @@ def solve_decentralized(problem, X, U, radius, pool=None, verbose=True, **kwargs
         ):
             t0 = pc()
             Xi_agent, Ui_agent, id_ = solve_subproblem(
-                (subproblem, x0i, Ui, id_, verbose), **kwargs
+                (subproblem, x0i, Ui, id_, False), **kwargs
             )
             Δt = pc() - t0
 
             if verbose:
-                print(f"Problem {id_}: {graph[id_]}\nTook {Δt} seconds\n" + "=" * 60)
+                print(f"Problem {id_}: {graph[id_]}\nTook {Δt} seconds\n")
 
             X_dec[:, i * n_states : (i + 1) * n_states] = Xi_agent
             U_dec[:, i * n_controls : (i + 1) * n_controls] = Ui_agent
@@ -78,7 +78,7 @@ def solve_decentralized(problem, X, U, radius, pool=None, verbose=True, **kwargs
             Δt = pc() - t0
             if verbose:
                 print(
-                    "=" * 60 + f"\nProblem {id_}: {graph[id_]}\nTook {Δt} seconds"
+                    f"Problem {id_}: {graph[id_]}\nTook {Δt} seconds"
                 )
             X_dec[:, i * n_states : (i + 1) * n_states] = Xi_agent
             U_dec[:, i * n_controls : (i + 1) * n_controls] = Ui_agent
@@ -155,7 +155,9 @@ def solve_rhc(
             print(f"t: {t:.3g}")
 
         if centralized:
-            X, U, J, solve_info = solve_centralized(centralized_solver, xi, U, ids, verbose, **kwargs)
+            X, U, J, solve_info = solve_centralized(
+                centralized_solver, xi, U, ids, verbose, **kwargs
+            )
         else:
             X, U, J, solve_info = solve_decentralized(
                 problem, X, U, *args, verbose=verbose, **kwargs
@@ -211,7 +213,7 @@ def define_inter_graph_threshold(X, radius, x_dims, ids):
     for each pair of agents sampled over the trajectory
     """
 
-    planning_radii = 2 * radius
+    planning_radii = radius
     rel_dists = compute_pairwise_distance(X, x_dims).T
 
     N = X.shape[0]
@@ -236,7 +238,7 @@ def solve_centralized(solver, xi, U, ids, verbose, **kwargs):
     """Thin function call to unify profiling function traces"""
 
     t0 = pc()
-    X, U, J = solver.solve(xi, U, verbose=verbose, **kwargs)
+    X, U, J = solver.solve(xi, U, verbose=False, **kwargs)
     Δt = pc() - t0
     solve_info = {id_: (Δt, ids) for id_ in ids}
 
