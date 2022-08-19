@@ -5,7 +5,8 @@ from .cost import (
     GameCost,
     ProximityCost,
     ReferenceCost,
-    quadraticize_distance,
+    quadraticize_distance_2d,
+    quadraticize_distance_3d,
     quadraticize_finite_difference,
 )
 from .decentralized import define_inter_graph_threshold, solve_decentralized, solve_centralized, solve_rhc

@@ -102,9 +102,10 @@ class ReferenceCost(Cost):
 
 
 class ProximityCost(Cost):
-    def __init__(self, x_dims, radius):
+    def __init__(self, x_dims, radius, n_dim):
         self.x_dims = x_dims
         self.radius = radius
+        self.n_dim = n_dim
         self.n_agents = len(x_dims)
 
     def __call__(self, x, *_):
@@ -120,35 +121,60 @@ class ProximityCost(Cost):
         L_x = np.zeros((nx))
         L_xx = np.zeros((nx, nx))
 
+        if self.n_dim == 2:
+            for i in range(self.n_agents):
+                for j in range(i + 1, self.n_agents):
+                    L_xi = np.zeros((nx))
+                    L_xxi = np.zeros((nx, nx))
+                    
+                    ix, iy = nx_per_agent * i, nx_per_agent * i + 1
+                    jx, jy = nx_per_agent * j, nx_per_agent * j + 1
+
+                    L_x_pair, L_xx_pair = quadraticize_distance_2d(
+                        Point(*x[..., ix : iy + 1]),
+                        Point(*x[..., jx : jy + 1]),
+                        self.radius,
+                    )
+
+                    L_xi[np.array([ix, iy])] = +L_x_pair
+                    L_xi[np.array([jx, jy])] = -L_x_pair
+
+                    L_xxi[ix : iy + 1, ix : iy + 1] = +L_xx_pair
+                    L_xxi[jx : jy + 1, jx : jy + 1] = +L_xx_pair
+                    L_xxi[ix : iy + 1, jx : jy + 1] = -L_xx_pair
+                    L_xxi[jx : jy + 1, ix : iy + 1] = -L_xx_pair
+
+                    L_x += L_xi
+                    L_xx += L_xxi
+
+            return L_x, None, L_xx, None, None
+
         for i in range(self.n_agents):
             for j in range(i + 1, self.n_agents):
                 L_xi = np.zeros((nx))
                 L_xxi = np.zeros((nx, nx))
 
-                L_x_pair, L_xx_pair = quadraticize_distance(
-                    Point(*x[..., nx_per_agent * i : nx_per_agent * i + 2]),
-                    Point(*x[..., nx_per_agent * j : nx_per_agent * j + 2]),
+                ix = nx_per_agent * i
+                iy = ix + 1
+                iz = ix + 2
+                jx = nx_per_agent * j
+                jy = jx + 1
+                jz = jx + 2
+
+                L_x_pair, L_xx_pair = quadraticize_distance_3d(
+                    Point(*x[..., ix : iz + 1]),
+                    Point(*x[..., jx : jz + 1]),
                     self.radius,
                 )
 
-                ix, iy = nx_per_agent * i, nx_per_agent * i + 1
-                jx, jy = nx_per_agent * j, nx_per_agent * j + 1
+                L_xi[np.array([ix, iy, iz])] = +L_x_pair
+                L_xi[np.array([jx, jy, jz])] = -L_x_pair
 
-                L_xi[ix] = L_x_pair[0]
-                L_xi[iy] = L_x_pair[1]
-                L_xi[jx] = -L_x_pair[0]
-                L_xi[jy] = -L_x_pair[1]
-
-                L_xxi[ix, ix] = L_xxi[jx, jx] = L_xx_pair[0, 0]
-                L_xxi[iy, iy] = L_xxi[jy, jy] = L_xx_pair[1, 1]
-                L_xxi[ix, iy] = L_xxi[iy, ix] = L_xx_pair[0, 1]
-                L_xxi[jx, jy] = L_xxi[jy, jx] = L_xx_pair[0, 1]
-
-                L_xxi[ix, jx] = L_xxi[jx, ix] = -L_xx_pair[0, 0]
-                L_xxi[iy, jy] = L_xxi[jy, iy] = -L_xx_pair[1, 1]
-                L_xxi[ix, jy] = L_xxi[jy, ix] = -L_xx_pair[0, 1]
-                L_xxi[iy, jx] = L_xxi[jx, iy] = -L_xx_pair[0, 1]
-
+                L_xxi[ix : iz + 1, ix : iz + 1] = +L_xx_pair
+                L_xxi[jx : jz + 1, jx : jz + 1] = +L_xx_pair
+                L_xxi[ix : iz + 1, jx : jz + 1] = -L_xx_pair
+                L_xxi[jx : jz + 1, ix : iz + 1] = -L_xx_pair
+                
                 L_x += L_xi
                 L_xx += L_xxi
 
@@ -244,7 +270,7 @@ class GameCost(Cost):
         return f"GameCost(\n\tids: {ids},\n\tprox_cost: {self.prox_cost}\n)"
 
 
-def quadraticize_distance(point_a, point_b, radius):
+def quadraticize_distance_2d(point_a, point_b, radius):
     """Quadraticize the distance between two points thresholded by a radius,
     returning the corresponding 2x1 jacobian and 2x2 hessian.
 
@@ -267,23 +293,64 @@ def quadraticize_distance(point_a, point_b, radius):
 
     L_x = 2 * (distance - radius) / distance * np.array([dx, dy])
 
-    L_xx[0, 0] = 2 * radius * dx**2 / distance**3 - 2 * radius / distance + 2
+    L_xx[np.diag_indices(2)] = (
+        2 * radius * np.array([dx, dy]) ** 2 / distance**3 - 2 * radius / distance + 2
+    )
     L_xx[0, 1] = L_xx[1, 0] = (
         2
         * radius
         * dx
         * dy
         / np.sqrt(
-            point_b.x**2
-            - 2 * point_b.x * point_a.x
-            + point_b.y**2
-            + point_a.x**2
-            - 2 * point_b.y * point_a.y
-            + point_a.y**2
+            point_a.hypot2()
+            + point_b.hypot2()
+            - 2 * (point_b.x * point_a.x + point_b.y * point_a.y)
         )
         ** 3
     )
-    L_xx[1, 1] = 2 * radius * dy**2 / distance**3 - 2 * radius / distance + 2
+
+    return L_x, L_xx
+
+
+def quadraticize_distance_3d(point_a, point_b, radius):
+    """3D analog to the previous function"""
+
+    assert point_a.ndim == point_b.ndim
+
+    L_x = np.zeros((3))
+    L_xx = np.zeros((3, 3))
+
+    dx = point_a.x - point_b.x
+    dy = point_a.y - point_b.y
+    dz = point_a.z - point_b.z
+    distance = np.sqrt(dx*dx + dy*dy + dz*dz)
+
+    if distance > radius:
+        return L_x, L_xx
+
+    L_x = 2 * (distance - radius) / distance * np.array([dx, dy, dz])
+
+    L_xx[np.diag_indices(3)] = (
+        2 * radius * np.array([dx, dy, dz]) ** 2 / distance**3
+        - 2 * radius / distance
+        + 2
+    )
+
+    cross_factors = (
+        2
+        * radius
+        / np.sqrt(
+            point_a.hypot2()
+            + point_b.hypot2()
+            - 2
+            * (point_a.x * point_b.x + point_a.y * point_b.y + point_a.z * point_b.z)
+        )
+        ** 3
+    )
+
+    L_xx[0, 1] = L_xx[1, 0] = dx * dy * cross_factors
+    L_xx[0, 2] = L_xx[2, 0] = dx * dz * cross_factors
+    L_xx[1, 2] = L_xx[2, 1] = dy * dz * cross_factors
 
     return L_x, L_xx
 

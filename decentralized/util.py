@@ -20,7 +20,7 @@ repopath = Path(__file__).parent.parent.resolve()
 
 
 @dataclass
-class Point(object):
+class Point:
     """Point in 3D"""
 
     x: float
@@ -42,6 +42,9 @@ class Point(object):
 
     def __repr__(self):
         return str((self.x, self.y, self.z))
+
+    def hypot2(self):
+        return self.x**2 + self.y**2 + self.z**2
 
 
 def compute_pairwise_distance(X, x_dims, n_d=2):
@@ -106,7 +109,7 @@ def randomize_locs(n_pts, random=False, rel_dist=3.0, var=3.0, n_d=2):
 
     if random:
         return x
-    
+
     # Determine the pair-wise indicies for an arbitrary number of agents.
     pair_inds = np.array(list(itertools.combinations(range(n_pts), 2)))
     move_inds = np.arange(n_pts)
