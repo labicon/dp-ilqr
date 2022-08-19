@@ -15,6 +15,7 @@ uniform random initial positions with stationary agents.
 import logging
 from pathlib import Path
 import multiprocessing as mp
+from os import getpid
 from time import strftime
 
 import numpy as np
@@ -108,7 +109,9 @@ def multi_agent_run(model, x_dims, dt, N, radius, energy=10.0, n_d=2, **kwargs):
 def setup_logger(limit_solve_time):
     analysis = "1" if not limit_solve_time else "2"
     LOG_PATH = Path(__file__).parent.parent / "logs"
-    LOG_FILE = LOG_PATH / strftime(f"dec-mc-{analysis}_%m-%d-%y_%H.%M.%S.csv")
+    LOG_FILE = LOG_PATH / strftime(
+        f"dec-mc-{analysis}_%m-%d-%y_%H.%M.%S_{getpid()}.csv"
+    )
     if not LOG_PATH.is_dir():
         LOG_PATH.mkdir()
     print(f"Logging results to {LOG_FILE}")
@@ -124,8 +127,9 @@ def monte_carlo_analysis(limit_solve_time=False):
 
     setup_logger(limit_solve_time)
 
-    n_trials_iter = range(50)
-    n_agents_iter = range(10, 15)
+    n_trials_iter = range(2)
+    n_agents_iter = [3, 4, 5, 6, 7]
+    # n_agents_iter = [3, 4, 5, 6, 7, 8, 10, 12]
     models = [
         DoubleIntDynamics4D,
         UnicycleDynamics4D,
@@ -142,9 +146,9 @@ def monte_carlo_analysis(limit_solve_time=False):
         t_diverge = N * dt
     else:
         t_kill = None
-        t_diverge = 5 * N * dt
+        t_diverge = 4 * N * dt
 
-    #Change the for loops into multi-processing?
+    # Change the for loops into multi-processing?
     for model in models:
         print(f"{model.__name__}")
         for n_agents in n_agents_iter:
