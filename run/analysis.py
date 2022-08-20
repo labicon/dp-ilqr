@@ -47,7 +47,7 @@ def multi_agent_run(model, x_dims, dt, N, radius, energy=10.0, n_d=2, **kwargs):
         n_states,
         is_rotation=False,
         rel_dist=n_agents,
-        var=1.0,
+        var=n_agents/2,
         n_d=n_d,
         random=True,
         energy=energy,
