@@ -60,8 +60,8 @@ def solve_decentralized(problem, X, U, radius, pool=None, verbose=True, **kwargs
             if verbose:
                 print(f"Problem {id_}: {graph[id_]}\nTook {Δt} seconds\n")
 
-            X_dec[:, i * n_states : (i + 1) * n_states] = Xi_agent
-            U_dec[:, i * n_controls : (i + 1) * n_controls] = Ui_agent
+            X_dec[:, i * n_states: (i + 1) * n_states] = Xi_agent
+            U_dec[:, i * n_controls: (i + 1) * n_controls] = Ui_agent
 
             solve_info[id_] = (Δt, graph[id_])
 
@@ -72,7 +72,7 @@ def solve_decentralized(problem, X, U, radius, pool=None, verbose=True, **kwargs
 
         t0 = pc()
         for i, (Xi_agent, Ui_agent, id_) in enumerate(
-            pool.imap_unordered(solve_subproblem, args)
+            pool.imap_unordered(solve_subproblem, args, chunksize = 5)
         ):
 
             Δt = pc() - t0
@@ -80,8 +80,8 @@ def solve_decentralized(problem, X, U, radius, pool=None, verbose=True, **kwargs
                 print(
                     f"Problem {id_}: {graph[id_]}\nTook {Δt} seconds"
                 )
-            X_dec[:, i * n_states : (i + 1) * n_states] = Xi_agent
-            U_dec[:, i * n_controls : (i + 1) * n_controls] = Ui_agent
+            X_dec[:, i * n_states: (i + 1) * n_states] = Xi_agent
+            U_dec[:, i * n_controls: (i + 1) * n_controls] = Ui_agent
 
             # NOTE: This cannot be compared to the single-processed version due to
             # multi-processing overhead.
