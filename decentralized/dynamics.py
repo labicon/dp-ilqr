@@ -1,202 +1,371 @@
 #!/usr/bin/env python
 
+"""Dynamics module to simulate dynamical systems with examples"""
+
 import abc
 
-import matplotlib.pyplot as plt
 import numpy as np
-from scipy.integrate import odeint
+from scipy.constants import g
 from scipy.optimize import approx_fprime
-from scipy.linalg import block_diag
+from scipy.integrate import solve_ivp
+import sympy as sym
+
+from .util import split_agents_gen, uniform_block_diag
+from .bbdynamicswrap import integrate, linearize, f, Model
+
+np.set_printoptions(precision=3)
+
+
+def rk4_integration(f, x0, u, h, dh=None):
+    """Classic Runge-Kutta Method with sub-integration"""
+
+    if not dh:
+        dh = h
+
+    t = 0.0
+    x = x0.copy()
+
+    while t < h - 1e-8:
+        step = min(dh, h - t)
+
+        k0 = f(x, u)
+        k1 = f(x + 0.5 * k0 * step, u)
+        k2 = f(x + 0.5 * k1 * step, u)
+        k3 = f(x + k2 * step, u)
+
+        x += step * (k0 + 2.0 * k1 + 2.0 * k2 + k3) / 6.0
+        t += step
+
+    return x
+
+
+def forward_euler_integration(f, x, u, h):
+    """Simple 1st Order Method to integrate f with step size h"""
+    return x + f(x, u) * h
+
+
+def scipy_integration(f, x, u, h, **kwargs):
+    sol = solve_ivp(lambda _, x, u: f(x, u), [0, h], x, args=(u,), t_eval=[h], **kwargs)
+    if not sol.success:
+        raise RuntimeError(sol.message)
+
+    return sol.y.flatten()
 
 
 class DynamicalModel(abc.ABC):
-    """
-    Representation of a discretized dynamical model to be applied as constraints in the OCP.
-    """
-    
-    name = "Dynamical Model"
-    
-    def __init__(self, n_x, n_u, dt):
+    """Simulation of a dynamical model to be applied in the iLQR solution."""
+
+    _id = 0
+
+    def __init__(self, n_x, n_u, dt, id=None):
+        if not id:
+            id = DynamicalModel._id
+            DynamicalModel._id += 1
+
         self.n_x = n_x
         self.n_u = n_u
         self.dt = dt
-    
-    def __call__(self, x, u):
-        """Advance the model in time by integrating the ODE, no assumption of linearity."""
-        
-        # NOTE: Hold off on applying constraints until better understood.
-        # x, u = self.constrain(x, u)
-        
-        # Euler integration - works for linear models.
-        x_dot = self.f(x, self.dt, u)
-        return x + x_dot*self.dt
+        self.id = id
+        self.NX_EYE = np.eye(self.n_x, dtype=np.float32)
 
-        # Integration of ODE using lsoda from FORTRAN library odepack.
-        args = tuple([u.flatten()]) # ensure u is passed off properly
-        return odeint(self.f, x, (0, self.dt), args=args)[-1]
-    
+    def __call__(self, x, u):
+        """Zero-order hold to integrate continuous dynamics f"""
+
+        # return forward_euler_integration(self.f, x, u, self.dt)
+        return rk4_integration(self.f, x, u, self.dt, self.dt)
+        # return scipy_integration(self.f, x, u, self.dt, method="RK23")
+
     @staticmethod
-    def f(*args):
-        """Continuous derivative of dynamics with respect to time."""
+    def f():
+        """Continuous derivative of dynamics with respect to time"""
         pass
-    
+
     @abc.abstractmethod
-    def linearize(self, *args, **kwargs):
-        """Returns the discretized and linearized dynamics A and B."""
+    def linearize():
+        """Linearization that computes jacobian at the current operating point"""
         pass
-    
-    @abc.abstractmethod
-    def constrain(self, x, u):
-        """Apply physical constraints to the control input u."""
-        pass
-    
-    @staticmethod
-    def get_heading(X):
-        """Retrieve the heading from a given state vector."""
-        # Assume it's stored in the last column.
-        return X[..., -1]
-    
-    def plot(self, X, do_headings=False, coupling_radius=None):
-        """Visualizes a state evolution over time with some annotations."""
-        
-        assert X.shape[1] >= 3, 'Must at least have x and y states for this to make sense.'
-        
-        ax = plt.gca()
-        N = X.shape[0]
-        t = np.arange(N) * self.dt
 
-        # NOTE: cmap=plt.get_cmap('Greys_r') provides more contrast but can get busy.
-        ax.scatter(X[:,0], X[:,1], c=t)
-        ax.scatter(X[0,0], X[0,1], 80, 'g', 'x', label='$x_0$')
+    @classmethod
+    def _reset_ids(cls):
+        cls._id = 0
 
-        # Annotate the collision radius.
-        if coupling_radius:
-            ax.add_artist(plt.Circle(
-                    (X[-1,0], X[-1,1]), coupling_radius, 
-                    color='k', fill=True, alpha=0.3, lw=2
-                ))
-            # alphas = np.log10(np.logspace(0, 1, N+1))
-            # for i, x in enumerate(X):
-            #     ax.add_artist(plt.Circle(
-            #         (x[0], x[1]), coupling_radius, 
-            #         color='k', fill=True, alpha=0.02, lw=2
-            #     ))
-        
-        if do_headings:
-            bases = np.vstack([X[:-1,0], X[:-1,1]]).T
-            dists = np.linalg.norm(np.diff(X[:,:2], axis=0), axis=1)
-            theta = self.get_heading(X)[:-1]
-            ends = bases + dists[:,np.newaxis]*np.vstack([
-                np.cos(theta),
-                np.sin(theta)
-            ]).T
+    def __repr__(self):
+        return f"{type(self).__name__}(n_x: {self.n_x}, n_u: {self.n_u}, id: {self.id})"
 
-            for i in range(N-1):
-                plt.annotate('', ends[i], bases[i], arrowprops=dict(
-                    facecolor='black', headwidth=5, width=1, shrink=0))
-                
-                
-class LinearModel(DynamicalModel):
-    """
-    Dynamical model where the system can be fully integrated via its discretized 
-    linearizations, i.e. x_{k+1} = A x_k + B u_k.
-    """
-    
-    def __call__(self, x, u):
-        # x, u = self.constrain(x, u)
-        
-        # Approximate linearization
-        A, B = self.linearize(x, u)
-        return A@x + B@u
-    
-    
-class NumericalDiffModel(DynamicalModel):
-    """
-    Dynamical model where the linearizations are done via finite difference. Based off of
-    https://github.com/anassinator/ilqr/blob/master/ilqr/dynamics.py
-    """
-    
-    def __init__(self, f, *args, j_eps=None):
 
-        self._f = f
-        self.j_eps = j_eps if j_eps else np.sqrt(np.finfo(float).eps)
+class SymbolicModel(DynamicalModel):
+    """Mix-in for analytical linearization"""
 
-        super().__init__(*args)
-        
-    def __call__(self, x, u):
-        return self.f(x, u)
-    
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        del state["A_num"]
+        del state["B_num"]
+        del state["_f"]
+        return state
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        self.__init__(self.dt)
+
     def f(self, x, u):
         return self._f(x, u)
-    
-    def constrain(self, x, u):
-        pass
-    
-    def linearize(self, x, u):
-        A = np.vstack([
-            approx_fprime(x, lambda x: self.f(x, u)[i], self.j_eps) for i in range(self.n_x)
-        ])
-        
-        B = np.vstack([
-            approx_fprime(u, lambda u: self.f(x, u)[i], self.j_eps) for i in range(self.n_x)
-        ])
-        
-        return A, B
 
-    
+    def linearize(self, x, u):
+        """Linearization via numerical Jacobians A_num and B_num with Euler method"""
+        return np.eye(x.size) + self.dt * self.A_num(x, u), self.dt * self.B_num(x, u)
+
+
+class CppModel(DynamicalModel):
+    """Implementation using a C++ dynamics library via Cython"""
+
+    def __init__(self, dt, *args, **kwargs):
+        super().__init__(dt, *args, **kwargs)
+
+    def __call__(self, x, u):
+        return integrate(x, u, self.dt, self.model)
+
+    def f(self, x, u):
+        return f(x, u, self.model)
+
+    def linearize(self, x, u):
+        return linearize(x, u, self.dt, self.model)
+
+
 class MultiDynamicalModel(DynamicalModel):
-    
+    """Encompasses the dynamical simulation and linearization for a collection of
+    DynamicalModel's
     """
-    Encompasses the dynamical simulation and linearization for a collection of DynamicalModel's.
-    """
-    
+
     def __init__(self, submodels):
-        self.dt = submodels[0].dt # assume they line up
         self.submodels = submodels
         self.n_players = len(submodels)
-        
+
         self.x_dims = [submodel.n_x for submodel in submodels]
         self.u_dims = [submodel.n_u for submodel in submodels]
-        self.n_x = sum(self.x_dims)
-        self.n_u = sum(self.u_dims)
-    
+        self.ids = [submodel.id for submodel in submodels]
+
+        super().__init__(sum(self.x_dims), sum(self.u_dims), submodels[0].dt, -1)
+
+    def f(self, x, u):
+        """Derivative of the current combined states and controls"""
+        xn = np.zeros_like(x)
+        nx = self.x_dims[0]
+        nu = self.u_dims[0]
+        for i, model in enumerate(self.submodels):
+            xn[i * nx : (i + 1) * nx] = model.f(
+                x[i * nx : (i + 1) * nx], u[i * nu : (i + 1) * nu]
+            )
+        return xn
+
     def __call__(self, x, u):
-        """Integrate the dynamics for the combined decoupled dynamical model."""
-        
-        x_split, u_split = self.partition(x, u)
-        sub_states = [submodel(xi, ui) for submodel, xi, ui in zip(self.submodels, x_split, u_split)]
-        return np.concatenate(sub_states, axis=0)
-    
-    def partition(self, x, u):
-        """Helper to split up the states and control for each subsystem."""
-        
-        x_split = np.split(x, np.cumsum(self.x_dims[:-1]))
-        u_split = np.split(u, np.cumsum(self.u_dims[:-1]))
-        return x_split, u_split
-    
+        """Zero-order hold to integrate continuous dynamics f"""
+
+        # return forward_euler_integration(self.f, x, u, self.dt)
+        # return rk4_integration(self.f, x, u, self.dt, self.dt)
+        xn = np.zeros_like(x)
+        nx = self.x_dims[0]
+        nu = self.u_dims[0]
+        for i, model in enumerate(self.submodels):
+            xn[i * nx : (i + 1) * nx] = model.__call__(
+                x[i * nx : (i + 1) * nx], u[i * nu : (i + 1) * nu]
+            )
+        return xn
+
     def linearize(self, x, u):
-        """Compute the linearizations of each of the submodels and return as block diagonal
-           A and B.
-        """
-        
-        x_split, u_split = self.partition(x, u)
         sub_linearizations = [
-            submodel.linearize(xi, ui) for submodel, xi, ui in zip(self.submodels, x_split, u_split)
+            submodel.linearize(xi.flatten(), ui.flatten())
+            for submodel, xi, ui in zip(
+                self.submodels,
+                split_agents_gen(x, self.x_dims),
+                split_agents_gen(u, self.u_dims),
+            )
         ]
-        
+
         sub_As = [AB[0] for AB in sub_linearizations]
         sub_Bs = [AB[1] for AB in sub_linearizations]
-        
-        return block_diag(*sub_As), block_diag(*sub_Bs)
-            
-    def constrain(self, x, u):
-        return x, u
-    
-    def plot(self, X, do_headings=False, coupling_radius=1.0):
-        """Delegate plotting to subsystem models."""
-        
-        X_split = np.split(X, np.cumsum(self.x_dims[:-1]), axis=1)
-        for X, submodel in zip(X_split, self.submodels):
-            submodel.plot(X, do_headings=do_headings, coupling_radius=coupling_radius)
-            
-                             
+
+        return uniform_block_diag(*sub_As), uniform_block_diag(*sub_Bs)
+
+    def split(self, graph):
+        """Split this model into submodels dictated by the interaction graph"""
+        split_dynamics = []
+        for problem in graph:
+            split_dynamics.append(
+                MultiDynamicalModel(
+                    [model for model in self.submodels if model.id in graph[problem]]
+                )
+            )
+
+        return split_dynamics
+
+    def __repr__(self):
+        sub_reprs = ",\n\t".join([repr(submodel) for submodel in self.submodels])
+        return f"MultiDynamicalModel(\n\t{sub_reprs}\n)"
+
+
+class DoubleIntDynamics4D(CppModel):
+    def __init__(self, dt, *args, **kwargs):
+        super().__init__(4, 2, dt, *args, **kwargs)
+        self.model = Model.DoubleInt4D
+
+
+class CarDynamics3D(CppModel):
+    def __init__(self, dt, *args, **kwargs):
+        super().__init__(3, 2, dt, *args, **kwargs)
+        self.model = Model.Car3D
+
+
+class UnicycleDynamics4D(CppModel):
+    def __init__(self, dt, *args, **kwargs):
+        super().__init__(4, 2, dt, *args, **kwargs)
+        self.model = Model.Unicycle4D
+
+
+class QuadcopterDynamics6D(CppModel):
+    def __init__(self, dt, *args, **kwargs):
+        super().__init__(6, 3, dt, *args, **kwargs)
+        self.model = Model.Quadcopter6D
+
+
+# TODO: Consider making a CPP model for these two.
+class BikeDynamics5D(SymbolicModel):
+    def __init__(self, dt, *args, **kwargs):
+        super().__init__(5, 2, dt, *args, **kwargs)
+
+        p_x, p_y, theta, v, phi, a, rho = sym.symbols("p_x p_y theta v phi a rho")
+        x = sym.Matrix([p_x, p_y, v, theta, phi])
+        u = sym.Matrix([a, rho])
+
+        x_dot = sym.Matrix(
+            [
+                x[2] * sym.cos(x[3]),
+                x[2] * sym.sin(x[3]),
+                u[0],
+                x[2] * sym.tan(x[4]),
+                u[1],
+            ]
+        )
+
+        A = x_dot.jacobian(x)
+        B = x_dot.jacobian(u)
+
+        self._f = sym.lambdify((x, u), sym.Array(x_dot)[:, 0])
+        self.A_num = sym.lambdify((x, u), A)
+        self.B_num = sym.lambdify((x, u), B)
+
+
+class QuadcopterDynamics12D(SymbolicModel):
+    def __init__(self, dt, *args, **kwargs):
+        super().__init__(12, 4, dt, *args, **kwargs)
+
+        # # components of position (meters)
+        o_x, o_y, o_z = sym.symbols("o_x, o_y, o_z")
+
+        # yaw, pitch, and roll angles (radians)
+        psi, theta, phi = sym.symbols("psi, theta, phi")
+
+        # components of linear velocity (meters / second)
+        v_x, v_y, v_z = sym.symbols("v_x, v_y, v_z")
+
+        # components of angular velocity (radians / second)
+        w_x, w_y, w_z = sym.symbols("w_x, w_y, w_z")
+
+        # components of net rotor torque
+        tau_x, tau_y, tau_z = sym.symbols("tau_x, tau_y, tau_z")
+
+        # net rotor force
+        f_z = sym.symbols("f_z")
+
+        x = sym.Matrix(
+            [o_x, o_y, o_z, psi, theta, phi, v_x, v_y, v_z, w_x, w_y, w_z]
+        )  # state variables
+        u = sym.Matrix([tau_x, tau_y, tau_z, f_z])  # input variables
+
+        m = sym.nsimplify(0.0315)  # mass of a Crazyflie drone
+
+        # Principle moments of inertia of a Crazyflie drone
+        J_x = sym.nsimplify(1.7572149113694408e-05)
+        J_y = sym.nsimplify(1.856979710568617e-05)
+        J_z = sym.nsimplify(2.7159794713754086e-05)
+
+        # Acceleration of gravity
+        g = 9.81
+
+        # Linear and angular velocity vectors (in body frame)
+        v_01in1 = sym.Matrix([[v_x], [v_y], [v_z]])
+        w_01in1 = sym.Matrix([[w_x], [w_y], [w_z]])
+
+        # Create moment of inertia matrix (in coordinates of the body frame).
+        J_in1 = sym.diag(J_x, J_y, J_z)
+
+        # Z-Y-X rotation sequence
+        Rz = sym.Matrix(
+            [
+                [sym.cos(psi), -sym.sin(psi), 0],
+                [sym.sin(psi), sym.cos(psi), 0],
+                [0, 0, 1],
+            ]
+        )
+
+        Ry = sym.Matrix(
+            [
+                [sym.cos(theta), 0, sym.sin(theta)],
+                [0, 1, 0],
+                [-sym.sin(theta), 0, sym.cos(theta)],
+            ]
+        )
+
+        Rx = sym.Matrix(
+            [
+                [1, 0, 0],
+                [0, sym.cos(phi), -sym.sin(phi)],
+                [0, sym.sin(phi), sym.cos(phi)],
+            ]
+        )
+
+        R_1in0 = Rz * Ry * Rx
+
+        # Mapping from angular velocity to angular rates
+        # Compute the invserse of the mapping first:
+        Ninv = sym.Matrix.hstack(
+            (Ry * Rx).T * sym.Matrix([[0], [0], [1]]),
+            (Rx).T * sym.Matrix([[0], [1], [0]]),
+            sym.Matrix([[1], [0], [0]]),
+        )
+        N = sym.simplify(Ninv.inv())  # this matrix N is what we actually want
+
+        # forces in world frame
+        f_in1 = R_1in0.T * sym.Matrix([[0], [0], [-m * g]]) + sym.Matrix(
+            [[0], [0], [f_z]]
+        )
+
+        # torques in world frame
+        tau_in1 = sym.Matrix([[tau_x], [tau_y], [tau_z]])
+
+        # Full EOM:
+        f_sym = sym.Matrix.vstack(
+            R_1in0 * v_01in1,
+            N * w_01in1,
+            (1 / m) * (f_in1 - w_01in1.cross(m * v_01in1)),
+            J_in1.inv() * (tau_in1 - w_01in1.cross(J_in1 * w_01in1)),
+        )
+
+        A = f_sym.jacobian(x)  # here the state vector is 12-dimensional
+        B = f_sym.jacobian(u)  # here the input vector is 6-dimensional
+
+        self._f = sym.lambdify((x, u), sym.Array(f_sym)[:, 0])
+        self.A_num = sym.lambdify((x, u), A)
+        self.B_num = sym.lambdify((x, u), B)
+
+
+# Based off of https://github.com/anassinator/ilqr/blob/master/ilqr/dynamics.py
+def linearize_finite_difference(f, x, u):
+    """Linearization using finite difference"""
+
+    n_x = x.size
+    jac_eps = np.sqrt(np.finfo(float).eps)
+
+    A = np.vstack([approx_fprime(x, lambda x: f(x, u)[i], jac_eps) for i in range(n_x)])
+    B = np.vstack([approx_fprime(u, lambda u: f(x, u)[i], jac_eps) for i in range(n_x)])
+
+    return A, B

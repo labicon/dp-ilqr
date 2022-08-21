@@ -1,2 +1,12 @@
 **/.ipynb_checkpoints/
 *.pyc
+*.lock
+notebooks/
+logs/
+env/
+
+# Cython files
+build/
+decentralized/bbdynamicswrap.cpp
+decentralized/bbdynamicswrap.cpython*.so
+
