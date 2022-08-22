@@ -39,7 +39,7 @@ def multi_agent_run(model, x_dims, dt, N, radius, energy=10.0, n_d=2, **kwargs):
 
     n_agents = len(x_dims)
     n_states = x_dims[0]
-    STEP_SIZE = 1
+    STEP_SIZE = 3
 
     x0, xf = random_setup(
         n_agents,
@@ -61,7 +61,7 @@ def multi_agent_run(model, x_dims, dt, N, radius, energy=10.0, n_d=2, **kwargs):
         Q = 1.0 * np.diag([1, 1] + [0] * (n_states - 2))
         R = np.eye(2)
     elif model is QuadcopterDynamics6D:
-        Q = np.eye(n_states)
+        Q = np.eye(n_states) * 50
         R = np.eye(3)
 
     Qf = 1000.0 * np.eye(Q.shape[0])
@@ -70,7 +70,7 @@ def multi_agent_run(model, x_dims, dt, N, radius, energy=10.0, n_d=2, **kwargs):
         ReferenceCost(xf_i, Q.copy(), R.copy(), Qf.copy(), id_)
         for xf_i, id_ in zip(split_agents_gen(xf, x_dims), ids)
     ]
-    prox_cost = ProximityCost(x_dims, radius)
+    prox_cost = ProximityCost(x_dims, radius, n_d)
     game_cost = GameCost(goal_costs, prox_cost)
 
     problem = ilqrProblem(dynamics, game_cost)
@@ -103,7 +103,6 @@ def multi_agent_run(model, x_dims, dt, N, radius, energy=10.0, n_d=2, **kwargs):
         pool=pool,
         **kwargs,
     )
-    
 
 
 def setup_logger(limit_solve_time):
@@ -125,8 +124,8 @@ def monte_carlo_analysis(limit_solve_time=False):
 
     setup_logger(limit_solve_time)
 
-    n_trials_iter = range(30)
-    n_agents_iter = range(3, 8)
+    n_trials_iter = range(50)
+    n_agents_iter = range(10, 15)
     models = [
         DoubleIntDynamics4D,
         UnicycleDynamics4D,
@@ -134,9 +133,9 @@ def monte_carlo_analysis(limit_solve_time=False):
     ]
 
     dt = 0.1
-    N = 40
+    N = 50
     ENERGY = 10.0
-    radius = 0.5
+    radius = 0.25
 
     if limit_solve_time:
         t_kill = dt
@@ -145,6 +144,7 @@ def monte_carlo_analysis(limit_solve_time=False):
         t_kill = None
         t_diverge = 5 * N * dt
 
+    #Change the for loops into multi-processing?
     for model in models:
         print(f"{model.__name__}")
         for n_agents in n_agents_iter:
