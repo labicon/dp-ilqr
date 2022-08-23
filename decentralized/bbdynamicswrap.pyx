@@ -10,6 +10,7 @@ class Model(Enum):
     Car3D = auto()
     Unicycle4D = auto()
     Quadcopter6D = auto()
+    Quadcopter12D = auto()
 
 
 ctypedef void (*f_func)(double x[], double u[], double x_dot[])
@@ -31,6 +32,9 @@ cdef extern from "bbdynamics.cpp":
 
     void f_quad_6d(double x[], double u[], double x_dot[])
     void linearize_quad_6d(double x[], double u[], double dt, double A[], double B[])
+    
+    void f_quad_12d(double x[], double u[], double x_dot[])
+    void linearize_quad_12d(double x[], double u[], double dt, double A[], double B[])
 
 
 def _common_validation(model, x, u):
@@ -59,8 +63,10 @@ def f(x, u, model):
         f = f_car_3d
     elif model is Model.Unicycle4D:
         f = f_unicycle_4d
-    else:
+    elif model is Model.Quadcopter6D:
         f = f_quad_6d
+    else:
+        f = f_quad_12d
 
     f(&x_view[0], &u_view[0], &x_dot_view[0])
     return x_dot
@@ -84,8 +90,10 @@ def integrate(x, u, double dt, model):
         f = f_car_3d
     elif model is Model.Unicycle4D:
         f = f_unicycle_4d
-    else:
+    elif model is Model.Quadcopter6D:
         f = f_quad_6d
+    else:
+        f = f_quad_12d
 
     rk4(f, dt, &x_view[0], &u_view[0], n_x, &x_new_view[0])
     return x_new
@@ -120,6 +128,8 @@ def linearize(x, u, double dt, model):
         linearize_unicycle_4d(&x_view[0], &u_view[0], dt, &A_view[0], &B_view[0])
     elif model is Model.Quadcopter6D:
         linearize_quad_6d(&x_view[0], &u_view[0], dt, &A_view[0], &B_view[0])
+    elif model is Model.Quadcopter12D:
+        linearize_quad_12d(&x_view[0], &u_view[0], dt, &A_view[0], &B_view[0])
 
     return A.reshape((nx, nx)), B.reshape((nx, nu))
 
