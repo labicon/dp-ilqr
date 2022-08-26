@@ -139,7 +139,7 @@ def monte_carlo_analysis(limit_solve_time=False):
     dt = 0.1
     N = 50
     ENERGY = 10.0
-    radius = 0.25
+    radius = 0.50
 
     if limit_solve_time:
         t_kill = dt
