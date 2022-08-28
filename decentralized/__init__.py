@@ -40,4 +40,5 @@ from .util import (
     split_graph,
     uniform_block_diag,
     π,
+    distance_to_goal,
 )

@@ -226,6 +226,11 @@ class QuadcopterDynamics6D(CppModel):
         super().__init__(6, 3, dt, *args, **kwargs)
         self.model = Model.Quadcopter6D
 
+class UnicycleHumanAgent4D(CppModel):
+    def __init__(self, dt, *args, **kwargs):
+        super().__init__(4, 2, dt, *args, **kwargs)
+        self.model = Model.Quadcopter6D
+
 
 # TODO: Consider making a CPP model for these two.
 class BikeDynamics5D(SymbolicModel):

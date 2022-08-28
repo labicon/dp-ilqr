@@ -225,6 +225,52 @@ static void linearize_unicycle_4d(double x[], double u[], double dt, double A[],
     euler_method_discretization(dt, A, B, 4, 2);
 }
 
+static void f_unicycle_human(double x[], double u[], double x_dot[])
+{
+
+    /* x: [px, py, pz, theta]
+       u: [v, omega]
+       NOTE: the human agent is modelled as a simple unicycle with a constant height, so pz_dot = 0
+    */
+
+    x_dot[0] = u[0] * cos(x[3]);
+    x_dot[1] = u[0] * sin(x[3]);
+    x_dot[2] = 0;
+    x_dot[3] = u[1];
+}
+
+static void linearize_unicycle_human(double x[], double u[], double dt, double A[], double B[])
+{
+
+    A[0] = 0;
+    A[1] = 0;
+    A[2] = 0;
+    A[3] = -u[0] * sin(x[3]);
+    A[4] = 0;
+    A[5] = 0;
+    A[6] = 0;
+    A[7] = u[0] * cos(x[3]);
+    A[8] = 0;
+    A[9] = 0;
+    A[10] = 0;
+    A[11] = 0;
+    A[12] = 0;
+    A[13] = 0;
+    A[14] = 0;
+    A[15] = 0;
+
+    B[0] = cos(x[3]);
+    B[1] = 0;
+    B[2] = sin(x[3]);
+    B[3] = 0;
+    B[4] = 0;
+    B[5] = 0;
+    B[6] = 0;
+    B[7] = 1;
+
+    euler_method_discretization(dt, A, B, 4, 2);
+}
+
 static void f_quad_6d(double x[], double u[], double x_dot[])
 {
     /* x: [px, py, pz, vx, vy, vz]

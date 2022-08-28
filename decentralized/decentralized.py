@@ -23,7 +23,7 @@ from .util import split_graph, compute_pairwise_distance
 
 def solve_decentralized(problem, X, U, radius, pool=None, verbose=True, **kwargs):
     """Solve the problem via decentralization into subproblems"""
-
+    
     x_dims = problem.game_cost.x_dims
     u_dims = problem.game_cost.u_dims
 
