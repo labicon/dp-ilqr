@@ -100,7 +100,7 @@ def multi_agent_run(model, x_dims, dt, N, radius, energy=10.0, n_d=2, **kwargs):
         centralized=False,
         n_d=n_d,
         step_size=STEP_SIZE,
-        pool=pool,
+        pool=None,
         **kwargs,
     )
     
@@ -167,6 +167,10 @@ def monte_carlo_analysis(limit_solve_time=False):
                     i_trial=i_trial,
                     verbose=False,
                 )
+    
+
+
+
 
 
 def main():
