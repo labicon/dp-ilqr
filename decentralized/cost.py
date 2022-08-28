@@ -126,7 +126,7 @@ class ProximityCost(Cost):
                 for j in range(i + 1, self.n_agents):
                     L_xi = np.zeros((nx))
                     L_xxi = np.zeros((nx, nx))
-                    
+
                     ix, iy = nx_per_agent * i, nx_per_agent * i + 1
                     jx, jy = nx_per_agent * j, nx_per_agent * j + 1
 
@@ -174,7 +174,7 @@ class ProximityCost(Cost):
                 L_xxi[jx : jz + 1, jx : jz + 1] = +L_xx_pair
                 L_xxi[ix : iz + 1, jx : jz + 1] = -L_xx_pair
                 L_xxi[jx : jz + 1, ix : iz + 1] = -L_xx_pair
-                
+
                 L_x += L_xi
                 L_xx += L_xxi
 
@@ -297,14 +297,13 @@ def quadraticize_distance_2d(point_a, point_b, radius):
     L_xx[np.diag_indices(2)] = (
         2 * radius * np.array([dx, dy]) ** 2 / distance**3 - 2 * radius / distance + 2
     )
-    L_xx[0, 1] = L_xx[1, 0] = (
+    L_xx[(0, 1), (1, 0)] = (
         2
         * radius
         * dx
         * dy
         / np.sqrt(
-            point_a.hypot2()
-            + point_b.hypot2()
+            (point_a.hypot2() + point_b.hypot2())
             - 2 * (point_b.x * point_a.x + point_b.y * point_a.y)
         )
         ** 3
@@ -324,12 +323,23 @@ def quadraticize_distance_3d(point_a, point_b, radius):
     dx = point_a.x - point_b.x
     dy = point_a.y - point_b.y
     dz = point_a.z - point_b.z
-    distance = np.sqrt(dx*dx + dy*dy + dz*dz)
+    distance = np.sqrt(dx * dx + dy * dy + dz * dz)
 
     if distance > radius:
         return L_x, L_xx
 
     L_x = 2 * (distance - radius) / distance * np.array([dx, dy, dz])
+
+    cross_factors = (
+        2
+        * radius
+        / np.sqrt(
+            (point_a.hypot2() + point_b.hypot2())
+            - 2
+            * (point_a.x * point_b.x + point_a.y * point_b.y + point_a.z * point_b.z)
+        )
+        ** 3
+    )
 
     L_xx[np.diag_indices(3)] = (
         2 * radius * np.array([dx, dy, dz]) ** 2 / distance**3
@@ -337,21 +347,9 @@ def quadraticize_distance_3d(point_a, point_b, radius):
         + 2
     )
 
-    cross_factors = (
-        2
-        * radius
-        / np.sqrt(
-            point_a.hypot2()
-            + point_b.hypot2()
-            - 2
-            * (point_a.x * point_b.x + point_a.y * point_b.y + point_a.z * point_b.z)
-        )
-        ** 3
+    L_xx[np.tril_indices(3, -1)] = L_xx[np.triu_indices(3, 1)] = (
+        np.array([dx * dy, dx * dz, dy * dz]) * cross_factors
     )
-
-    L_xx[0, 1] = L_xx[1, 0] = dx * dy * cross_factors
-    L_xx[0, 2] = L_xx[2, 0] = dx * dz * cross_factors
-    L_xx[1, 2] = L_xx[2, 1] = dy * dz * cross_factors
 
     return L_x, L_xx
 

@@ -15,6 +15,7 @@ uniform random initial positions with stationary agents.
 import logging
 from pathlib import Path
 import multiprocessing as mp
+from os import getpid
 from time import strftime
 
 import numpy as np
@@ -39,14 +40,14 @@ def multi_agent_run(model, x_dims, dt, N, radius, energy=10.0, n_d=2, **kwargs):
 
     n_agents = len(x_dims)
     n_states = x_dims[0]
-    STEP_SIZE = 1
+    STEP_SIZE = 3
 
     x0, xf = random_setup(
         n_agents,
         n_states,
         is_rotation=False,
         rel_dist=n_agents,
-        var=1.0,
+        var=n_agents/2,
         n_d=n_d,
         random=True,
         energy=energy,
@@ -61,7 +62,7 @@ def multi_agent_run(model, x_dims, dt, N, radius, energy=10.0, n_d=2, **kwargs):
         Q = 1.0 * np.diag([1, 1] + [0] * (n_states - 2))
         R = np.eye(2)
     elif model is QuadcopterDynamics6D:
-        Q = np.eye(n_states)
+        Q = np.eye(n_states) * 50
         R = np.eye(3)
 
     Qf = 1000.0 * np.eye(Q.shape[0])
@@ -70,7 +71,7 @@ def multi_agent_run(model, x_dims, dt, N, radius, energy=10.0, n_d=2, **kwargs):
         ReferenceCost(xf_i, Q.copy(), R.copy(), Qf.copy(), id_)
         for xf_i, id_ in zip(split_agents_gen(xf, x_dims), ids)
     ]
-    prox_cost = ProximityCost(x_dims, radius)
+    prox_cost = ProximityCost(x_dims, radius, n_d)
     game_cost = GameCost(goal_costs, prox_cost)
 
     problem = ilqrProblem(dynamics, game_cost)
@@ -103,13 +104,14 @@ def multi_agent_run(model, x_dims, dt, N, radius, energy=10.0, n_d=2, **kwargs):
         pool=None,
         **kwargs,
     )
-    
 
 
 def setup_logger(limit_solve_time):
     analysis = "1" if not limit_solve_time else "2"
     LOG_PATH = Path(__file__).parent.parent / "logs"
-    LOG_FILE = LOG_PATH / strftime(f"dec-mc-{analysis}_%m-%d-%y_%H.%M.%S.csv")
+    LOG_FILE = LOG_PATH / strftime(
+        f"dec-mc-{analysis}_%m-%d-%y_%H.%M.%S_{getpid()}.csv"
+    )
     if not LOG_PATH.is_dir():
         LOG_PATH.mkdir()
     print(f"Logging results to {LOG_FILE}")
@@ -125,8 +127,9 @@ def monte_carlo_analysis(limit_solve_time=False):
 
     setup_logger(limit_solve_time)
 
-    n_trials_iter = range(30)
-    n_agents_iter = range(3, 8)
+    n_trials_iter = range(2)
+    n_agents_iter = [3, 4, 5, 6, 7]
+    # n_agents_iter = [3, 4, 5, 6, 7, 8, 10, 12]
     models = [
         DoubleIntDynamics4D,
         UnicycleDynamics4D,
@@ -134,17 +137,18 @@ def monte_carlo_analysis(limit_solve_time=False):
     ]
 
     dt = 0.1
-    N = 40
+    N = 50
     ENERGY = 10.0
-    radius = 0.5
+    radius = 0.50
 
     if limit_solve_time:
         t_kill = dt
         t_diverge = N * dt
     else:
         t_kill = None
-        t_diverge = 5 * N * dt
+        t_diverge = 4 * N * dt
 
+    # Change the for loops into multi-processing?
     for model in models:
         print(f"{model.__name__}")
         for n_agents in n_agents_iter:
