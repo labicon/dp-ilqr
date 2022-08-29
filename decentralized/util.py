@@ -72,7 +72,7 @@ def split_agents_gen(z, z_dims):
     """Generator version of ``split_agents``"""
     dim = z_dims[0]
     for i in range(len(z_dims)):
-        yield z[i * dim : (i + 1) * dim]
+        yield z[i * dim: (i + 1) * dim]
 
 
 def split_graph(Z, z_dims, graph):
@@ -87,7 +87,7 @@ def split_graph(Z, z_dims, graph):
     for ids in graph.values():
         inds = [mapping[id_] for id_ in ids]
         z_split.append(
-            np.concatenate([Z[:, i * n_z : (i + 1) * n_z] for i in inds], axis=1)
+            np.concatenate([Z[:, i * n_z: (i + 1) * n_z] for i in inds], axis=1)
         )
 
     return z_split
@@ -138,7 +138,7 @@ def face_goal(x0, xf):
     return x0, xf
 
 
-def random_setup(n_agents, n_states, is_rotation=False, n_d=2, energy=None, do_face=False, **kwargs):
+def random_setup(n_agents, n_states, is_rotation=False, n_d=2, energy=None, **kwargs):
     """Create a randomized set up of initial and final positions"""
 
     # We don't have to normlize for energy here
@@ -152,14 +152,8 @@ def random_setup(n_agents, n_states, is_rotation=False, n_d=2, energy=None, do_f
     else:
         x_f = randomize_locs(n_agents, n_d=n_d, **kwargs)
 
-    x0 = np.c_[x_i, np.zeros((n_agents, n_states - n_d))]
-    xf = np.c_[x_f, np.zeros((n_agents, n_states - n_d))]
-    
-    if do_face:
-        x0, xf = face_goal(x0, xf)
-
-    x0 = x0.reshape(-1,1)
-    xf = xf.reshape(-1,1)
+    x0 = np.c_[x_i, np.zeros((n_agents, n_states - n_d))].reshape(-1, 1)
+    xf = np.c_[x_f, np.zeros((n_agents, n_states - n_d))].reshape(-1, 1)
 
     # Normalize to satisfy the desired energy of the problem.
     if energy:
@@ -205,7 +199,7 @@ def uniform_block_diag(*arrs):
     rdim, cdim = arrs[0].shape
     blocked = np.zeros((len(arrs) * rdim, len(arrs) * cdim))
     for i, arr in enumerate(arrs):
-        blocked[rdim * i : rdim * (i + 1), cdim * i : cdim * (i + 1)] = arr
+        blocked[rdim * i: rdim * (i + 1), cdim * i: cdim * (i + 1)] = arr
 
     return blocked
 
@@ -223,16 +217,16 @@ def plot_interaction_graph(graph):
     options = {
         "font_size": 10,
         "node_size": 600,
-        "node_color": plt.cm.Set3.colors[:len(graph)],
+        "node_color": "white",
         "edgecolors": "black",
     }
 
-    nx.draw_networkx(G, nx.spring_layout(G, k=0.5), **options)
+    nx.draw_networkx(G, nx.spring_layout(G, k=1.5), **options)
     plt.margins(0.1)
     plt.draw()
 
 
-def plot_solve(X, J, x_goal, x_dims=None, color_agents=False, n_d=2):
+def plot_solve(X, J, x_goal, x_dims=None, n_d=2):
     """Plot the resultant trajectory on plt.gcf()"""
 
     if n_d not in (2, 3):
@@ -252,20 +246,13 @@ def plot_solve(X, J, x_goal, x_dims=None, color_agents=False, n_d=2):
     X_split = split_agents(X, x_dims)
     x_goal_split = split_agents(x_goal.reshape(1, -1), x_dims)
 
-    for i, (Xi, xg) in enumerate(zip(X_split, x_goal_split)):
-        c = n
+    for Xi, xg in zip(X_split, x_goal_split):
         if n_d == 2:
-            if color_agents:
-                c = plt.cm.tab10.colors[i]
-                ax.plot(Xi[:, 0], Xi[:, 1], c=c, lw=5, zorder=1)
-            else:
-                ax.scatter(Xi[:, 0], Xi[:, 1], c=c)
+            ax.scatter(Xi[:, 0], Xi[:, 1], c=n)
             ax.scatter(Xi[0, 0], Xi[0, 1], 80, "g", "x", label="$x_0$")
             ax.scatter(xg[0, 0], xg[0, 1], 80, "r", "x", label="$x_f$")
         else:
-            if color_agents:
-                c = [plt.cm.tab10.colors[i]] * Xi.shape[0]
-            ax.scatter(Xi[:, 0], Xi[:, 1], Xi[:, 2], c=c)
+            ax.scatter(Xi[:, 0], Xi[:, 1], Xi[:, 2], c=n)
             ax.scatter(
                 Xi[0, 0], Xi[0, 1], Xi[0, 2], s=80, c="g", marker="x", label="$x_0$"
             )
@@ -276,11 +263,3 @@ def plot_solve(X, J, x_goal, x_dims=None, color_agents=False, n_d=2):
     plt.margins(0.1)
     plt.title(f"Final Cost: {J:.3g}")
     plt.draw()
-
-
-
-
-def distance_to_goal(x,x_goal,n_agents,n_states,n_d):
-    return np.linalg.norm((x - x_goal).reshape(n_agents, n_states)[:, :n_d], axis=1)
-
-

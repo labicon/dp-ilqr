@@ -152,8 +152,8 @@ class MultiDynamicalModel(DynamicalModel):
         nx = self.x_dims[0]
         nu = self.u_dims[0]
         for i, model in enumerate(self.submodels):
-            xn[i * nx : (i + 1) * nx] = model.f(
-                x[i * nx : (i + 1) * nx], u[i * nu : (i + 1) * nu]
+            xn[i * nx: (i + 1) * nx] = model.f(
+                x[i * nx: (i + 1) * nx], u[i * nu: (i + 1) * nu]
             )
         return xn
 
@@ -166,8 +166,8 @@ class MultiDynamicalModel(DynamicalModel):
         nx = self.x_dims[0]
         nu = self.u_dims[0]
         for i, model in enumerate(self.submodels):
-            xn[i * nx : (i + 1) * nx] = model.__call__(
-                x[i * nx : (i + 1) * nx], u[i * nu : (i + 1) * nu]
+            xn[i * nx: (i + 1) * nx] = model.__call__(
+                x[i * nx: (i + 1) * nx], u[i * nu: (i + 1) * nu]
             )
         return xn
 
@@ -226,13 +226,14 @@ class QuadcopterDynamics6D(CppModel):
         super().__init__(6, 3, dt, *args, **kwargs)
         self.model = Model.Quadcopter6D
 
+
 class UnicycleHumanAgent4D(CppModel):
     def __init__(self, dt, *args, **kwargs):
         super().__init__(4, 2, dt, *args, **kwargs)
-        self.model = Model.Quadcopter6D
+        self.model = Model.UnicycleHuman4D
 
 
-# TODO: Consider making a CPP model for these two.
+# TODO: Consider making a CPP model for these two:
 class BikeDynamics5D(SymbolicModel):
     def __init__(self, dt, *args, **kwargs):
         super().__init__(5, 2, dt, *args, **kwargs)
