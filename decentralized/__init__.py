@@ -20,6 +20,7 @@ from .dynamics import (
     QuadcopterDynamics12D,
     SymbolicModel,
     UnicycleDynamics4D,
+    UnicycleHumanAgent4D,
     linearize_finite_difference,
 )
 from .problem import _reset_ids, ilqrProblem
@@ -40,5 +41,4 @@ from .util import (
     split_graph,
     uniform_block_diag,
     π,
-    distance_to_goal,
 )
