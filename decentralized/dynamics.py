@@ -225,17 +225,18 @@ class QuadcopterDynamics6D(CppModel):
     def __init__(self, dt, *args, **kwargs):
         super().__init__(6, 3, dt, *args, **kwargs)
         self.model = Model.Quadcopter6D
-        
+
+
 class QuadcopterDynamics12D(CppModel):
     def __init__(self, dt, *args, **kwargs):
         super().__init__(12, 4, dt, *args, **kwargs)
-        self.model = Model.Quadcopter12D   
+        self.model = Model.Quadcopter12D
 
 
-class UnicycleHumanAgent4D(CppModel):
+class HumanDynamics6D(CppModel):
     def __init__(self, dt, *args, **kwargs):
-        super().__init__(4, 2, dt, *args, **kwargs)
-        self.model = Model.UnicycleHuman4D
+        super().__init__(6, 3, dt, *args, **kwargs)
+        self.model = Model.Human6D
 
 
 # TODO: Consider making a CPP model for these two:
@@ -263,6 +264,7 @@ class BikeDynamics5D(SymbolicModel):
         self._f = sym.lambdify((x, u), sym.Array(x_dot)[:, 0])
         self.A_num = sym.lambdify((x, u), A)
         self.B_num = sym.lambdify((x, u), B)
+
 
 # Based off of https://github.com/anassinator/ilqr/blob/master/ilqr/dynamics.py
 def linearize_finite_difference(f, x, u):

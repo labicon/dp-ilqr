@@ -10,7 +10,7 @@ class Model(Enum):
     Car3D = auto()
     Unicycle4D = auto()
     Quadcopter6D = auto()
-    UnicycleHuman4D = auto()
+    Human6D = auto()
     Quadcopter12D = auto()
 
 
@@ -31,8 +31,8 @@ cdef extern from "bbdynamics.cpp":
     void f_unicycle_4d(double x[], double u[], double x_dot[])
     void linearize_unicycle_4d(double x[], double u[], double dt, double A[], double B[])
 
-    void f_unicycle_human(double x[], double u[], double x_dot[])
-    void linearize_unicycle_human(double x[], double u[], double dt, double A[], double B[])
+    void f_human_6d(double x[], double u[], double x_dot[])
+    void linearize_human_6d(double x[], double u[], double dt, double A[], double B[])
 
     void f_quad_6d(double x[], double u[], double x_dot[])
     void linearize_quad_6d(double x[], double u[], double dt, double A[], double B[])
@@ -67,8 +67,8 @@ def f(x, u, model):
         f = f_car_3d
     elif model is Model.Unicycle4D:
         f = f_unicycle_4d
-    elif model is Model.UnicycleHuman4D:
-        f = f_unicycle_human
+    elif model is Model.Human6D:
+        f = f_human_6d
     elif model is Model.Quadcopter6D:
         f = f_quad_6d
     else:
@@ -96,8 +96,8 @@ def integrate(x, u, double dt, model):
         f = f_car_3d
     elif model is Model.Unicycle4D:
         f = f_unicycle_4d
-    elif model is Model.UnicycleHuman4D:
-        f = f_unicycle_human
+    elif model is Model.Human6D:
+        f = f_human_6d
     elif model is Model.Quadcopter6D:
         f = f_quad_6d
     else:
@@ -134,8 +134,8 @@ def linearize(x, u, double dt, model):
         linearize_car_3d(&x_view[0], &u_view[0], dt, &A_view[0], &B_view[0])
     elif model is Model.Unicycle4D:
         linearize_unicycle_4d(&x_view[0], &u_view[0], dt, &A_view[0], &B_view[0])
-    elif model is Model.UnicycleHuman4D:
-        linearize_unicycle_human(&x_view[0], &u_view[0], dt, &A_view[0], &B_view[0])
+    elif model is Model.Human6D:
+        linearize_human_6d(&x_view[0], &u_view[0], dt, &A_view[0], &B_view[0])
     elif model is Model.Quadcopter6D:
         linearize_quad_6d(&x_view[0], &u_view[0], dt, &A_view[0], &B_view[0])
     elif model is Model.Quadcopter12D:

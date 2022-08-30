@@ -20,7 +20,7 @@ from .dynamics import (
     QuadcopterDynamics12D,
     SymbolicModel,
     UnicycleDynamics4D,
-    UnicycleHumanAgent4D,
+    HumanDynamics6D,
     linearize_finite_difference,
 )
 from .problem import _reset_ids, ilqrProblem
