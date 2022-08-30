@@ -60,7 +60,27 @@ def compute_pairwise_distance(X, x_dims, n_d=2):
     pair_inds = np.array(list(itertools.combinations(range(n_agents), 2)))
     X_agent = X.reshape(-1, n_agents, n_states).swapaxes(0, 2)
     dX = X_agent[:n_d, pair_inds[:, 0]] - X_agent[:n_d, pair_inds[:, 1]]
-    return np.linalg.norm(dX, axis=0)
+    return np.linalg.norm(dX, axis=0).T
+
+
+def compute_pairwise_distance_nd(X, x_dims, n_dims):
+    """Analog to the above whenever some agents only use distance in the x-y plane"""
+
+    if X.ndim == 1:
+        X = X.reshape(1, -1)
+
+    n_states = x_dims[0]
+    n_agents = len(x_dims)
+    distances = np.zeros((X.shape[0], 0))
+
+    for i, n_dim_i in zip(range(n_agents), n_dims):
+        for j, n_dim_j in zip(range(i + 1, n_agents), n_dims[i + 1 :]):
+            n_dim = min(n_dim_i, n_dim_j)
+            Xi = X[:, i * n_states : i * n_states + n_dim]
+            Xj = X[:, j * n_states : j * n_states + n_dim]
+            distances = np.c_[distances, np.linalg.norm(Xi - Xj, axis=1).reshape(-1, 1)]
+
+    return distances
 
 
 def split_agents(Z, z_dims):
@@ -72,7 +92,7 @@ def split_agents_gen(z, z_dims):
     """Generator version of ``split_agents``"""
     dim = z_dims[0]
     for i in range(len(z_dims)):
-        yield z[i * dim: (i + 1) * dim]
+        yield z[i * dim : (i + 1) * dim]
 
 
 def split_graph(Z, z_dims, graph):
@@ -87,7 +107,7 @@ def split_graph(Z, z_dims, graph):
     for ids in graph.values():
         inds = [mapping[id_] for id_ in ids]
         z_split.append(
-            np.concatenate([Z[:, i * n_z: (i + 1) * n_z] for i in inds], axis=1)
+            np.concatenate([Z[:, i * n_z : (i + 1) * n_z] for i in inds], axis=1)
         )
 
     return z_split
@@ -117,7 +137,7 @@ def randomize_locs(n_pts, random=False, rel_dist=3.0, var=3.0, n_d=2):
     # Keep moving points away from center until we satisfy radius
     while move_inds.size:
         center = np.mean(x, axis=0)
-        distances = compute_pairwise_distance(x.flatten(), [n_d] * n_pts)
+        distances = compute_pairwise_distance(x.flatten(), [n_d] * n_pts).T
 
         move_inds = pair_inds[distances.flatten() <= rel_dist]
         x[move_inds] += Δ * (x[move_inds] - center)
@@ -199,7 +219,7 @@ def uniform_block_diag(*arrs):
     rdim, cdim = arrs[0].shape
     blocked = np.zeros((len(arrs) * rdim, len(arrs) * cdim))
     for i, arr in enumerate(arrs):
-        blocked[rdim * i: rdim * (i + 1), cdim * i: cdim * (i + 1)] = arr
+        blocked[rdim * i : rdim * (i + 1), cdim * i : cdim * (i + 1)] = arr
 
     return blocked
 

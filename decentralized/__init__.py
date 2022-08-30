@@ -5,11 +5,15 @@ from .cost import (
     GameCost,
     ProximityCost,
     ReferenceCost,
-    quadraticize_distance_2d,
-    quadraticize_distance_3d,
+    quadraticize_distance,
     quadraticize_finite_difference,
 )
-from .decentralized import define_inter_graph_threshold, solve_decentralized, solve_centralized, solve_rhc
+from .decentralized import (
+    define_inter_graph_threshold,
+    solve_decentralized,
+    solve_centralized,
+    solve_rhc,
+)
 from .dynamics import (
     BikeDynamics5D,
     CarDynamics3D,
@@ -28,6 +32,7 @@ from .util import (
     Point,
     compute_energy,
     compute_pairwise_distance,
+    compute_pairwise_distance_nd,
     normalize_energy,
     perturb_state,
     plot_interaction_graph,

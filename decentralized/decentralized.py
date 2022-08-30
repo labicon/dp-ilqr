@@ -23,7 +23,7 @@ from .util import split_graph, compute_pairwise_distance
 
 def solve_decentralized(problem, X, U, radius, pool=None, verbose=True, **kwargs):
     """Solve the problem via decentralization into subproblems"""
-    
+
     x_dims = problem.game_cost.x_dims
     u_dims = problem.game_cost.u_dims
 
@@ -37,7 +37,7 @@ def solve_decentralized(problem, X, U, radius, pool=None, verbose=True, **kwargs
     # Compute interaction graph based on relative distances.
     graph = define_inter_graph_threshold(X, radius, x_dims, ids)
     if verbose:
-        print("=" * 80 + f"Interaction Graph: {graph}")
+        print("=" * 80 + f"\nInteraction Graph: {graph}")
 
     # Split up the initial state and control for each subproblem.
     x0_split = split_graph(X[np.newaxis, 0], x_dims, graph)
@@ -212,7 +212,7 @@ def define_inter_graph_threshold(X, radius, x_dims, ids):
     """
 
     planning_radii = 2 * radius
-    rel_dists = compute_pairwise_distance(X, x_dims).T
+    rel_dists = compute_pairwise_distance(X, x_dims)
 
     N = X.shape[0]
     n_samples = 10
@@ -236,7 +236,7 @@ def solve_centralized(solver, xi, U, ids, verbose, **kwargs):
     """Thin function call to unify profiling function traces"""
 
     t0 = pc()
-    X, U, J = solver.solve(xi, U, verbose=False, **kwargs)
+    X, U, J = solver.solve(xi, U, verbose=verbose, **kwargs)
     Δt = pc() - t0
     solve_info = {id_: (Δt, ids) for id_ in ids}
 
