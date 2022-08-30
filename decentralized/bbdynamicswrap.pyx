@@ -11,16 +11,17 @@ class Model(Enum):
     Unicycle4D = auto()
     Quadcopter6D = auto()
     UnicycleHuman4D = auto()
+    Quadcopter12D = auto()
 
 
 ctypedef void (*f_func)(double x[], double u[], double x_dot[])
 
 cdef extern from "bbdynamics.cpp":
-    
+
     void rk4(
         f_func dxdt, double dt, double x0[], double u[], size_t n_x, double x_new[]
     )
-    
+
     void f_double_int_4d(double x[], double u[], double x_dot[])
     void linearize_double_int_4d(double dt, double A[], double B[])
 
@@ -36,6 +37,9 @@ cdef extern from "bbdynamics.cpp":
     void f_quad_6d(double x[], double u[], double x_dot[])
     void linearize_quad_6d(double x[], double u[], double dt, double A[], double B[])
 
+    void f_quad_12d(double x[], double u[], double x_dot[])
+    void linearize_quad_12d(double x[], double u[], double dt, double A[], double B[])
+
 
 def _common_validation(model, x, u):
     if not isinstance(model, Model):
@@ -48,7 +52,7 @@ def _common_validation(model, x, u):
 
 def f(x, u, model):
     _common_validation(model, x, u)
-    
+
     cdef size_t n_x = x.shape[0]
     x_dot = np.empty(n_x, dtype=np.double)
 
@@ -65,8 +69,10 @@ def f(x, u, model):
         f = f_unicycle_4d
     elif model is Model.UnicycleHuman4D:
         f = f_unicycle_human
-    else:
+    elif model is Model.Quadcopter6D:
         f = f_quad_6d
+    else:
+        f = f_quad_12d
 
     f(&x_view[0], &u_view[0], &x_dot_view[0])
     return x_dot
@@ -74,14 +80,14 @@ def f(x, u, model):
 
 def integrate(x, u, double dt, model):
     _common_validation(model, x, u)
-    
+
     cdef size_t n_x = x.shape[0]
     x_new = np.empty(n_x, dtype=np.double)
 
     cdef double[::1] x_view = x
     cdef double[::1] u_view = u
     cdef double[::1] x_new_view = x_new
-    
+
     # TODO: Figure out how to get rid of this duplicate branching logic.
     cdef f_func f;
     if model is Model.DoubleInt4D:
@@ -92,8 +98,10 @@ def integrate(x, u, double dt, model):
         f = f_unicycle_4d
     elif model is Model.UnicycleHuman4D:
         f = f_unicycle_human
-    else:
+    elif model is Model.Quadcopter6D:
         f = f_quad_6d
+    else:
+        f = f_quad_12d
 
     rk4(f, dt, &x_view[0], &u_view[0], n_x, &x_new_view[0])
     return x_new
@@ -119,7 +127,7 @@ def linearize(x, u, double dt, model):
     cdef double[::1] u_view = u
     cdef double[::1] A_view = A
     cdef double[::1] B_view = B
-    
+
     if model is Model.DoubleInt4D:
         linearize_double_int_4d(dt, &A_view[0], &B_view[0])
     elif model is Model.Car3D:
@@ -130,6 +138,7 @@ def linearize(x, u, double dt, model):
         linearize_unicycle_human(&x_view[0], &u_view[0], dt, &A_view[0], &B_view[0])
     elif model is Model.Quadcopter6D:
         linearize_quad_6d(&x_view[0], &u_view[0], dt, &A_view[0], &B_view[0])
+    elif model is Model.Quadcopter12D:
+        linearize_quad_12d(&x_view[0], &u_view[0], dt, &A_view[0], &B_view[0])
 
     return A.reshape((nx, nx)), B.reshape((nx, nu))
-

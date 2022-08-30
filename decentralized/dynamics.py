@@ -225,6 +225,11 @@ class QuadcopterDynamics6D(CppModel):
     def __init__(self, dt, *args, **kwargs):
         super().__init__(6, 3, dt, *args, **kwargs)
         self.model = Model.Quadcopter6D
+        
+class QuadcopterDynamics12D(CppModel):
+    def __init__(self, dt, *args, **kwargs):
+        super().__init__(12, 4, dt, *args, **kwargs)
+        self.model = Model.Quadcopter12D   
 
 
 class UnicycleHumanAgent4D(CppModel):
@@ -258,111 +263,6 @@ class BikeDynamics5D(SymbolicModel):
         self._f = sym.lambdify((x, u), sym.Array(x_dot)[:, 0])
         self.A_num = sym.lambdify((x, u), A)
         self.B_num = sym.lambdify((x, u), B)
-
-
-class QuadcopterDynamics12D(SymbolicModel):
-    def __init__(self, dt, *args, **kwargs):
-        super().__init__(12, 4, dt, *args, **kwargs)
-
-        # # components of position (meters)
-        o_x, o_y, o_z = sym.symbols("o_x, o_y, o_z")
-
-        # yaw, pitch, and roll angles (radians)
-        psi, theta, phi = sym.symbols("psi, theta, phi")
-
-        # components of linear velocity (meters / second)
-        v_x, v_y, v_z = sym.symbols("v_x, v_y, v_z")
-
-        # components of angular velocity (radians / second)
-        w_x, w_y, w_z = sym.symbols("w_x, w_y, w_z")
-
-        # components of net rotor torque
-        tau_x, tau_y, tau_z = sym.symbols("tau_x, tau_y, tau_z")
-
-        # net rotor force
-        f_z = sym.symbols("f_z")
-
-        x = sym.Matrix(
-            [o_x, o_y, o_z, psi, theta, phi, v_x, v_y, v_z, w_x, w_y, w_z]
-        )  # state variables
-        u = sym.Matrix([tau_x, tau_y, tau_z, f_z])  # input variables
-
-        m = sym.nsimplify(0.0315)  # mass of a Crazyflie drone
-
-        # Principle moments of inertia of a Crazyflie drone
-        J_x = sym.nsimplify(1.7572149113694408e-05)
-        J_y = sym.nsimplify(1.856979710568617e-05)
-        J_z = sym.nsimplify(2.7159794713754086e-05)
-
-        # Acceleration of gravity
-        g = 9.81
-
-        # Linear and angular velocity vectors (in body frame)
-        v_01in1 = sym.Matrix([[v_x], [v_y], [v_z]])
-        w_01in1 = sym.Matrix([[w_x], [w_y], [w_z]])
-
-        # Create moment of inertia matrix (in coordinates of the body frame).
-        J_in1 = sym.diag(J_x, J_y, J_z)
-
-        # Z-Y-X rotation sequence
-        Rz = sym.Matrix(
-            [
-                [sym.cos(psi), -sym.sin(psi), 0],
-                [sym.sin(psi), sym.cos(psi), 0],
-                [0, 0, 1],
-            ]
-        )
-
-        Ry = sym.Matrix(
-            [
-                [sym.cos(theta), 0, sym.sin(theta)],
-                [0, 1, 0],
-                [-sym.sin(theta), 0, sym.cos(theta)],
-            ]
-        )
-
-        Rx = sym.Matrix(
-            [
-                [1, 0, 0],
-                [0, sym.cos(phi), -sym.sin(phi)],
-                [0, sym.sin(phi), sym.cos(phi)],
-            ]
-        )
-
-        R_1in0 = Rz * Ry * Rx
-
-        # Mapping from angular velocity to angular rates
-        # Compute the invserse of the mapping first:
-        Ninv = sym.Matrix.hstack(
-            (Ry * Rx).T * sym.Matrix([[0], [0], [1]]),
-            (Rx).T * sym.Matrix([[0], [1], [0]]),
-            sym.Matrix([[1], [0], [0]]),
-        )
-        N = sym.simplify(Ninv.inv())  # this matrix N is what we actually want
-
-        # forces in world frame
-        f_in1 = R_1in0.T * sym.Matrix([[0], [0], [-m * g]]) + sym.Matrix(
-            [[0], [0], [f_z]]
-        )
-
-        # torques in world frame
-        tau_in1 = sym.Matrix([[tau_x], [tau_y], [tau_z]])
-
-        # Full EOM:
-        f_sym = sym.Matrix.vstack(
-            R_1in0 * v_01in1,
-            N * w_01in1,
-            (1 / m) * (f_in1 - w_01in1.cross(m * v_01in1)),
-            J_in1.inv() * (tau_in1 - w_01in1.cross(J_in1 * w_01in1)),
-        )
-
-        A = f_sym.jacobian(x)  # here the state vector is 12-dimensional
-        B = f_sym.jacobian(u)  # here the input vector is 6-dimensional
-
-        self._f = sym.lambdify((x, u), sym.Array(f_sym)[:, 0])
-        self.A_num = sym.lambdify((x, u), A)
-        self.B_num = sym.lambdify((x, u), B)
-
 
 # Based off of https://github.com/anassinator/ilqr/blob/master/ilqr/dynamics.py
 def linearize_finite_difference(f, x, u):
