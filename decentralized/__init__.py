@@ -45,5 +45,6 @@ from .util import (
     split_agents_gen,
     split_graph,
     uniform_block_diag,
+    distance_to_goal,
     π,
 )

@@ -71,7 +71,7 @@ def f(x, u, model):
         f = f_human_6d
     elif model is Model.Quadcopter6D:
         f = f_quad_6d
-    else:
+    elif model is Model.Quadcopter12D:
         f = f_quad_12d
 
     f(&x_view[0], &u_view[0], &x_dot_view[0])
@@ -100,7 +100,7 @@ def integrate(x, u, double dt, model):
         f = f_human_6d
     elif model is Model.Quadcopter6D:
         f = f_quad_6d
-    else:
+    elif model is Model.Quadcopter12D:
         f = f_quad_12d
 
     rk4(f, dt, &x_view[0], &u_view[0], n_x, &x_new_view[0])

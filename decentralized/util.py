@@ -283,3 +283,7 @@ def plot_solve(X, J, x_goal, x_dims=None, n_d=2):
     plt.margins(0.1)
     plt.title(f"Final Cost: {J:.3g}")
     plt.draw()
+
+
+def distance_to_goal(x,x_goal,n_agents,n_states,n_d):
+    return np.linalg.norm((x - x_goal).reshape(n_agents, n_states)[:, :n_d], axis=1)
