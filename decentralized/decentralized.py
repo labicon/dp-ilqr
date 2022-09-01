@@ -92,7 +92,7 @@ def solve_decentralized(problem, X, U, radius, pool=None, verbose=True, **kwargs
     return X_dec, U_dec, J_full, solve_info
 
 
-def solve_rhc(
+def solve_rhc(    #N is the length of the prediction horizon 
     problem,
     x0,
     N,
@@ -156,10 +156,12 @@ def solve_rhc(
             X, U, J, solve_info = solve_centralized(
                 centralized_solver, xi, U, ids, False, **kwargs
             )
+            # print(f"Shape of X at each prediction horizon is{X.shape}")
         else:
             X, U, J, solve_info = solve_decentralized(
                 problem, X, U, *args, verbose=False, **kwargs
             )
+            # print(f"Shape of X at each prediction horizon is{X.shape}")
         xi = X[step_size]
 
         X_full = np.r_[X_full, X[:step_size]]
