@@ -60,7 +60,30 @@ def compute_pairwise_distance(X, x_dims, n_d=2):
     pair_inds = np.array(list(itertools.combinations(range(n_agents), 2)))
     X_agent = X.reshape(-1, n_agents, n_states).swapaxes(0, 2)
     dX = X_agent[:n_d, pair_inds[:, 0]] - X_agent[:n_d, pair_inds[:, 1]]
-    return np.linalg.norm(dX, axis=0)
+    return np.linalg.norm(dX, axis=0).T
+
+
+def compute_pairwise_distance_nd(X, x_dims, n_dims):
+    """Analog to the above whenever some agents only use distance in the x-y plane"""
+
+    if X.ndim == 1:
+        X = X.reshape(1, -1)
+
+    cylinder_radius = 0.3 #assume the human is a cylinder of radius 0.6 and some height = h
+
+    n_states = x_dims[0]
+    n_agents = len(x_dims)
+    distances = np.zeros((X.shape[0], 0))
+
+    for i, n_dim_i in zip(range(n_agents), n_dims):
+        for j, n_dim_j in zip(range(i + 1, n_agents), n_dims[i + 1 :]):
+            n_dim = min(n_dim_i, n_dim_j)
+            Xi = X[:, i * n_states : i * n_states + n_dim]
+            Xj = X[:, j * n_states : j * n_states + n_dim] - cylinder_radius
+
+            distances = np.c_[distances, np.linalg.norm(Xi - Xj, axis=1).reshape(-1, 1)]
+
+    return distances
 
 
 def split_agents(Z, z_dims):
@@ -117,7 +140,7 @@ def randomize_locs(n_pts, random=False, rel_dist=3.0, var=3.0, n_d=2):
     # Keep moving points away from center until we satisfy radius
     while move_inds.size:
         center = np.mean(x, axis=0)
-        distances = compute_pairwise_distance(x.flatten(), [n_d] * n_pts)
+        distances = compute_pairwise_distance(x.flatten(), [n_d] * n_pts).T
 
         move_inds = pair_inds[distances.flatten() <= rel_dist]
         x[move_inds] += Δ * (x[move_inds] - center)
@@ -263,3 +286,7 @@ def plot_solve(X, J, x_goal, x_dims=None, n_d=2):
     plt.margins(0.1)
     plt.title(f"Final Cost: {J:.3g}")
     plt.draw()
+
+
+def distance_to_goal(x,x_goal,n_agents,n_states,n_d):
+    return np.linalg.norm((x - x_goal).reshape(n_agents, n_states)[:, :n_d], axis=1)

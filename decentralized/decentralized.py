@@ -37,7 +37,7 @@ def solve_decentralized(problem, X, U, radius, pool=None, verbose=True, **kwargs
     # Compute interaction graph based on relative distances.
     graph = define_inter_graph_threshold(X, radius, x_dims, ids)
     if verbose:
-        print("=" * 80 + f"Interaction Graph: {graph}")
+        print("=" * 80 + f"\nInteraction Graph: {graph}")
 
     # Split up the initial state and control for each subproblem.
     x0_split = split_graph(X[np.newaxis, 0], x_dims, graph)
@@ -92,7 +92,7 @@ def solve_decentralized(problem, X, U, radius, pool=None, verbose=True, **kwargs
     return X_dec, U_dec, J_full, solve_info
 
 
-def solve_rhc(
+def solve_rhc(    #N is the length of the prediction horizon 
     problem,
     x0,
     N,
@@ -156,10 +156,12 @@ def solve_rhc(
             X, U, J, solve_info = solve_centralized(
                 centralized_solver, xi, U, ids, False, **kwargs
             )
+            # print(f"Shape of X at each prediction horizon is{X.shape}")
         else:
             X, U, J, solve_info = solve_decentralized(
                 problem, X, U, *args, verbose=False, **kwargs
             )
+            # print(f"Shape of X at each prediction horizon is{X.shape}")
         xi = X[step_size]
 
         X_full = np.r_[X_full, X[:step_size]]
@@ -212,7 +214,7 @@ def define_inter_graph_threshold(X, radius, x_dims, ids):
     """
 
     planning_radii = 2 * radius
-    rel_dists = compute_pairwise_distance(X, x_dims).T
+    rel_dists = compute_pairwise_distance(X, x_dims)
 
     N = X.shape[0]
     n_samples = 10
@@ -236,7 +238,7 @@ def solve_centralized(solver, xi, U, ids, verbose, **kwargs):
     """Thin function call to unify profiling function traces"""
 
     t0 = pc()
-    X, U, J = solver.solve(xi, U, verbose=False, **kwargs)
+    X, U, J = solver.solve(xi, U, verbose=verbose, **kwargs)
     Δt = pc() - t0
     solve_info = {id_: (Δt, ids) for id_ in ids}
 
