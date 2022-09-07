@@ -21,7 +21,7 @@ from .problem import solve_subproblem
 from .util import split_graph, compute_pairwise_distance
 
 
-def solve_decentralized(problem, X, U, radius, pool=None, verbose=True, **kwargs):
+def solve_decentralized(problem, X, U, radius, t_kill = None, pool=None, verbose=True, **kwargs):
     """Solve the problem via decentralization into subproblems"""
 
     x_dims = problem.game_cost.x_dims
@@ -47,19 +47,26 @@ def solve_decentralized(problem, X, U, radius, pool=None, verbose=True, **kwargs
     U_dec = np.zeros((N, n_agents * n_controls))
 
     # Solve all problems in one process, keeping results for each agent in *_dec.
+
+    
     if not pool:
         for i, (subproblem, x0i, Ui, id_) in enumerate(
             zip(problem.split(graph), x0_split, U_split, ids)
         ):
+            
             t0 = pc()
             Xi_agent, Ui_agent, id_ = solve_subproblem(
                 (subproblem, x0i, Ui, id_, False), **kwargs
             )
             Δt = pc() - t0
 
+            if Δt > t_kill:
+                break
+
             if verbose:
                 print(f"Problem {id_}: {graph[id_]}\nTook {Δt} seconds\n")
 
+            
             X_dec[:, i * n_states : (i + 1) * n_states] = Xi_agent
             U_dec[:, i * n_controls : (i + 1) * n_controls] = Ui_agent
 
