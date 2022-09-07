@@ -60,9 +60,6 @@ def solve_decentralized(problem, X, U, radius, t_kill = None, pool=None, verbose
             )
             Δt = pc() - t0
 
-            if Δt > t_kill:
-                break
-
             if verbose:
                 print(f"Problem {id_}: {graph[id_]}\nTook {Δt} seconds\n")
 
@@ -71,6 +68,10 @@ def solve_decentralized(problem, X, U, radius, t_kill = None, pool=None, verbose
             U_dec[:, i * n_controls : (i + 1) * n_controls] = Ui_agent
 
             solve_info[id_] = (Δt, graph[id_])
+
+            if Δt > t_kill:
+                print("RHC solve terminated early")
+                break
 
     # Solve in separate processes using imap.
     else:
