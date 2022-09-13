@@ -54,6 +54,7 @@ def multi_agent_run(model, x_dims, dt, N, radius, energy=10.0, n_d=2, **kwargs):
     )
 
     x_dims = [n_states] * n_agents
+    n_dims = [n_d] * n_agents
 
     ids = [100 + i for i in range(n_agents)]
     dynamics = MultiDynamicalModel([model(dt, id_) for id_ in ids])
@@ -71,7 +72,7 @@ def multi_agent_run(model, x_dims, dt, N, radius, energy=10.0, n_d=2, **kwargs):
         ReferenceCost(xf_i, Q.copy(), R.copy(), Qf.copy(), id_)
         for xf_i, id_ in zip(split_agents_gen(xf, x_dims), ids)
     ]
-    prox_cost = ProximityCost(x_dims, radius, n_d)
+    prox_cost = ProximityCost(x_dims, radius, n_dims)
     game_cost = GameCost(goal_costs, prox_cost)
 
     problem = ilqrProblem(dynamics, game_cost)

@@ -69,8 +69,6 @@ def compute_pairwise_distance_nd(X, x_dims, n_dims):
     if X.ndim == 1:
         X = X.reshape(1, -1)
 
-    cylinder_radius = 0.3 #assume the human is a cylinder of radius 0.6 and some height = h
-
     n_states = x_dims[0]
     n_agents = len(x_dims)
     distances = np.zeros((X.shape[0], 0))
@@ -79,10 +77,10 @@ def compute_pairwise_distance_nd(X, x_dims, n_dims):
         for j, n_dim_j in zip(range(i + 1, n_agents), n_dims[i + 1 :]):
             n_dim = min(n_dim_i, n_dim_j)
             Xi = X[:, i * n_states : i * n_states + n_dim]
-            Xj = X[:, j * n_states : j * n_states + n_dim] - cylinder_radius
+            Xj = X[:, j * n_states : j * n_states + n_dim]
 
             distances = np.c_[distances, np.linalg.norm(Xi - Xj, axis=1).reshape(-1, 1)]
-
+            
     return distances
 
 

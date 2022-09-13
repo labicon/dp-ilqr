@@ -15,6 +15,9 @@ from .util import (
     uniform_block_diag,
 )
 
+# DBG: Add an additional radius specifically for human agents.
+CYLINDER_RADIUS = 0.0
+
 
 class Cost(abc.ABC):
     """
@@ -128,6 +131,10 @@ class ProximityCost(Cost):
             distances = compute_pairwise_distance_nd(
                 x.reshape(1, -1), self.x_dims, self.n_dims
             )
+
+        # TODO: remove this after experiments are over.
+        human_mask = [nd == 2 for nd in self.n_dims]
+        distances[:, human_mask] -= CYLINDER_RADIUS
 
         pair_costs = np.fmin(np.zeros(1), distances - self.radius) ** 2
         return pair_costs.sum()
