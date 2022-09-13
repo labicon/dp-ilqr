@@ -47,4 +47,5 @@ from .util import (
     uniform_block_diag,
     distance_to_goal,
     π,
+    distance_to_goal,
 )

@@ -69,10 +69,6 @@ def solve_decentralized(problem, X, U, radius, t_kill = None, pool=None, verbose
 
             solve_info[id_] = (Δt, graph[id_])
 
-            if Δt > t_kill:
-                print("RHC solve terminated early")
-                break
-
     # Solve in separate processes using imap.
     else:
         # Package up arguments for the subproblem solver.
