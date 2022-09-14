@@ -235,8 +235,14 @@ static void f_human_6d(double x[], double u[], double x_dot[])
              of the 6-dimensional quadcopter model
     */
 
-    x_dot[0] = u[0] * cos(x[3]);
-    x_dot[1] = u[0] * sin(x[3]);
+    /* x: = [px, py , pz, v, 0, 0]
+            u: = [theta a]
+
+
+    */
+
+    x_dot[0] = x[3] * cos(u[0]);
+    x_dot[1] = x[3] * sin(u[0]);
     x_dot[2] = 0;
     x_dot[3] = u[1];
     x_dot[4] = 0;
@@ -249,13 +255,13 @@ void linearize_human_6d(double x[], double u[], double dt, double A[], double B[
     A[0] = 0;
     A[1] = 0;
     A[2] = 0;
-    A[3] = -u[0] * sin(x[3]);
+    A[3] = cos(u[0]);
     A[4] = 0;
     A[5] = 0;
     A[6] = 0;
     A[7] = 0;
     A[8] = 0;
-    A[9] = u[0] * cos(x[3]);
+    A[9] = sin(u[0]);
     A[10] = 0;
     A[11] = 0;
     A[12] = 0;
@@ -283,10 +289,10 @@ void linearize_human_6d(double x[], double u[], double dt, double A[], double B[
     A[34] = 0;
     A[35] = 0;
 
-    B[0] = cos(x[3]);
+    B[0] = -x[3] * sin(u[0]);
     B[1] = 0;
     B[2] = 0;
-    B[3] = sin(x[3]);
+    B[3] = x[3] * cos(u[0]);
     B[4] = 0;
     B[5] = 0;
     B[6] = 0;

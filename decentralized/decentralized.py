@@ -20,6 +20,8 @@ from .control import ilqrSolver
 from .problem import solve_subproblem
 from .util import split_graph, compute_pairwise_distance
 
+g = 9.81
+
 
 def solve_decentralized(problem, X, U, radius, t_kill=None, pool=None, verbose=True, **kwargs):
     """Solve the problem via decentralization into subproblems"""
@@ -140,7 +142,8 @@ def solve_rhc(  # N is the length of the prediction horizon
     xi = x0.reshape(1, -1)
     X = xi.copy()
     # U = np.zeros((N, n_u))
-    U = np.random.rand((N, n_u))*0.01
+    U = np.random.rand(N, n_u)*0.01
+    # U = np.tile([g, 0, 0], (N, n_agents))
     centralized_solver = ilqrSolver(problem, N)
 
     t = 0
