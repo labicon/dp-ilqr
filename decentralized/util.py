@@ -66,7 +66,7 @@ def compute_pairwise_distance(X, x_dims, n_d=2):
     return np.linalg.norm(dX, axis=0).T
 
 
-def compute_pairwise_distance_nd(X, x_dims, n_dims):
+def compute_pairwise_distance_nd(X, x_dims, n_dims, dec_ind=None):
     """Analog to the above whenever some agents only use distance in the x-y plane"""
 
     if X.ndim == 1:
@@ -76,17 +76,22 @@ def compute_pairwise_distance_nd(X, x_dims, n_dims):
     n_agents = len(x_dims)
     distances = np.zeros((X.shape[0], 0))
 
-    for i, n_dim_i in zip(range(n_agents), n_dims):
-        for j, n_dim_j in zip(range(i + 1, n_agents), n_dims[i + 1 :]):
-            n_dim = min(n_dim_i, n_dim_j)
-            Xi = X[:, i * n_states : i * n_states + n_dim]
-            Xj = X[:, j * n_states : j * n_states + n_dim]
+    pair_inds = list(itertools.combinations(range(n_agents), 2))
+    if dec_ind is not None:
+        pair_inds = list(
+            filter(lambda pair, dec_ind=dec_ind: dec_ind in pair, pair_inds)
+        )
 
-            distances = np.c_[distances, np.linalg.norm(Xi - Xj, axis=1).reshape(-1, 1)]
+    for (i, j) in pair_inds:
+        n_dim = min(n_dims[i], n_dims[j])
+        Xi = X[:, i * n_states : i * n_states + n_dim]
+        Xj = X[:, j * n_states : j * n_states + n_dim]
 
-            if n_dim == 2:
-                distances[-1] -= CYLINDER_RADIUS
-            
+        distances = np.c_[distances, np.linalg.norm(Xi - Xj, axis=1).reshape(-1, 1)]
+
+        if n_dim == 2:
+            distances[-1] -= CYLINDER_RADIUS
+
     return distances
 
 
@@ -165,7 +170,9 @@ def face_goal(x0, xf):
     return x0, xf
 
 
-def random_setup(n_agents, n_states, is_rotation=False, n_d=2, energy=None, do_face=False, **kwargs):
+def random_setup(
+    n_agents, n_states, is_rotation=False, n_d=2, energy=None, do_face=False, **kwargs
+):
     """Create a randomized set up of initial and final positions"""
 
     # We don't have to normlize for energy here
@@ -181,12 +188,12 @@ def random_setup(n_agents, n_states, is_rotation=False, n_d=2, energy=None, do_f
 
     x0 = np.c_[x_i, np.zeros((n_agents, n_states - n_d))]
     xf = np.c_[x_f, np.zeros((n_agents, n_states - n_d))]
-    
+
     if do_face:
         x0, xf = face_goal(x0, xf)
 
-    x0 = x0.reshape(-1,1)
-    xf = xf.reshape(-1,1)
+    x0 = x0.reshape(-1, 1)
+    xf = xf.reshape(-1, 1)
 
     # Normalize to satisfy the desired energy of the problem.
     if energy:
@@ -250,7 +257,7 @@ def plot_interaction_graph(graph):
     options = {
         "font_size": 10,
         "node_size": 600,
-        "node_color": plt.cm.Set3.colors[:len(graph)],
+        "node_color": plt.cm.Set3.colors[: len(graph)],
         "edgecolors": "black",
     }
 
@@ -305,5 +312,5 @@ def plot_solve(X, J, x_goal, x_dims=None, color_agents=False, n_d=2):
     plt.draw()
 
 
-def distance_to_goal(x,x_goal,n_agents,n_states,n_d):
+def distance_to_goal(x, x_goal, n_agents, n_states, n_d):
     return np.linalg.norm((x - x_goal).reshape(n_agents, n_states)[:, :n_d], axis=1)
