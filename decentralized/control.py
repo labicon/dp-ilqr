@@ -8,8 +8,19 @@
 """
 
 from time import perf_counter
-
+from casadi import *
+import do_mpc
 import numpy as np
+
+
+# class MPC:
+#     def __init__(self, problem):
+
+#         self.problem = problem
+
+#     @property
+#     def dynamics(self):
+#         return self.problem.dynamics
 
 
 class ilqrSolver:
@@ -317,7 +328,7 @@ class RecedingHorizonController:
 
             yield X[: self.step_size], U[: self.step_size], J
 
-            U = U[self.step_size :]
+            U = U[self.step_size:]
             U = np.vstack([U, np.zeros((self.step_size, self._controller.n_u))])
 
             if J < J_converge:
