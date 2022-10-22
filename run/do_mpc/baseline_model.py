@@ -1,3 +1,4 @@
+from tkinter import N
 import numpy as np
 from casadi import *
 import do_mpc
@@ -36,20 +37,33 @@ def baseline_drone_model(xf, x_dims, ids, Q, R, Qf, n_agents, n_dims, radius):
     """
 
     """Costs:"""
-    goal_costs = [dec.ReferenceCost(xf_i, Qi, Ri, Qfi, id_)
+    stage_costs = [((x-xf_i).T@Qi@(x-xf_i) + u.T@Ri@u) 
     for xf_i, id_, x_dim, Qi, Ri, Qfi in zip(
         dec.split_agents_gen(xf, x_dims), ids, x_dims, Qs, Rs, Qfs
     )]
 
-    for m in goal_costs:
+    terminal_costs = [((x-xf_i).T@Qfi@(x-xf_i))
+    for xf_i, id_, x_dim, Qi, Ri, Qfi in zip(
+        dec.split_agents_gen(xf, x_dims), ids, x_dims, Qs, Rs, Qfs
+    )]
 
-        model.set_expression('goal_cost', m)
+    for m,n in enumerate(stage_costs):
+        #goal_cost0 = , goal_cost1 = , etc...
+        model.set_expression(f'stage_cost{str(m)}', n)
 
-    #collision avoidance will now be handled through constraints rather than a quadratic cost!
+    for j,k in enumerate(terminal_costs):
+
+        model.set_expression(f'terminal_cost{str(j)}', k)
+
+        
+
+    #collision avoidance will later be handled through constraints rather than a quadratic cost!
 
     """Constraints:"""
     
     prox_cost = dec.ProximityCost(x_dims, radius, n_dims)
+    model.set_expression('lumped_collision_cost',prox_cost)
+    
 
     model.setup()
 
