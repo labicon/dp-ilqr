@@ -47,16 +47,17 @@ def baseline_drone_model(xf, x_dims, ids, Q, R, Qf, n_agents, n_dims, radius):
         dec.split_agents_gen(xf, x_dims), ids, x_dims, Qs, Rs, Qfs
     )]
 
-    for m,n in enumerate(stage_costs):
-        #goal_cost0 = , goal_cost1 = , etc...
-        model.set_expression(f'stage_cost{str(m)}', n)
+    # for m,n in enumerate(stage_costs):
+    #     #goal_cost0 = , goal_cost1 = , etc...
+    #     model.set_expression(f'stage_cost{str(m)}', n)
 
-    for j,k in enumerate(terminal_costs):
+    # for j,k in enumerate(terminal_costs):
 
-        model.set_expression(f'terminal_cost{str(j)}', k)
+    #     model.set_expression(f'terminal_cost{str(j)}', k)
 
+    model.set_expression('total_stage_cost',stage_costs)
+    model.set_expression('total_terminal_cost',terminal_costs)
         
-
     #collision avoidance will later be handled through constraints rather than a quadratic cost!
 
     """Constraints:"""
