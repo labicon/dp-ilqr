@@ -5,7 +5,7 @@ import do_mpc
 import decentralized as dec
 
 
-def baseline_drone_model(xf, x_dims, ids, Q, R, Qf, n_agents, n_dims, radius): 
+def baseline_drone_model(xf, x_dims, Q, R, Qf, n_agents, n_dims, radius): 
     #input arguments: np.ndarray
     Qs = [Q] * n_agents
     Rs = [R] * n_agents
@@ -16,7 +16,6 @@ def baseline_drone_model(xf, x_dims, ids, Q, R, Qf, n_agents, n_dims, radius):
 
     x = model.set_variable(var_type='_x', var_name='x', shape=(6, 1))
     u = model.set_variable(var_type='_u', var_name='u', shape=(3, 1))
-    g = 9.81
 
     #x = p_x,p_y,p_z,v_x,v_y,v_z
     #u = theta, phi, tau
@@ -34,30 +33,36 @@ def baseline_drone_model(xf, x_dims, ids, Q, R, Qf, n_agents, n_dims, radius):
     
     The inputs are [theta,phi,tau]
     The states are [p_x,p_y,p_z,v_x,v_y,v_z]
+
     """
 
-    """Costs:"""
-    stage_costs = [((x-xf_i).T@Qi@(x-xf_i) + u.T@Ri@u) 
-    for xf_i, id_, x_dim, Qi, Ri, Qfi in zip(
-        dec.split_agents_gen(xf, x_dims), ids, x_dims, Qs, Rs, Qfs
+    """Distributed cost functions:"""
+
+    total_stage_cost = []
+    total_terminal_cost= []
+
+    stage_costs = [total_stage_cost.append((x-xf_i).T@Qi@(x-xf_i) + u.T@Ri@u) 
+    for xf_i, Qi, Ri, in zip(
+        dec.split_agents_gen(xf, x_dims), Qs, Rs, 
     )]
 
-    terminal_costs = [((x-xf_i).T@Qfi@(x-xf_i))
-    for xf_i, id_, x_dim, Qi, Ri, Qfi in zip(
-        dec.split_agents_gen(xf, x_dims), ids, x_dims, Qs, Rs, Qfs
+    terminal_costs = [total_terminal_cost.append((x-xf_i).T@Qfi@(x-xf_i))
+    for xf_i, Qfi in zip(
+        dec.split_agents_gen(xf, x_dims), Qfs
     )]
 
-    # for m,n in enumerate(stage_costs):
-    #     #goal_cost0 = , goal_cost1 = , etc...
-    #     model.set_expression(f'stage_cost{str(m)}', n)
+    for m,n in enumerate(stage_costs):   #is this necessary though?
+        #goal_cost0 = , goal_cost1 = , etc... for each agent
+        model.set_expression(f'stage_cost{str(m)}', n)
 
-    # for j,k in enumerate(terminal_costs):
+    for j,k in enumerate(terminal_costs):
+        model.set_expression(f'terminal_cost{str(j)}', k)
 
-    #     model.set_expression(f'terminal_cost{str(j)}', k)
 
-    model.set_expression('total_stage_cost',stage_costs)
-    model.set_expression('total_terminal_cost',terminal_costs)
-        
+    model.set_expression('total_stage_cost',total_stage_cost)
+    model.set_expression('total_terminal_cost',total_terminal_cost)
+    
+
     #collision avoidance will later be handled through constraints rather than a quadratic cost!
 
     """Constraints:"""

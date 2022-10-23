@@ -3,8 +3,7 @@ from casadi import *
 import do_mpc
 import decentralized as dec
 
-def baseline_drone_mpe(model, v_max, theta_max, phi_max, tau_max, \
-                      xf, x_dims, ids, Q, R, Qf, n_agents, n_dims, radius):
+def baseline_drone_mpc(model, v_max, theta_max, phi_max, tau_max):
 
     mpc = do_mpc.controller.MPC(model)
 
@@ -24,8 +23,8 @@ def baseline_drone_mpe(model, v_max, theta_max, phi_max, tau_max, \
 
     mpc.set_param(**setup_mpc)
 
-    mpc.set_nl_cons('collision',model.aux['collision_constraint'],0) 
-    #in this case we want the collision avoidance cost inccured between any 2 agents to be 0, which means their 
+    mpc.set_nl_cons('collision',model.aux['lumped_collision_cost'],0) 
+    #in this case we want the collision avoidance cost inccured to be 0, which means their 
     #pairwise distances must be > radius
 
     """
@@ -34,7 +33,7 @@ def baseline_drone_mpe(model, v_max, theta_max, phi_max, tau_max, \
     lterm: stage cost
     """
     mterm = model.aux['total_terminal_cost']
-    lterm = model.aux['total_stage_costs']
+    lterm = model.aux['total_stage_cost']
     
     mpc.set_objective(mterm=mterm,lterm=lterm)
 
