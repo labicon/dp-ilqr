@@ -59,8 +59,8 @@ def baseline_drone_model(xf, x_dims, Q, R, Qf, n_agents, n_dims, radius):
     #     model.set_expression(f'terminal_cost{str(j)}', k)
 
 
-    model.set_expression('total_stage_cost',total_stage_cost)
-    model.set_expression('total_terminal_cost',total_terminal_cost)
+    model.set_expression('total_stage_cost',np.sum(total_stage_cost))
+    model.set_expression('total_terminal_cost',np.sum(total_terminal_cost))
     
 
     #collision avoidance will later be handled through constraints rather than a quadratic cost!
