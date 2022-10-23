@@ -41,22 +41,22 @@ def baseline_drone_model(xf, x_dims, Q, R, Qf, n_agents, n_dims, radius):
     total_stage_cost = []
     total_terminal_cost= []
 
-    stage_costs = [total_stage_cost.append((x-xf_i).T@Qi@(x-xf_i) + u.T@Ri@u) 
+    [total_stage_cost.append((x-xf_i).T@Qi@(x-xf_i) + u.T@Ri@u) 
     for xf_i, Qi, Ri, in zip(
         dec.split_agents_gen(xf, x_dims), Qs, Rs, 
     )]
 
-    terminal_costs = [total_terminal_cost.append((x-xf_i).T@Qfi@(x-xf_i))
+    [total_terminal_cost.append((x-xf_i).T@Qfi@(x-xf_i))
     for xf_i, Qfi in zip(
         dec.split_agents_gen(xf, x_dims), Qfs
     )]
 
-    for m,n in enumerate(stage_costs):   #is this necessary though?
-        #goal_cost0 = , goal_cost1 = , etc... for each agent
-        model.set_expression(f'stage_cost{str(m)}', n)
+    # for m,n in enumerate(stage_costs):   #is this necessary though?
+    #     #goal_cost0 = , goal_cost1 = , etc... for each agent
+    #     model.set_expression(f'stage_cost{str(m)}', n)
 
-    for j,k in enumerate(terminal_costs):
-        model.set_expression(f'terminal_cost{str(j)}', k)
+    # for j,k in enumerate(terminal_costs):
+    #     model.set_expression(f'terminal_cost{str(j)}', k)
 
 
     model.set_expression('total_stage_cost',total_stage_cost)
