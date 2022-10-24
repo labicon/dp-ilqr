@@ -2,9 +2,14 @@ import numpy as np
 from casadi import *
 import do_mpc
 import decentralized as dec
+from baseline_model import baseline_drone_model
+import util
 
-def baseline_drone_mpc(model, v_max, theta_max, phi_max, tau_max):
-
+def baseline_drone_mpc(model, n_agents, x_baseline, x_dims, v_max, theta_max, phi_max, tau_max):
+    """ 
+    x_baseline : current concatenated states of all agents
+    
+    """
     mpc = do_mpc.controller.MPC(model)
 
     
@@ -21,8 +26,8 @@ def baseline_drone_mpc(model, v_max, theta_max, phi_max, tau_max):
     }
 
     mpc.set_param(**setup_mpc)
-
-    mpc.set_nl_cons('collision',model.aux['total_prox_cost'],0) 
+    
+    mpc.set_nl_cons('collision_constraint',model.aux['proximity_cost'],0)
     #in this case we want the collision avoidance cost inccured to be 0, which means their 
     #pairwise distances must be > radius
 

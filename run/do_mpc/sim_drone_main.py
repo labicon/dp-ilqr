@@ -17,24 +17,36 @@ n_states = 6
 n_inputs = 3
 
 def setup_baseline(x_baseline, x_baseline_f, v_max, theta_max, phi_max, tau_max,\
-                    x_dims, Q, R, Qf, n_agents, n_dims, radius):
-    model_baseline = [baseline_drone_model(dec.split_agents(x_baseline_f.reshape(1,-1),x_dims)[i].flatten(), Q, R, Qf) for i in range(n_agents)] 
+                    x_dims, u_dims, Q, R, Qf, n_agents, n_dims, radius):
+    model_baseline = [baseline_drone_model(dec.split_agents(x_baseline_f.reshape(1,-1),x_dims)[i].flatten(), Q, R, Qf, x_baseline) for i in range(n_agents)] 
     #a list of baseline models for each agent
     
-    mpc_baseline = baseline_drone_mpc(model_baseline, v_max, theta_max, phi_max, tau_max)
-    simulator_baseline = baseline_drone_simulator(model_baseline)
-    simulator_baseline.x0['x'] = x_baseline #dimension mismatch here?
-    mpc_baseline.x0 = x_baseline
+    mpc_baseline = [baseline_drone_mpc(model_i,n_agents,x_baseline1,x_dims, v_max, theta_max, phi_max, tau_max) for model_i in model_baseline]
+    #a list of baseline mpc controllers for each agent
+    
+    simulator_baseline = [baseline_drone_simulator(model_i) for model_i in model_baseline]
+    
+    #splitting the states of each agent
+    split_states = dec.split_agents(x_baseline.reshape(1,-1),x_dims)
+
+    for m in range(len(simulator_baseline)):
+        
+        simulator_baseline[m].x0['x'] = split_states[m].T #dimension mismatch here?
+        mpc_baseline[m].x0 = split_states[m].T
 
     u_init_baseline = np.full((n_agents*n_inputs,1), 0.0)
-    mpc_baseline.u0 = u_init_baseline
-    simulator_baseline.u0 = u_init_baseline
-    mpc_baseline.set_initial_guess()
+    split_inputs = dec.split_agents(u_init_baseline.reshape(1,-1),u_dims)
     
-    u0_baseline = mpc_baseline.make_step(x_baseline)
-    x_baseline_next = simulator_baseline.make_step(u0_baseline)
+    u0_baseline = []
+    x_baseline_next = []
+    for m in range(len(mpc_baseline)):
+        mpc_baseline[m].u0 = split_inputs[m].T
+        simulator_baseline[m].u0 = split_inputs[m].T
+        mpc_baseline[m].set_initial_guess()
+        u0_baseline.append(mpc_baseline[m].make_step(split_states[m].T))
+        x_baseline_next.append(simulator_baseline[m].make_step(split_inputs[m].T))
     # print(mpc_baseline.data._lam_g_num)
-    return u0_baseline, x_baseline_next, mpc_baseline.data._lam_g_num
+    return u0_baseline, x_baseline_next, [mpc_baseline[i].data._lam_g_num for i in range(len(mpc_baseline))]
 
 def run_sim():
     

@@ -5,7 +5,7 @@ import do_mpc
 import decentralized as dec
 import util
 
-def baseline_drone_model(xf, Q, R, Qf): 
+def baseline_drone_model(xf, Q, R, Qf, x_baseline, x_dims): 
     #input arguments: np.ndarray
     # Qs = [Q] * n_agents
     # Rs = [R] * n_agents
@@ -44,27 +44,18 @@ def baseline_drone_model(xf, Q, R, Qf):
     total_stage_cost = (x-xf).T@Q@(x-xf) + u.T@R@u 
     #stage for 1 agent
  
-
-#    total_terminal_cost = [(x-xf_i.T).T@Qfi@(x-xf_i.T)
-
-#     for xf_i, Qfi in zip(
-#         dec.split_agents(xf.reshape(1,-1), x_dims), Qfs
-#     )]
-
     total_terminal_cost = (x-xf).T@Qf@(x-xf)
     
     model.set_expression('total_stage_cost',total_stage_cost)
     model.set_expression('total_terminal_cost',total_terminal_cost)
     
-    
+    radius = 0.5
+    distances = util.compute_pairwise_distance_Sym(x_baseline,x_dims,n_d=3) 
+    prox_cost = SX(np.fmin(np.zeros(1), distances - radius) ** 2 * 100)
+    model.set_expression('proximity_cost',prox_cost) 
     #TODO: The prox_cost should be handled by a centralized processor since xf only contains the state
     #a single agent
     #Set this up in the mpc controller
-    
-    # distances = util.compute_pairwise_distance_Sym(xf,x_dims,n_d=3) 
-    # prox_costs = SX(np.fmin(np.zeros(1), distances - radius) ** 2 * 100)
-    
-    # model.set_expression('total_prox_cost',prox_costs)
 
     model.setup()
 
