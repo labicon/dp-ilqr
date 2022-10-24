@@ -52,14 +52,6 @@ def baseline_drone_model(xf, x_dims, Q, R, Qf, n_agents, n_dims, radius):
         dec.split_agents(xf.reshape(1,-1), x_dims), Qfs
     )]
 
-    # for m,n in enumerate(stage_costs):   #is this necessary though?
-    #     #goal_cost0 = , goal_cost1 = , etc... for each agent
-    #     model.set_expression(f'stage_cost{str(m)}', n)
-
-    # for j,k in enumerate(terminal_costs):
-    #     model.set_expression(f'terminal_cost{str(j)}', k)
-
-
     model.set_expression('total_stage_cost',np.sum(total_stage_cost))
     model.set_expression('total_terminal_cost',np.sum(total_terminal_cost))
     
@@ -70,9 +62,11 @@ def baseline_drone_model(xf, x_dims, Q, R, Qf, n_agents, n_dims, radius):
     
     
     #TODO: The prox_cost is not correct; needs a compatible expression
-    prox_cost = dec.ProximityCost(x_dims, radius, n_dims)
-    model.set_expression('lumped_collision_cost',prox_cost)
     
+    distances = util.compute_pairwise_distance_Sym(x,x_dims,n_d=3) 
+    prox_costs = np.fmin(np.zeros(1), distances - radius) ** 2 * 100
+    
+    model.set_expression('total_prox_cost',prox_costs)
 
     model.setup()
 

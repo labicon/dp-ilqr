@@ -7,7 +7,6 @@ def baseline_drone_mpc(model, v_max, theta_max, phi_max, tau_max):
 
     mpc = do_mpc.controller.MPC(model)
 
-    """Costs:"""
     
     setup_mpc = {
         'n_horizon': 5,
