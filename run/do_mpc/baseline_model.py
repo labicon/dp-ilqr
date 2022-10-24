@@ -16,10 +16,11 @@ def baseline_drone_model(xf, x_dims, Q, R, Qf, n_agents, n_dims, radius):
 
     x = model.set_variable(var_type='_x', var_name='x', shape=(6, 1))
     u = model.set_variable(var_type='_u', var_name='u', shape=(3, 1))
-
+    print(f'Shape of x is {x.shape}')
+    print(f'Shape of u is {u.shape}')
     #x = p_x,p_y,p_z,v_x,v_y,v_z
     #u = theta, phi, tau
-
+    g = 9.81
     model.set_rhs('x', vertcat(x[3], x[4], x[5], g*np.tan(u[0]), -g*np.tan(u[1]), u[2]-g))
     
     #6-D model of a quadrotor with 6 states and 3 inputs:
@@ -38,17 +39,17 @@ def baseline_drone_model(xf, x_dims, Q, R, Qf, n_agents, n_dims, radius):
 
     """Distributed cost functions:"""
 
-    total_stage_cost = []
-    total_terminal_cost= []
-
-    [total_stage_cost.append((x-xf_i).T@Qi@(x-xf_i) + u.T@Ri@u) 
+    
+    total_stage_cost= [(x-xf_i.T).T@Qi@(x-xf_i.T) + u.T@Ri@u
     for xf_i, Qi, Ri, in zip(
-        dec.split_agents_gen(xf, x_dims), Qs, Rs, 
+        dec.split_agents(xf.reshape(1,-1), x_dims), Qs, Rs, 
     )]
+ 
 
-    [total_terminal_cost.append((x-xf_i).T@Qfi@(x-xf_i))
+    total_terminal_cost = [(x-xf_i.T).T@Qfi@(x-xf_i.T)
+    #shape is not correct unless xf_i is transposed
     for xf_i, Qfi in zip(
-        dec.split_agents_gen(xf, x_dims), Qfs
+        dec.split_agents(xf.reshape(1,-1), x_dims), Qfs
     )]
 
     # for m,n in enumerate(stage_costs):   #is this necessary though?
@@ -67,6 +68,8 @@ def baseline_drone_model(xf, x_dims, Q, R, Qf, n_agents, n_dims, radius):
 
     """Constraints:"""
     
+    
+    #TODO: The prox_cost is not correct; needs a compatible expression
     prox_cost = dec.ProximityCost(x_dims, radius, n_dims)
     model.set_expression('lumped_collision_cost',prox_cost)
     
