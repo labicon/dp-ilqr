@@ -3,7 +3,7 @@ import numpy as np
 from casadi import *
 import do_mpc
 import decentralized as dec
-
+import util
 
 def baseline_drone_model(xf, x_dims, Q, R, Qf, n_agents, n_dims, radius): 
     #input arguments: np.ndarray
@@ -42,12 +42,12 @@ def baseline_drone_model(xf, x_dims, Q, R, Qf, n_agents, n_dims, radius):
     
     total_stage_cost= [(x-xf_i.T).T@Qi@(x-xf_i.T) + u.T@Ri@u
     for xf_i, Qi, Ri, in zip(
-        dec.split_agents(xf.reshape(1,-1), x_dims), Qs, Rs, 
+        dec.split_agents(xf.reshape(1,-1), x_dims), Qs, Rs 
     )]
  
 
     total_terminal_cost = [(x-xf_i.T).T@Qfi@(x-xf_i.T)
-    #shape is not correct unless xf_i is transposed
+
     for xf_i, Qfi in zip(
         dec.split_agents(xf.reshape(1,-1), x_dims), Qfs
     )]
@@ -63,8 +63,8 @@ def baseline_drone_model(xf, x_dims, Q, R, Qf, n_agents, n_dims, radius):
     
     #TODO: The prox_cost is not correct; needs a compatible expression
     
-    distances = util.compute_pairwise_distance_Sym(x,x_dims,n_d=3) 
-    prox_costs = np.fmin(np.zeros(1), distances - radius) ** 2 * 100
+    distances = util.compute_pairwise_distance_Sym(xf,x_dims,n_d=3) 
+    prox_costs = SX(np.fmin(np.zeros(1), distances - radius) ** 2 * 100)
     
     model.set_expression('total_prox_cost',prox_costs)
 

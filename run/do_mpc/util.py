@@ -1,5 +1,8 @@
 import numpy as np
 import decentralized as dec
+import itertools
+from casadi import *
+# import do_mpc
 
 def paper_setup_3_quads():
     x0 = np.array([[0.5, 1.5, 1, 0, 0, 0,
@@ -27,4 +30,4 @@ def compute_pairwise_distance_Sym(X, x_dims, n_d=2):
     pair_inds = np.array(list(itertools.combinations(range(n_agents), 2)))
     X_agent = reshape(X,(n_agents, n_states))
     dX = X_agent[:n_d, pair_inds[:, 0]] - X_agent[:n_d, pair_inds[:, 1]]
-    return norm_fro(dX).T
+    return np.linalg.norm(dX, axis=0).T

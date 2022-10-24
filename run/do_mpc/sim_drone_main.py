@@ -21,7 +21,7 @@ def setup_baseline(x_baseline, x_baseline_f, v_max, theta_max, phi_max, tau_max,
     model_baseline = baseline_drone_model(x_baseline_f, x_dims, Q, R, Qf, n_agents, n_dims, radius)
     mpc_baseline = baseline_drone_mpc(model_baseline, v_max, theta_max, phi_max, tau_max)
     simulator_baseline = baseline_drone_simulator(model_baseline)
-    simulator_baseline.x0['x'] = x_baseline
+    simulator_baseline.x0['x'] = x_baseline #dimension mismatch here?
     mpc_baseline.x0 = x_baseline
 
     u_init_baseline = np.full((n_agents*n_inputs,1), 0.0)
@@ -41,7 +41,7 @@ def run_sim():
     tau_max = 5
     v_max = 5
 
-    x_dims = [n_agents]*n_states
+    x_dims = [n_states]*n_agents
 
     Q = np.eye(n_states)*10
     Qf = np.eye(n_states)*1e3
