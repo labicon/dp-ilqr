@@ -5,11 +5,11 @@ import do_mpc
 import decentralized as dec
 import util
 
-def baseline_drone_model(xf, x_dims, Q, R, Qf, n_agents, n_dims, radius): 
+def baseline_drone_model(xf, Q, R, Qf): 
     #input arguments: np.ndarray
-    Qs = [Q] * n_agents
-    Rs = [R] * n_agents
-    Qfs = [Qf] * n_agents
+    # Qs = [Q] * n_agents
+    # Rs = [R] * n_agents
+    # Qfs = [Qf] * n_agents
 
     model_type = 'continuous' # either 'discrete' or 'continuous'
     model = do_mpc.model.Model(model_type)
@@ -36,37 +36,35 @@ def baseline_drone_model(xf, x_dims, Q, R, Qf, n_agents, n_dims, radius):
     The states are [p_x,p_y,p_z,v_x,v_y,v_z]
 
     """
-
-    """Distributed cost functions:"""
-
     
-    total_stage_cost= [(x-xf_i.T).T@Qi@(x-xf_i.T) + u.T@Ri@u
-    for xf_i, Qi, Ri, in zip(
-        dec.split_agents(xf.reshape(1,-1), x_dims), Qs, Rs 
-    )]
+    # total_stage_cost= [(x-xf_i.T).T@Qi@(x-xf_i.T) + u.T@Ri@u
+    # for xf_i, Qi, Ri, in zip(
+    #     dec.split_agents(xf.reshape(1,-1), x_dims), Qs, Rs 
+    # )]
+    total_stage_cost = (x-xf).T@Q@(x-xf) + u.T@R@u 
+    #stage for 1 agent
  
 
-    total_terminal_cost = [(x-xf_i.T).T@Qfi@(x-xf_i.T)
+#    total_terminal_cost = [(x-xf_i.T).T@Qfi@(x-xf_i.T)
 
-    for xf_i, Qfi in zip(
-        dec.split_agents(xf.reshape(1,-1), x_dims), Qfs
-    )]
+#     for xf_i, Qfi in zip(
+#         dec.split_agents(xf.reshape(1,-1), x_dims), Qfs
+#     )]
 
-    model.set_expression('total_stage_cost',np.sum(total_stage_cost))
-    model.set_expression('total_terminal_cost',np.sum(total_terminal_cost))
+    total_terminal_cost = (x-xf).T@Qf@(x-xf)
     
-
-    #collision avoidance will later be handled through constraints rather than a quadratic cost!
-
-    """Constraints:"""
+    model.set_expression('total_stage_cost',total_stage_cost)
+    model.set_expression('total_terminal_cost',total_terminal_cost)
     
     
-    #TODO: The prox_cost is not correct; needs a compatible expression
+    #TODO: The prox_cost should be handled by a centralized processor since xf only contains the state
+    #a single agent
+    #Set this up in the mpc controller
     
-    distances = util.compute_pairwise_distance_Sym(xf,x_dims,n_d=3) 
-    prox_costs = SX(np.fmin(np.zeros(1), distances - radius) ** 2 * 100)
+    # distances = util.compute_pairwise_distance_Sym(xf,x_dims,n_d=3) 
+    # prox_costs = SX(np.fmin(np.zeros(1), distances - radius) ** 2 * 100)
     
-    model.set_expression('total_prox_cost',prox_costs)
+    # model.set_expression('total_prox_cost',prox_costs)
 
     model.setup()
 

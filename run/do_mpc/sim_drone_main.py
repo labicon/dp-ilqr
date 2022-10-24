@@ -18,7 +18,9 @@ n_inputs = 3
 
 def setup_baseline(x_baseline, x_baseline_f, v_max, theta_max, phi_max, tau_max,\
                     x_dims, Q, R, Qf, n_agents, n_dims, radius):
-    model_baseline = baseline_drone_model(x_baseline_f, x_dims, Q, R, Qf, n_agents, n_dims, radius)
+    model_baseline = [baseline_drone_model(dec.split_agents(x_baseline_f.reshape(1,-1),x_dims)[i].flatten(), Q, R, Qf) for i in range(n_agents)] 
+    #a list of baseline models for each agent
+    
     mpc_baseline = baseline_drone_mpc(model_baseline, v_max, theta_max, phi_max, tau_max)
     simulator_baseline = baseline_drone_simulator(model_baseline)
     simulator_baseline.x0['x'] = x_baseline #dimension mismatch here?
