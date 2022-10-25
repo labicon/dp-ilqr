@@ -27,7 +27,7 @@ def baseline_drone_mpc(model, n_agents, x_baseline, x_dims, v_max, theta_max, ph
 
     mpc.set_param(**setup_mpc)
     
-    mpc.set_nl_cons('collision_constraint',model.aux['proximity_cost'],0)
+    mpc.set_nl_cons('collision_constraint', -model.aux['proximity_cost'],-0.)
     #in this case we want the collision avoidance cost inccured to be 0, which means their 
     #pairwise distances must be > radius
 
