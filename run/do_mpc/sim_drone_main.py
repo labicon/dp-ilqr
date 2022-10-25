@@ -77,13 +77,26 @@ def run_sim():
     states_list[0,:] = np.array([x_baseline1[0],x_baseline1[1],x_baseline1[2],\
                         x_baseline1[6],x_baseline1[7],x_baseline1[8],\
                         x_baseline1[12],x_baseline1[13],x_baseline1[14]]).flatten()
-
-    # vx = 0
-    # vy = 0
-    # vz = 0
-    # x_prev = x_baseline_init[0]
-    # y_prev = x_baseline_init[1]
-    # z_prev = x_baseline_init[2]
+    """
+    TODO: Velocity updates for each drone
+    """
+    
+    #Initialize position vectors
+    # x_prev = [x_baseline1[0], x_baseline1[6], x_baseline1[12]]
+    # y_prev = [x_baseline1[1] , x_baseline1[7] , x_baseline1[13]]
+    # z_prev = [x_baseline_1[2] , x_baseline1[8] , x_baseline1[14]]
+    
+    pos_prev = np.array([x_baseline1[0], x_baseline1[1], x_baseline1[2],\
+                        x_baseline1[6], x_baseline1[7], x_baseline1[8], \
+                        x_baseline1[12], x_baseline1[13], x_baseline1[14]])
+    
+    #Initialize velcoity vectors
+#     vx_prev = [0, 0, 0]
+#     vy_prev = [0, 0, 0]
+#     vz_prev = [0, 0, 0]
+    
+    velocity_prev = np.zeros((n_agents*3,1))
+    
     time_start = time.perf_counter()
     
     results = []
@@ -99,19 +112,20 @@ def run_sim():
             results.append(f)
 
             for m in range(n_agents):
+                #Get current positions of each drone:
                 states_list[k,m*3:(m+1)*3] = f.result()[1][m][0:3].flatten() 
+                #velocity components will be estimated through finite-difference approx.
 
             # print("Lagrange Multiplier: ", la_mul)
             # print("Length of Lagrange Multiplier: ", len(la_mul[0]))
         # ------------------------------------------------------------
-
-            # vx = -(x_prev - x_baseline1[0])/0.1
-            # vy = -(y_prev - x_baseline1[1])/0.1
-            # vz = -(z_prev - x_baseline1[2])/0.1
-            # x_prev = x_joint[0]
-            # y_prev = x_joint[1]
-            # z_prev = x_joint[2]
-
+               
+            for j in range(n_agents):
+                #position update
+                x_baseline1[(j+1-1)*3+j*3:(j+1)*3+j*3]  = -(pos_prev[j*3:(j+1)*3] - states_list[k,j*3:(j+1)*3].reshape(-1,1) ) / 0.1 
+                #velocity update via finite-diff
+                x_baseline1[(j+1)*3+j*3:(j+2)*3+j*3]  = -(velocity_prev[j*3:(j+1)*3] - states_list[k,j*3:(j+1)*3].reshape(-1,1) ) / 0.1
+  
     time_finish = time.perf_counter()
     print("Total time: ", time_finish - time_start)
     np.save('drone_sim_data', states_list)
