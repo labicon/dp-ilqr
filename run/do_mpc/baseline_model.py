@@ -16,8 +16,8 @@ def baseline_drone_model(xf, Q, R, Qf, x_baseline, x_dims):
 
     x = model.set_variable(var_type='_x', var_name='x', shape=(6, 1))
     u = model.set_variable(var_type='_u', var_name='u', shape=(3, 1))
-    print(f'Shape of x is {x.shape}')
-    print(f'Shape of u is {u.shape}')
+    # print(f'Shape of x is {x.shape}')
+    # print(f'Shape of u is {u.shape}')
     #x = p_x,p_y,p_z,v_x,v_y,v_z
     #u = theta, phi, tau
     g = 9.81
