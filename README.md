@@ -55,17 +55,17 @@ non-homogeneous models via zero-padding the states.
 
 
 ## Running the Code
-To run the code, we assume that you have [dp_ilqr](dp_ilqr/) on 
+To run the code, we assume that you have [dpilqr](dpilqr/) on 
 your `PYTHONPATH` environment variable. On unix, this can be accomplished by:
 
-    export PYTHONPATH=${PYTHONPATH}:/absolute/path/to/dp_ilqr/
+    export PYTHONPATH=${PYTHONPATH}:/absolute/path/to/distrubuted-potential-ilqr/
 
 Additionally, you must compile the C++ extensions using Cython by running:
 
     python setup.py build_ext --inplace
 
 This should create a `bbdynamicswrap.cpp` as well as a `*.so` file that
-`dp_ilqr` will automatically include in the package namespace.
+`dpilqr` will automatically include in the package namespace.
 
 ### Environment
 There are a few different python packages that this project relies on listed

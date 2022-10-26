@@ -6,7 +6,7 @@
 
 import numpy as np
 
-from decentralized import pos_mask, π
+from dpilqr import pos_mask, π
 
 
 def potential_ilqr_setup():

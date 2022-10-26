@@ -15,8 +15,8 @@ Including:
 import numpy as np
 import matplotlib.pyplot as plt
 
-from decentralized import split_agents, plot_solve
-import decentralized as dec
+from dpilqr import split_agents, plot_solve
+import dpilqr as dec
 import scenarios
 
 π = np.pi

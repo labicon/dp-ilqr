@@ -1,8 +1,8 @@
 [tool.poetry]
-name = "decentralized"
+name = "Distributed Potential- iLQR"
 version = "0.1.0"
-description = "Implementation of decentralized potential iLQR for cooperative multi-agent navigation."
-authors = ["Zach Williams <zjwilliams20@gmail.com>"]
+description = "Implementation of Distributed Potential iLQR for scalable cooperative multi-agent navigation."
+authors = ["Zach Williams <zjwilliams20@gmail.com>", "Randy Chen <jushanc2@illinois.edu>"]
 
 [tool.poetry.dependencies]
 python = "~3.10"

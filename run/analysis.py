@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-"""Benchmark of the performance of centralized vs. decentralized potential iLQR
+"""Benchmark of the performance of centralized vs. distributed potential iLQR
 
 We conduct two primary analyses in this script, namely:
 1. Allow unlimited solve time and stop after the solver converges or diverges.
@@ -20,20 +20,20 @@ from time import strftime
 
 import numpy as np
 
-from decentralized.cost import GameCost, ProximityCost, ReferenceCost
-from decentralized.dynamics import (
+from dpilqr.cost import GameCost, ProximityCost, ReferenceCost
+from dpilqr.dynamics import (
     DoubleIntDynamics4D,
     UnicycleDynamics4D,
     QuadcopterDynamics6D,
     MultiDynamicalModel,
 )
-from decentralized.decentralized import solve_rhc
-from decentralized.problem import ilqrProblem
-from decentralized.util import split_agents_gen, random_setup
+from dpilqr.decentralized import solve_rhc
+from dpilqr.problem import ilqrProblem
+from dpilqr.util import split_agents_gen, random_setup
 
 
 def multi_agent_run(model, x_dims, dt, N, radius, energy=10.0, n_d=2, **kwargs):
-    """Single simulation comparing the centralized and decentralized solvers"""
+    """Single simulation comparing the centralized and distributed solvers"""
 
     if not len(set(x_dims)) == 1:
         raise ValueError("Dynamics dimensions must be consistent")
@@ -47,7 +47,7 @@ def multi_agent_run(model, x_dims, dt, N, radius, energy=10.0, n_d=2, **kwargs):
         n_states,
         is_rotation=False,
         rel_dist=n_agents,
-        var=n_agents/2,
+        var=n_agents / 2,
         n_d=n_d,
         random=True,
         energy=energy,
@@ -90,8 +90,8 @@ def multi_agent_run(model, x_dims, dt, N, radius, energy=10.0, n_d=2, **kwargs):
         **kwargs,
     )
 
-    # Solve the problem decentralized.
-    print("\t\t\tdecentralized")
+    # Solve the problem distributed.
+    print("\t\t\tdistributed")
     # pool = mp.Pool()
     pool = None
     Xd, Ud, Jd = solve_rhc(
@@ -172,10 +172,6 @@ def monte_carlo_analysis(limit_solve_time=False):
                     i_trial=i_trial,
                     verbose=False,
                 )
-    
-
-
-
 
 
 def main():

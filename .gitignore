@@ -7,6 +7,6 @@ env/
 
 # Cython files
 build/
-decentralized/bbdynamicswrap.cpp
-decentralized/bbdynamicswrap.cpython*.so
+dpilqr/bbdynamicswrap.cpp
+dpilqr/bbdynamicswrap.cpython*.so
 

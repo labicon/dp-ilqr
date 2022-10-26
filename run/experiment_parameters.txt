@@ -1,6 +1,6 @@
 ##This is a file containing all the initial and final conditions used for our real experiments on Crazyflies
 
-##All the experiments below use our receding-horizon decentralized iLQR solver
+##All the experiments below use our receding-horizon distributed iLQR solver
 
 ##Tuned parameters for each trial:
 
