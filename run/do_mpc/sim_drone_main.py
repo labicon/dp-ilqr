@@ -100,13 +100,11 @@ def run_sim():
         for k in range(episode):
             f = executor.submit(setup_baseline,x_baseline1, x_baseline_f, v_max, theta_max, phi_max, tau_max,\
                         x_dims, u_dims, Q, R, Qf, n_agents, n_dims, radius)
-            """
-            TODO:separate the states of each agent from f.result()
-            """
-            # results.append(f)
+          
+            results.append(f)
 
             for m in range(n_agents):
-                #Get current positions of each drone:
+                #update positions of each drone:
                 states_list[k+1,m*3:(m+1)*3] = f.result()[1][m][0:3].flatten() 
                 #velocity components will be estimated through finite-difference approx.
 
@@ -118,10 +116,10 @@ def run_sim():
                 #position update:
                 x_baseline1[(j+1-1)*3+j*3:(j+1)*3+j*3]  = states_list[k+1,j*3:(j+1)*3].reshape(-1,1) 
                 #velocity update via finite-diff:
-                x_baseline1[(j+1)*3+j*3:(j+2)*3+j*3]  = -(velocity_prev[j*3:(j+1)*3] - states_list[k+1,j*3:(j+1)*3].reshape(-1,1) ) / 0.1
-        
-        for n in range(n_agents):
-            velocity_prev[n*3:(n+1)*3] = x_baseline1[(n+1)*3+n*3:(n+2)*3+n*3]
+                x_baseline1[(j+1)*3+j*3:(j+2)*3+j*3]  = -(pos_prev[j*3:(j+1)*3] - states_list[k+1,j*3:(j+1)*3].reshape(-1,1) ) / 0.1
+            
+            for n in range(n_agents):
+                pos_prev[n*3:(n+1)*3] = x_baseline1[(n+1-1)*3+n*3:(n+1)*3+n*3]
         
         
     time_finish = time.perf_counter()

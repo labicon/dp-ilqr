@@ -59,7 +59,7 @@ def baseline_drone_model(xf, Q, R, Qf, x_baseline, x_dims):
     radius = 0.5
     #x_baseline is concatenated states of all agents
     distances = util.compute_pairwise_distance_Sym(x_baseline,x_dims,n_d=3) 
-    prox_cost = sum1(SX(np.fmin(np.zeros(1), distances - radius) ** 2 * 200))
+    prox_cost = sum1(SX(np.fmin(np.zeros(1), distances - radius) ** 2))
     model.set_expression('proximity_cost',prox_cost) 
     #The prox_cost should be handled by a centralized processor since xf only contains the state
     #a single agent
