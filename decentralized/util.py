@@ -7,8 +7,6 @@ import itertools
 from pathlib import Path
 import random
 
-import matplotlib.pyplot as plt
-import networkx as nx
 import numpy as np
 from scipy.spatial.transform import Rotation
 
@@ -242,74 +240,6 @@ def uniform_block_diag(*arrs):
         blocked[rdim * i : rdim * (i + 1), cdim * i : cdim * (i + 1)] = arr
 
     return blocked
-
-
-def plot_interaction_graph(graph):
-    """Visualize the interaction graph using networkx"""
-
-    plt.clf()
-
-    # Remove self-looping nodes.
-    graph = {k: [vi for vi in v if vi != k] for k, v in graph.items()}
-
-    G = nx.Graph(graph)
-
-    options = {
-        "font_size": 10,
-        "node_size": 600,
-        "node_color": plt.cm.Set3.colors[: len(graph)],
-        "edgecolors": "black",
-    }
-
-    nx.draw_networkx(G, nx.spring_layout(G, k=0.5), **options)
-    plt.margins(0.1)
-    plt.draw()
-
-
-def plot_solve(X, J, x_goal, x_dims=None, color_agents=False, n_d=2):
-    """Plot the resultant trajectory on plt.gcf()"""
-
-    if n_d not in (2, 3):
-        raise ValueError()
-
-    if not x_dims:
-        x_dims = [X.shape[1]]
-
-    if n_d == 2:
-        ax = plt.gca()
-    else:
-        ax = plt.gcf().add_subplot(projection="3d")
-
-    N = X.shape[0]
-    n = np.arange(N)
-
-    X_split = split_agents(X, x_dims)
-    x_goal_split = split_agents(x_goal.reshape(1, -1), x_dims)
-
-    for i, (Xi, xg) in enumerate(zip(X_split, x_goal_split)):
-        c = n
-        if n_d == 2:
-            if color_agents:
-                c = plt.cm.tab10.colors[i]
-                ax.plot(Xi[:, 0], Xi[:, 1], c=c, lw=5, zorder=1)
-            else:
-                ax.scatter(Xi[:, 0], Xi[:, 1], c=c)
-            ax.scatter(Xi[0, 0], Xi[0, 1], 80, "g", "x", label="$x_0$")
-            ax.scatter(xg[0, 0], xg[0, 1], 80, "r", "x", label="$x_f$")
-        else:
-            if color_agents:
-                c = [plt.cm.tab10.colors[i]] * Xi.shape[0]
-            ax.scatter(Xi[:, 0], Xi[:, 1], Xi[:, 2], c=c)
-            ax.scatter(
-                Xi[0, 0], Xi[0, 1], Xi[0, 2], s=80, c="g", marker="x", label="$x_0$"
-            )
-            ax.scatter(
-                xg[0, 0], xg[0, 1], xg[0, 2], s=80, c="r", marker="x", label="$x_f$"
-            )
-
-    plt.margins(0.1)
-    plt.title(f"Final Cost: {J:.3g}")
-    plt.draw()
 
 
 def distance_to_goal(x, x_goal, n_agents, n_states, n_d):
