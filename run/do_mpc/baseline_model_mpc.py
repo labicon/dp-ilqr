@@ -26,8 +26,8 @@ def baseline_drone_mpc(model, n_agents, x_baseline, x_dims, v_max, theta_max, ph
     }
 
     mpc.set_param(**setup_mpc)
-    
-    mpc.set_nl_cons('collision_constraint', -model.aux['proximity_cost'],-0.)
+     
+    mpc.set_nl_cons('collision_constraint', -model.aux['proximity_cost'],-1)
     #in this case we want the collision avoidance cost inccured to be 0, which means their 
     #pairwise distances must be > radius
 
@@ -54,7 +54,23 @@ def baseline_drone_mpc(model, n_agents, x_baseline, x_dims, v_max, theta_max, ph
     mpc.bounds['lower','_x', 'x'] = -max_state
     mpc.bounds['upper','_x', 'x'] = max_state
 
+    
+    
     mpc.setup()
+    
+    """
+    Retrieve the labels from the optimization variables and find those that are violating the constraints:
+    """
+    lb_bound_violation = mpc.opt_x_num.cat <= mpc.lb_opt_x
+    ub_bound_violation = mpc.opt_x_num.cat <= mpc.ub_opt_x
+    
+    
+    opt_labels = mpc.opt_x.labels()
+    labels_lb_viol =np.array(opt_labels)[np.where(lb_viol)[0]]
+    labels_ub_viol =np.array(opt_labels)[np.where(lb_viol)[0]]
+    
+    print(f'lower bound violation is in{labels_lb_viol}')
+    print(f'upper bound violation is in{labels_ub_viol}')
 
 
     return mpc
