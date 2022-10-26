@@ -12,9 +12,6 @@ from scipy.spatial.transform import Rotation
 
 π = np.pi
 
-# DBG: Add an additional radius specifically for human agents.
-CYLINDER_RADIUS = 0.0
-
 
 # Global to get to the top of the repository.
 repopath = Path(__file__).parent.parent.resolve()
@@ -86,9 +83,6 @@ def compute_pairwise_distance_nd(X, x_dims, n_dims, dec_ind=None):
         Xj = X[:, j * n_states : j * n_states + n_dim]
 
         distances = np.c_[distances, np.linalg.norm(Xi - Xj, axis=1).reshape(-1, 1)]
-
-        if n_dim == 2:
-            distances[-1] -= CYLINDER_RADIUS
 
     return distances
 
