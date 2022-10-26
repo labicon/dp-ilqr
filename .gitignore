@@ -1,6 +1,7 @@
 **/.ipynb_checkpoints/
 *.pyc
 *.lock
+*.ipynb
 notebooks/
 logs/
 env/
