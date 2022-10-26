@@ -82,19 +82,13 @@ def run_sim():
     """
     
     #Initialize position vectors
-    # x_prev = [x_baseline1[0], x_baseline1[6], x_baseline1[12]]
-    # y_prev = [x_baseline1[1] , x_baseline1[7] , x_baseline1[13]]
-    # z_prev = [x_baseline_1[2] , x_baseline1[8] , x_baseline1[14]]
-    
+
     pos_prev = np.array([x_baseline1[0], x_baseline1[1], x_baseline1[2],\
                         x_baseline1[6], x_baseline1[7], x_baseline1[8], \
                         x_baseline1[12], x_baseline1[13], x_baseline1[14]])
     
     #Initialize velcoity vectors
-#     vx_prev = [0, 0, 0]
-#     vy_prev = [0, 0, 0]
-#     vz_prev = [0, 0, 0]
-    
+
     velocity_prev = np.zeros((n_agents*3,1))
     
     time_start = time.perf_counter()

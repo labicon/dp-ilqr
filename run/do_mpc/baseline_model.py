@@ -6,6 +6,10 @@ import decentralized as dec
 import util
 
 def baseline_drone_model(xf, Q, R, Qf, x_baseline, x_dims): 
+    """
+    Below is the distributed set-up
+    
+    """
     #input arguments: np.ndarray
     # Qs = [Q] * n_agents
     # Rs = [R] * n_agents
