@@ -40,6 +40,8 @@ def baseline_drone_mpc(model, n_agents, x_baseline, x_dims, v_max, theta_max, ph
     lterm = model.aux['total_stage_cost']
     
     mpc.set_objective(mterm=mterm,lterm=lterm)
+    
+    mpc.set_rterm(u=np.array([[0],[0],[0]]))
 
     max_input = np.array([[theta_max], [phi_max], [tau_max]])
 

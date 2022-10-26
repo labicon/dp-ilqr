@@ -68,7 +68,7 @@ def run_sim():
 
     radius = 0.5
     n_dims = [3,3,3]
-    episode= 50
+    episode= 10
     x_baseline_init, x_baseline_f = util.paper_setup_3_quads()
 
     x_baseline1 = x_baseline_init #concatenated states of all agents
