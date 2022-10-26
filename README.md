@@ -1,55 +1,90 @@
-# decentralized
+# Distributed Potential- iterative Linear Quadratic Regulator (DP-iLQR)
 
 ## Overview
-Repository containing code for a decentralized implementation of iLQR applied 
-in a game theoretic context. While the project is still relatively new and we
-are working to implement new features, it currently supports a centralized
-multi-agent planner that can be tuned to achieve realistic trajectories. 
+Repository containing code for a distributed implementation of [Potential
+iLQR](https://arxiv.org/pdf/2107.04926.pdf). Putting Potential iLQR into a nutshell, the
+ultimate goal is enable cooperative real-time multi-agent navigation by posing the
+coupled optimal control problem for each of the agents as a combined decoupled problem
+encapsulating the interactions between all agents simultaneously using the concept of a
+[potential game](https://en.wikipedia.org/wiki/Potential_game). DP-iLQR is an extension
+of this algorithm that improves scalability by splitting up the centralized problem with
+all agents into smaller problems with subsets of agents based on their relative
+proximities.
 
-![](media/3-agent-intersection-2.gif)
+The setup that we're most interested in is one in which multiple agents would like to
+navigate around each other in a shared space. Each agent starts at some position and
+would like to arrive at some goal position or state. Several applications in mobile
+robotics include:
+- warehouse navigation
+- robot/human crowd navigation
+- space robotics
+
+![5 Unicycles Agents](media/5_unicycles.gif)
+
+The above is one example of what this looks like using 5 unicycle models. Note that while
+the dynamics of this scenario are homogeneous, this library currently supports simulation of
+non-homogeneous models via zero-padding the states.
 
 ## Features
-* Simulation of arbitrary state space models in concert with each other.
-* Incorporation of various notions of cost such as goal trajectories, obstacles,
-  and coupling between agents.
-* Framework for solving navigational optimal control problems with LQR and iLQR
-  in a multi-agent environment using a centralized potential iLQR planner.
+* Simulation and integration of state space models by defining a ordinary differential
+  equation and a linearization method in C++. These are the currently implemented models:
+  * `DoubleIntDynamics4D`
+  * `CarDynamics3D`
+  * `UnicycleDynamics4D`
+  * `BikeDynamics5D`
+  * `HumanDynamics6D`
+  * `QuadcopterDynamics6D`
+  * `QuadcopterDynamics12D`
+* Construction of various cost models including:
+  * `ReferenceCost`
+    * Penalizes deviations from some reference trajectory
+    * $C(x, u) = (x - \bar{x})^\intercal Q (x - \bar{x}) + u^\intercal R u$
+  * `ProximityCost`
+    * Penalizes the distances $d^{ij}$ between agents $i$ and $j$ below some threshold $d_{\text{prox}}$
+    * $C(d^{ij}) = \begin{cases} \beta( d^{ij} - d_{\text{prox}})^2 & d^{ij} < d_{\text{prox}} \\ 0 & \text{otherwise} \end{cases}$
+  * `Cost`
+    * Any other cost implementing the appropriate methods for the particular problem.
+* Potential iLQR solver based on [this
+  paper](https://homes.cs.washington.edu/~todorov/papers/TassaIROS12.pdf) by Yuval Tassa
+  that incorporates the above dynamical models and cost structures
+* DP-iLQR solver that takes advantage of the sparsity of the state space to solve subproblems
+  individually. The GIF below visualizes what that might look like for 'agents' in Brownian motion
+  where the red is the proximity cost and the grey is the neighborhood that creates the subproblem.
+  We see as the agents move around, their interaction graphs are dynamically updated.
+  ![Interaction Graph Example](media/graphs-5-agents.gif)
 
-![](media/asym_x.gif)
 
 ## Running the Code
-To run the code, we assume that you have [decentralized](decentralized/) on 
+To run the code, we assume that you have [dp_ilqr](dp_ilqr/) on 
 your `PYTHONPATH` environment variable. On unix, this can be accomplished by:
 
-    export PYTHONPATH=${PYTHONPATH}:/absolute/path/to/decentralized/
+    export PYTHONPATH=${PYTHONPATH}:/absolute/path/to/dp_ilqr/
 
 Additionally, you must compile the C++ extensions using Cython by running:
 
     python setup.py build_ext --inplace
 
 This should create a `bbdynamicswrap.cpp` as well as a `*.so` file that
-`decentralized` will automatically include in the package namespace.
+`dp_ilqr` will automatically include in the package namespace.
 
 ### Environment
 There are a few different python packages that this project relies on listed
 out in the next section. For convenience, there's also an
-[pyproejct.toml](pyproject.toml) file that one can use to spin up a poetry 
+[requirements.txt](requirements.txt) file that one can use to spin up an
 environment with all of the necessary dependencies. To create an environment 
-from this file, execute the following:
+from this file, execute the following (from the top of the repo) (in unix):
 
-    poetry install
-
-See the following for more information:
-
-- [Installation](https://python-poetry.org/docs/#installation)
-- [Initialize a pre-existing project](https://python-poetry.org/docs/basic-usage/#initialising-a-pre-existing-project)
+    python -m venv env
+    source env/bin/activate
+    pip install requirements.txt
 
 
 ### Organization
-- [notebooks/main.ipynb](notebooks/main.ipynb) is the top level script used to
-  construct the system dynamics and conduct simulations. 
-- [notebooks/derivations.ipynb](notebooks/derivations.ipynb) is where many of
-  the analytical linearizations and quadraticizations originated from.
+- [run/examples.py](run/examples.py) provides several examples that exercise many
+  aspects of the library.
+- [run/analysis.py](run/analysis.py) contains scripts that run monte-carlo simulations
+  to compare Potential-iLQR from DP-iLQR across several parameters.
+
 
 ## Credit
 The following two repositories have been instrumental from both an algorithms
