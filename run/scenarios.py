@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-"""Assortment of archived initial (x0) and final(xf) positions that serve as scenarios 
+"""Assortment of archived initial (x0) and final(xf) positions that serve as scenarios
   to simulate
 """
 
@@ -48,7 +48,6 @@ def paper_setup_5_quads():
     x0[pos_mask([6]*5, 3)] += 0.1*np.random.randn(15, 1)
     xf[pos_mask([6]*5, 3)] += 0.1*np.random.randn(15, 1)
     return x0, xf
-
 
 
 def paper_setup_7_quads():
