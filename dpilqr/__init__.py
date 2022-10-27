@@ -8,10 +8,10 @@ from .cost import (
     quadraticize_distance,
     quadraticize_finite_difference,
 )
-from .decentralized import (
+from .distributed import (
     define_inter_graph_threshold,
     solve_centralized,
-    solve_decentralized,
+    solve_distributed,
     solve_rhc,
 )
 from .dynamics import (

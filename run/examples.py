@@ -16,7 +16,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from dpilqr import split_agents, plot_solve
-import dpilqr as dec
+import dpilqr
 import scenarios
 
 π = np.pi
@@ -30,15 +30,15 @@ def single_unicycle():
     x = np.array([-10, 10, 10, 0], dtype=float)
     x_goal = np.zeros((4, 1), dtype=float).T
 
-    dynamics = dec.UnicycleDynamics4D(dt)
+    dynamics = dpilqr.UnicycleDynamics4D(dt)
 
     Q = np.diag([1.0, 1, 0, 0])
     Qf = 1000 * np.eye(Q.shape[0])
     R = np.eye(2)
-    cost = dec.ReferenceCost(x_goal, Q, R, Qf)
+    cost = dpilqr.ReferenceCost(x_goal, Q, R, Qf)
 
-    prob = dec.ilqrProblem(dynamics, cost)
-    ilqr = dec.ilqrSolver(prob, N)
+    prob = dpilqr.ilqrProblem(dynamics, cost)
+    ilqr = dpilqr.ilqrSolver(prob, N)
     X, _, J = ilqr.solve(x)
 
     plt.clf()
@@ -54,15 +54,15 @@ def single_quad6d():
     x = np.array([2, 2, 0.5, 0, 0, 0], dtype=float)
     xf = np.zeros((6, 1), dtype=float).T
 
-    dynamics = dec.QuadcopterDynamics6D(dt)
+    dynamics = dpilqr.QuadcopterDynamics6D(dt)
 
     Q = np.eye(6)
     Qf = 100 * np.eye(Q.shape[0])
     R = np.diag([0, 1, 1])
-    cost = dec.ReferenceCost(xf, Q, R, Qf)
+    cost = dpilqr.ReferenceCost(xf, Q, R, Qf)
 
-    prob = dec.ilqrProblem(dynamics, cost)
-    ilqr = dec.ilqrSolver(prob, N)
+    prob = dpilqr.ilqrProblem(dynamics, cost)
+    ilqr = dpilqr.ilqrSolver(prob, N)
 
     X, _, J = ilqr.solve(x)
 
@@ -97,23 +97,27 @@ def two_quads_one_human():
     Rs = [R, R, R_human]
     Qfs = [Qf, Qf, Qf_human]
 
-    models = [dec.QuadcopterDynamics6D, dec.QuadcopterDynamics6D, dec.HumanDynamics6D]
+    models = [
+        dpilqr.QuadcopterDynamics6D,
+        dpilqr.QuadcopterDynamics6D,
+        dpilqr.HumanDynamics6D,
+    ]
     ids = [100 + i for i in range(n_agents)]
-    dynamics = dec.MultiDynamicalModel(
+    dynamics = dpilqr.MultiDynamicalModel(
         [model(dt, id_) for id_, model in zip(ids, models)]
     )
 
     goal_costs = [
-        dec.ReferenceCost(xf_i, Qi, Ri, Qfi, id_)
+        dpilqr.ReferenceCost(xf_i, Qi, Ri, Qfi, id_)
         for xf_i, id_, x_dim, Qi, Ri, Qfi in zip(
-            dec.split_agents_gen(xf, x_dims), ids, x_dims, Qs, Rs, Qfs
+            dpilqr.split_agents_gen(xf, x_dims), ids, x_dims, Qs, Rs, Qfs
         )
     ]
-    prox_cost = dec.ProximityCost(x_dims, radius, n_dims)
-    game_cost = dec.GameCost(goal_costs, prox_cost)
+    prox_cost = dpilqr.ProximityCost(x_dims, radius, n_dims)
+    game_cost = dpilqr.GameCost(goal_costs, prox_cost)
 
-    problem = dec.ilqrProblem(dynamics, game_cost)
-    solver = dec.ilqrSolver(problem, N)
+    problem = dpilqr.ilqrProblem(dynamics, game_cost)
+    solver = dpilqr.ilqrSolver(problem, N)
 
     U0 = np.c_[np.tile([g, 0, 0], (N, 2)), np.ones((N, n_controls))]
     X, _, J = solver.solve(x0, U0)
@@ -122,7 +126,7 @@ def two_quads_one_human():
     plot_solve(X, J, xf, x_dims, True, 3)
 
     plt.figure()
-    dec.plot_pairwise_distances(X, x_dims, n_dims, radius)
+    dpilqr.plot_pairwise_distances(X, x_dims, n_dims, radius)
 
     plt.show()
 
@@ -138,7 +142,7 @@ def random_multiagent_simulation():
 
     n_d = n_dims[0]
 
-    x0, xf = dec.random_setup(
+    x0, xf = dpilqr.random_setup(
         n_agents,
         n_states,
         is_rotation=False,
@@ -151,7 +155,7 @@ def random_multiagent_simulation():
     x_dims = [n_states] * n_agents
     u_dims = [n_controls] * n_agents
 
-    dec.eyeball_scenario(x0, xf, n_agents, n_states)
+    dpilqr.eyeball_scenario(x0, xf, n_agents, n_states)
     plt.show()
 
     dt = 0.05
@@ -160,8 +164,8 @@ def random_multiagent_simulation():
     tol = 1e-6
     ids = [100 + i for i in range(n_agents)]
 
-    model = dec.UnicycleDynamics4D
-    dynamics = dec.MultiDynamicalModel([model(dt, id_) for id_ in ids])
+    model = dpilqr.UnicycleDynamics4D
+    dynamics = dpilqr.MultiDynamicalModel([model(dt, id_) for id_ in ids])
 
     Q = np.eye(4)
     R = np.eye(2)
@@ -169,21 +173,21 @@ def random_multiagent_simulation():
     radius = 0.5
 
     goal_costs = [
-        dec.ReferenceCost(xf_i, Q.copy(), R.copy(), Qf.copy(), id_)
+        dpilqr.ReferenceCost(xf_i, Q.copy(), R.copy(), Qf.copy(), id_)
         for xf_i, id_, x_dim, u_dim in zip(
-            dec.split_agents_gen(xf, x_dims), ids, x_dims, u_dims
+            dpilqr.split_agents_gen(xf, x_dims), ids, x_dims, u_dims
         )
     ]
-    prox_cost = dec.ProximityCost(x_dims, radius, n_dims)
+    prox_cost = dpilqr.ProximityCost(x_dims, radius, n_dims)
     goal_costs = [
-        dec.ReferenceCost(xf_i, Q.copy(), R.copy(), Qf.copy(), id_)
+        dpilqr.ReferenceCost(xf_i, Q.copy(), R.copy(), Qf.copy(), id_)
         for xf_i, id_ in zip(split_agents(xf.T, x_dims), ids)
     ]
-    prox_cost = dec.ProximityCost(x_dims, radius, n_dims)
-    game_cost = dec.GameCost(goal_costs, prox_cost)
+    prox_cost = dpilqr.ProximityCost(x_dims, radius, n_dims)
+    game_cost = dpilqr.GameCost(goal_costs, prox_cost)
 
-    problem = dec.ilqrProblem(dynamics, game_cost)
-    solver = dec.ilqrSolver(problem, N)
+    problem = dpilqr.ilqrProblem(dynamics, game_cost)
+    solver = dpilqr.ilqrSolver(problem, N)
 
     X, _, J = solver.solve(x0, tol=tol, t_kill=None)
 
@@ -191,11 +195,11 @@ def random_multiagent_simulation():
     plot_solve(X, J, xf.T, x_dims, True, n_d)
 
     plt.figure()
-    dec.plot_pairwise_distances(X, x_dims, n_dims, radius)
+    dpilqr.plot_pairwise_distances(X, x_dims, n_dims, radius)
 
     plt.show()
 
-    dec.make_trajectory_gif(f"{n_agents}-unicycles.gif", X, xf, x_dims, radius)
+    dpilqr.make_trajectory_gif(f"{n_agents}-unicycles.gif", X, xf, x_dims, radius)
 
 
 def main():

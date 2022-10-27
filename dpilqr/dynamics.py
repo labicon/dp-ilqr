@@ -5,7 +5,6 @@
 import abc
 
 import numpy as np
-from scipy.constants import g
 from scipy.optimize import approx_fprime
 from scipy.integrate import solve_ivp
 import sympy as sym
@@ -152,8 +151,8 @@ class MultiDynamicalModel(DynamicalModel):
         nx = self.x_dims[0]
         nu = self.u_dims[0]
         for i, model in enumerate(self.submodels):
-            xn[i * nx: (i + 1) * nx] = model.f(
-                x[i * nx: (i + 1) * nx], u[i * nu: (i + 1) * nu]
+            xn[i * nx : (i + 1) * nx] = model.f(
+                x[i * nx : (i + 1) * nx], u[i * nu : (i + 1) * nu]
             )
         return xn
 
@@ -166,8 +165,8 @@ class MultiDynamicalModel(DynamicalModel):
         nx = self.x_dims[0]
         nu = self.u_dims[0]
         for i, model in enumerate(self.submodels):
-            xn[i * nx: (i + 1) * nx] = model.__call__(
-                x[i * nx: (i + 1) * nx], u[i * nu: (i + 1) * nu]
+            xn[i * nx : (i + 1) * nx] = model.__call__(
+                x[i * nx : (i + 1) * nx], u[i * nu : (i + 1) * nu]
             )
         return xn
 

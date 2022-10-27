@@ -1,37 +1,33 @@
 #!/usr/bin/env python
 
-"""Unit testing for the cost module
-
-TODO
-
-"""
+"""Unit testing for the cost module"""
 
 import unittest
 
 import numpy as np
 
-import decentralized as dec
+import dpilqr
 
 
 class TestProximityCost(unittest.TestCase):
     def test_single(self):
-        cost = dec.ProximityCost([2], 10.0)([1, 2])
+        cost = dpilqr.ProximityCost([2], 10.0)([1, 2])
         self.assertAlmostEqual(cost, 0.0)
 
     def test_call_2(self):
         r = 10.0
         x = np.array([0, 0, 0, 1, 2, 0])
-        cost = dec.ProximityCost([3, 3], r)(x)
+        cost = dpilqr.ProximityCost([3, 3], r)(x)
         expected = (np.hypot(1, 2) - r) ** 2
         self.assertAlmostEqual(cost, expected)
 
     def test_quadraticize_3(self):
         x = np.arange(9)
-        cost = dec.ProximityCost([3, 3, 3], 10.0)
+        cost = dpilqr.ProximityCost([3, 3, 3], 10.0)
         Lx, _, Lxx, *_ = cost.quadraticize(x)
 
         u = np.zeros(6)
-        Lx_diff, _, Lxx_diff, *_ = dec.quadraticize_finite_difference(
+        Lx_diff, _, Lxx_diff, *_ = dpilqr.quadraticize_finite_difference(
             cost.__call__, x, u, False
         )
 
@@ -48,7 +44,7 @@ class TestReferenceCost(unittest.TestCase):
         self.R = np.eye(self.m)
         self.Qf = np.diag([1, 1, 0])
 
-        self.ref_cost = dec.ReferenceCost(self.xf, self.Q, self.R, self.Qf)
+        self.ref_cost = dpilqr.ReferenceCost(self.xf, self.Q, self.R, self.Qf)
 
         self.x0 = np.random.randint(0, 10, (self.n,))
         self.u = np.random.randint(0, 10, (self.m,))
@@ -87,8 +83,8 @@ class TestGameCost(unittest.TestCase):
         xf = np.zeros(4)
         Q = np.eye(4)
         R = np.eye(2)
-        player_cost = dec.ReferenceCost(xf, Q, R)
-        game_cost = dec.GameCost([player_cost])
+        player_cost = dpilqr.ReferenceCost(xf, Q, R)
+        game_cost = dpilqr.GameCost([player_cost])
 
         x = np.random.rand(4)
         u = np.random.rand(2)
@@ -98,7 +94,7 @@ class TestGameCost(unittest.TestCase):
 
         # Approximately validate with finite difference.
         Lx, Lu, Lxx, Luu, _ = game_cost.quadraticize(x, u)
-        Lx_diff, Lu_diff, Lxx_diff, Luu_diff, _ = dec.quadraticize_finite_difference(
+        Lx_diff, Lu_diff, Lxx_diff, Luu_diff, _ = dpilqr.quadraticize_finite_difference(
             game_cost.__call__, x, u
         )
 
@@ -114,15 +110,15 @@ class TestGameCost(unittest.TestCase):
         x_dims = [3, 3, 3]
         radius = 5.0
         player_costs = [
-            dec.ReferenceCost(xfi, Q, R) for xfi in dec.split_agents(xf, x_dims)
+            dpilqr.ReferenceCost(xfi, Q, R) for xfi in dpilqr.split_agents(xf, x_dims)
         ]
-        prox_cost = dec.ProximityCost(x_dims, radius)
-        game_cost = dec.GameCost(player_costs, prox_cost)
+        prox_cost = dpilqr.ProximityCost(x_dims, radius)
+        game_cost = dpilqr.GameCost(player_costs, prox_cost)
 
         x = 10 * np.random.randn(9)
         u = np.random.randn(6)
         Lx, Lu, Lxx, Luu, _ = game_cost.quadraticize(x, u)
-        Lx_diff, Lu_diff, Lxx_diff, Luu_diff, _ = dec.quadraticize_finite_difference(
+        Lx_diff, Lu_diff, Lxx_diff, Luu_diff, _ = dpilqr.quadraticize_finite_difference(
             game_cost.__call__, x, u
         )
 

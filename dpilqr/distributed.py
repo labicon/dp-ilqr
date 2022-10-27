@@ -11,7 +11,6 @@ which must see the full scope of the decentralization.
 
 import itertools
 import logging
-import multiprocessing as mp
 from time import perf_counter as pc
 
 import numpy as np
@@ -23,8 +22,8 @@ from .util import split_graph, compute_pairwise_distance
 g = 9.81
 
 
-def solve_decentralized(problem, X, U, radius, t_kill=None, pool=None, verbose=True, **kwargs):
-    """Solve the problem via decentralization into subproblems"""
+def solve_distributed(problem, X, U, radius, pool=None, verbose=True, **kwargs):
+    """Solve the problem via division into subproblems"""
 
     x_dims = problem.game_cost.x_dims
     u_dims = problem.game_cost.u_dims
@@ -64,8 +63,8 @@ def solve_decentralized(problem, X, U, radius, t_kill=None, pool=None, verbose=T
             if verbose:
                 print(f"Problem {id_}: {graph[id_]}\nTook {Δt} seconds\n")
 
-            X_dec[:, i * n_states: (i + 1) * n_states] = Xi_agent
-            U_dec[:, i * n_controls: (i + 1) * n_controls] = Ui_agent
+            X_dec[:, i * n_states : (i + 1) * n_states] = Xi_agent
+            U_dec[:, i * n_controls : (i + 1) * n_controls] = Ui_agent
 
             solve_info[id_] = (Δt, graph[id_])
 
@@ -82,8 +81,8 @@ def solve_decentralized(problem, X, U, radius, t_kill=None, pool=None, verbose=T
             Δt = pc() - t0
             if verbose:
                 print(f"Problem {id_}: {graph[id_]}\nTook {Δt} seconds")
-            X_dec[:, i * n_states: (i + 1) * n_states] = Xi_agent
-            U_dec[:, i * n_controls: (i + 1) * n_controls] = Ui_agent
+            X_dec[:, i * n_states : (i + 1) * n_states] = Xi_agent
+            U_dec[:, i * n_controls : (i + 1) * n_controls] = Ui_agent
 
             # NOTE: This cannot be compared to the single-processed version due to
             # multi-processing overhead.
@@ -96,7 +95,7 @@ def solve_decentralized(problem, X, U, radius, t_kill=None, pool=None, verbose=T
     return X_dec, U_dec, J_full, solve_info
 
 
-def solve_rhc(  # N is the length of the prediction horizon
+def solve_rhc(
     problem,
     x0,
     N,
@@ -142,7 +141,7 @@ def solve_rhc(  # N is the length of the prediction horizon
     xi = x0.reshape(1, -1)
     X = xi.copy()
     # U = np.zeros((N, n_u))
-    U = np.random.rand(N, n_u)*0.01
+    U = np.random.rand(N, n_u) * 0.01
     # U = np.tile([g, 0, 0], (N, n_agents))
     centralized_solver = ilqrSolver(problem, N)
 
@@ -164,7 +163,7 @@ def solve_rhc(  # N is the length of the prediction horizon
             )
             # print(f"Shape of X at each prediction horizon is{X.shape}")
         else:
-            X, U, J, solve_info = solve_decentralized(
+            X, U, J, solve_info = solve_distributed(
                 problem, X, U, *args, verbose=False, **kwargs
             )
             # print(f"Shape of X at each prediction horizon is{X.shape}")

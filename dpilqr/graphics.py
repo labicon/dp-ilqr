@@ -9,7 +9,7 @@ from matplotlib.animation import FuncAnimation
 import networkx as nx
 import numpy as np
 
-from decentralized.util import split_agents, compute_pairwise_distance
+from dpilqr.util import split_agents, compute_pairwise_distance
 
 
 plt.rcParams.update(

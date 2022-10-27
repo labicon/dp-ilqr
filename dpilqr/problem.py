@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-"""Logic to combine dynamics and cost in one framework to simplify decentralization"""
+"""Logic to combine dynamics and cost in one framework to simplify distribution"""
 
 from time import perf_counter as pc
 
@@ -34,7 +34,7 @@ class ilqrProblem:
         return self.dynamics.ids.copy()
 
     def split(self, graph):
-        """Split up this centralized problem into a list of decentralized
+        """Split up this centralized problem into a list of distributed
         sub-problems.
         """
 

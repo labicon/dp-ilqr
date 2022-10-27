@@ -6,7 +6,7 @@ import unittest
 
 import numpy as np
 
-import dpilqr as dec
+import dpilqr
 
 
 class _TestDynamics:
@@ -18,7 +18,7 @@ class _TestDynamics:
 
     def _test_linearize(self, x0, u, **kwargs):
         A, B = self.model.linearize(x0, u)
-        A_diff, B_diff = dec.linearize_finite_difference(self.model.__call__, x0, u)
+        A_diff, B_diff = dpilqr.linearize_finite_difference(self.model.__call__, x0, u)
 
         self.assertTrue(np.allclose(A, A_diff, **kwargs))
         self.assertTrue(np.allclose(B, B_diff, **kwargs))
@@ -26,7 +26,7 @@ class _TestDynamics:
 
 class TestDoubleInt4D(_TestDynamics, unittest.TestCase):
     def setUp(self):
-        self.model = dec.DoubleIntDynamics4D(0.5)
+        self.model = dpilqr.DoubleIntDynamics4D(0.5)
 
     def test_call(self):
         x = np.array([0.0, 2, 0, -2])
@@ -44,7 +44,7 @@ class TestDoubleInt4D(_TestDynamics, unittest.TestCase):
 
 class TestCarDynamics3D(_TestDynamics, unittest.TestCase):
     def setUp(self):
-        self.model = dec.CarDynamics3D(0.5)
+        self.model = dpilqr.CarDynamics3D(0.5)
 
     def test_call(self):
         x0 = np.array([0, 0, np.pi / 4])
@@ -63,7 +63,7 @@ class TestCarDynamics3D(_TestDynamics, unittest.TestCase):
 
 class TestUnicycle4D(_TestDynamics, unittest.TestCase):
     def setUp(self):
-        self.model = dec.UnicycleDynamics4D(1.0)
+        self.model = dpilqr.UnicycleDynamics4D(1.0)
 
     def test_straight(self):
         x0 = np.zeros(4)
@@ -104,7 +104,7 @@ class TestUnicycle4D(_TestDynamics, unittest.TestCase):
 
 class TestBikeDynamics5D(_TestDynamics, unittest.TestCase):
     def setUp(self):
-        self.model = dec.BikeDynamics5D(0.5)
+        self.model = dpilqr.BikeDynamics5D(0.5)
 
     def test_linearize(self):
         x = np.random.rand(5)

@@ -27,7 +27,7 @@ from dpilqr.dynamics import (
     QuadcopterDynamics6D,
     MultiDynamicalModel,
 )
-from dpilqr.decentralized import solve_rhc
+from dpilqr.distributed import solve_rhc
 from dpilqr.problem import ilqrProblem
 from dpilqr.util import split_agents_gen, random_setup
 
