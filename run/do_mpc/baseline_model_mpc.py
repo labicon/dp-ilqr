@@ -44,22 +44,22 @@ def baseline_drone_mpc(model, n_agents, x_baseline, x_dims, v_max, theta_max, ph
     mpc.bounds['lower', '_u', 'u'] = -max_input
     mpc.bounds['upper', '_u', 'u'] = max_input
     
-    max_state = np.array([[6.5], [6.5], [6.5], [v_max],[v_max], [v_max],\
-                          [6.5], [6.5], [6.5], [v_max],[v_max], [v_max],\
-                          [6.5], [6.5], [6.5], [v_max],[v_max], [v_max]])
+    # max_state = np.array([[6.5], [6.5], [6.5], [v_max],[v_max], [v_max],\
+    #                       [6.5], [6.5], [6.5], [v_max],[v_max], [v_max],\
+    #                       [6.5], [6.5], [6.5], [v_max],[v_max], [v_max]])
     
     #v_max refers to the max velocity in each direction
     #constraints on x,y,z position is set as 6.5 because the actual flying arena has a limited space
-    mpc.bounds['lower','_x', 'x'] = -max_state
-    mpc.bounds['upper','_x', 'x'] = max_state
+    # mpc.bounds['lower','_x', 'x'] = -max_state
+    # mpc.bounds['upper','_x', 'x'] = max_state
 
     
     
     mpc.setup()
     
-    opt_labels = mpc.x.labels()
-    labels_lb_viol =np.array(opt_labels)[np.where(lb_viol)[0]]
-    labels_ub_viol =np.array(opt_labels)[np.where(lb_viol)[0]]
+#     opt_labels = mpc.x.labels()
+#     labels_lb_viol =np.array(opt_labels)[np.where(lb_viol)[0]]
+#     labels_ub_viol =np.array(opt_labels)[np.where(lb_viol)[0]]
     
     return mpc
 
