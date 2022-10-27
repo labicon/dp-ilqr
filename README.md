@@ -1,4 +1,6 @@
-# Distributed Potential- iterative Linear Quadratic Regulator (DP-iLQR)
+# *Distributed Potential-iterative Linear Quadratic Regulator (DP-iLQR)*
+
+ [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ## Overview
 Repository containing code for a distributed implementation of [Potential
@@ -68,11 +70,10 @@ This should create a `bbdynamicswrap.cpp` as well as a `*.so` file that
 `dpilqr` will automatically include in the package namespace.
 
 ### Environment
-There are a few different python packages that this project relies on listed
-out in the next section. For convenience, there's also an
-[requirements.txt](requirements.txt) file that one can use to spin up an
-environment with all of the necessary dependencies. To create an environment 
-from this file, execute the following (from the top of the repo) (in unix):
+There are a few different python packages that this project relies on listed out in the
+next section. One can use the [requirements.txt](requirements.txt) to spin up an
+environment with all of the necessary dependencies. To do this, execute the following
+(from the top of the repo) (in unix):
 
     python -m venv env
     source env/bin/activate
@@ -80,6 +81,7 @@ from this file, execute the following (from the top of the repo) (in unix):
 
 
 ### Organization
+- [dpilqr](dpilqr) contains the project source code
 - [run/examples.py](run/examples.py) provides several examples that exercise many
   aspects of the library.
 - [run/analysis.py](run/analysis.py) contains scripts that run monte-carlo simulations
