@@ -16,6 +16,11 @@ def paper_setup_3_quads():
     xf[dec.pos_mask([6]*3, 3)] += 0.01*np.random.randn(9, 1)
     return x0, xf
 
+def paper_setup_1_quad():
+    x0 = np.array([[0.5, 1.5, 1, 0, 0, 0]],dtype=float).T
+    xf = np.array([[2.5, 1.5, 1, 0, 0, 0]]).T
+    return x0, xf
+
 
 def compute_pairwise_distance_Sym(X, x_dims, n_d=2):
     """Compute the distance between each pair of agents"""

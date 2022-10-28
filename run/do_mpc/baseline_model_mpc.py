@@ -5,8 +5,55 @@ import decentralized as dec
 from baseline_model import baseline_drone_model
 import util
 
+# 1-drone MPC setup:
+# def baseline_drone_mpc(model, n_agents, x_baseline, x_dims, v_max, theta_max, phi_max, tau_max):
+#     """ 
+#     x_baseline : current concatenated states of all agents
+    
+#     """
+#     mpc = do_mpc.controller.MPC(model)
+
+#     setup_mpc = {
+#         'n_horizon': 15,
+#         'n_robust': 0,
+#         'open_loop': 0,
+#         't_step': 0.1,
+#         'state_discretization': 'collocation',
+#         'collocation_type': 'radau',
+#         'collocation_deg': 2,
+#         'store_full_solution': True
+#     }
+
+#     mpc.set_param(**setup_mpc)
+
+#     mterm = model.aux['total_terminal_cost']
+#     lterm = model.aux['total_stage_cost']
+    
+#     mpc.set_objective(mterm=mterm,lterm=lterm)
+
+#     max_input = np.array([[theta_max], [phi_max], [tau_max]])
+
+#     mpc.bounds['lower', '_u', 'u'] = -max_input
+#     mpc.bounds['upper', '_u', 'u'] = max_input
+    
+#     mpc.set_rterm(u=np.array([[1],[1],[1]])) 
+#     #seems like this is needed for reasonably short simulation runtime...weird!
+    
+#     mpc.setup()
+    
+# #     opt_labels = mpc.x.labels()
+# #     labels_lb_viol =np.array(opt_labels)[np.where(lb_viol)[0]]
+# #     labels_ub_viol =np.array(opt_labels)[np.where(lb_viol)[0]]
+    
+#     return mpc
+
+
+
+
+
+
 #*****************************
-#Below is for centralized set-up:
+#Below is for centralized set-up for 3 drones:
 def baseline_drone_mpc(model, n_agents, x_baseline, x_dims, v_max, theta_max, phi_max, tau_max):
     """ 
     x_baseline : current concatenated states of all agents
@@ -16,7 +63,7 @@ def baseline_drone_mpc(model, n_agents, x_baseline, x_dims, v_max, theta_max, ph
 
     setup_mpc = {
         'n_horizon': 5,
-        'n_robust': 0,
+        'n_robust': 1,
         'open_loop': 0,
         't_step': 0.1,
         'state_discretization': 'collocation',
@@ -44,6 +91,8 @@ def baseline_drone_mpc(model, n_agents, x_baseline, x_dims, v_max, theta_max, ph
     mpc.bounds['lower', '_u', 'u'] = -max_input
     mpc.bounds['upper', '_u', 'u'] = max_input
     
+    
+    
     # max_state = np.array([[6.5], [6.5], [6.5], [v_max],[v_max], [v_max],\
     #                       [6.5], [6.5], [6.5], [v_max],[v_max], [v_max],\
     #                       [6.5], [6.5], [6.5], [v_max],[v_max], [v_max]])
@@ -53,7 +102,9 @@ def baseline_drone_mpc(model, n_agents, x_baseline, x_dims, v_max, theta_max, ph
     # mpc.bounds['lower','_x', 'x'] = -max_state
     # mpc.bounds['upper','_x', 'x'] = max_state
 
-    
+    mpc.set_rterm(u=np.array([[1],[1],[1],\
+                             [1],[1],[1],\
+                             [1],[1],[1]])) 
     
     mpc.setup()
     

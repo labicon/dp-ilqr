@@ -12,8 +12,95 @@ from baseline_model_mpc import *
 from baseline_model_simulator import *
 
 
+
+#1-drone MPC:
+# def setup_baseline(x_baseline, x_baseline_f, v_max, theta_max, phi_max, tau_max,\
+#                     x_dims, Q, R, Qf, n_agents, n_inputs, n_dims):
+#     model_baseline = baseline_drone_model(x_baseline_f, Q, R, Qf, x_baseline, x_dims)  
+
+    
+#     mpc_baseline = baseline_drone_mpc(model_baseline,n_agents,x_baseline,\
+#                                       x_dims, v_max, theta_max, phi_max,tau_max)
+
+    
+#     simulator_baseline = baseline_drone_simulator(model_baseline) 
+
+        
+#     simulator_baseline.x0['x'] = x_baseline
+#     mpc_baseline.x0 = x_baseline
+
+#     u_init_baseline = np.full((n_inputs,1), 0.0)
+#     mpc_baseline.u0 = u_init_baseline
+#     simulator_baseline.u0 = u_init_baseline
+#     mpc_baseline.set_initial_guess()
+    
+#     u0_baseline = mpc_baseline.make_step(x_baseline)
+#     x_baseline_next = simulator_baseline.make_step(u0_baseline)
+#     # print(mpc_baseline.data._lam_g_num)
+#     return u0_baseline, x_baseline_next, mpc_baseline.data._lam_g_num
+    
+
+# def run_sim():
+    
+#     n_agents = 1
+#     n_states = 6
+#     n_inputs = 3
+
+#     theta_max = np.pi/6
+#     phi_max = np.pi/6
+#     tau_max = 5
+#     v_max = 5
+    
+#     Q = np.eye(n_states)*10
+#     Qf = np.eye(n_states)*1e3
+#     R = np.eye(n_inputs)
+#     x_dims = [3]#dummy variable since 1 drone set-up does not use it
+#     n_dims = [3]#dummy variable since 1 drone set-up does not use it
+#     episode= 200
+#     x_baseline_init, x_baseline_f = util.paper_setup_1_quad()
+
+#     x_baseline1 = x_baseline_init #concatenated states of all agents
+
+#     states_list = np.zeros((episode+1,6*n_agents)) #positions of each drone
+#     states_list[0] = x_baseline1.flatten()
+
+#     time_start = time.perf_counter()
+    
+#     results = []
+
+#     with concurrent.futures.ProcessPoolExecutor(100) as executor:
+
+#         for k in range(episode):
+#             f = executor.submit(setup_baseline,x_baseline1, x_baseline_f, v_max, theta_max, phi_max, tau_max,\
+#                         x_dims,  Q, R, Qf, n_agents, n_inputs, n_dims)
+          
+#             results.append(f)
+
+  
+#             #update positions of each drone:
+#             states_list[k+1] = f.result()[1][:].flatten() #collecting all the states of all agents
+            
+#             # print("Lagrange Multiplier: ", la_mul)
+#             # print("Length of Lagrange Multiplier: ", len(la_mul[0]))
+#         # ---------------------------------------------------------
+#             #position update:
+#             x_baseline1  = states_list[k+1].reshape(-1,1) 
+#             #velocity update via finite-diff:
+ 
+        
+#     time_finish = time.perf_counter()
+#     print("Total time: ", time_finish - time_start)
+#     np.save('drone_sim_data', states_list)
+
+
+# if __name__ == '__main__':
+#     run_sim()
+
+
+
+
 #**********************************************
-#Below is for centralized set-up:
+#Below is for centralized set-up for 3 drones:
 
 def setup_baseline(x_baseline, x_baseline_f, v_max, theta_max, phi_max, tau_max,\
                     x_dims, Q, R, Qf, n_agents, n_inputs, n_dims):
