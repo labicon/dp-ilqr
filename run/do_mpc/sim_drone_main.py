@@ -139,7 +139,7 @@ def run_sim():
     tau_max = 5
     v_max = 5
     
-    Q = np.eye(n_states)*10
+    Q = np.eye(n_states)
     Qf = np.eye(n_states)*1e3
     R = np.eye(n_inputs)
 
@@ -151,7 +151,7 @@ def run_sim():
 
     x_baseline1 = x_baseline_init #concatenated states of all agents
 
-    states_list = np.zeros((episode+1,6*n_agents)) #positions of each drone
+    states_list = np.zeros((episode+1,6*n_agents)) #states of each drone
     states_list[0] = x_baseline1.flatten()
 
     time_start = time.perf_counter()

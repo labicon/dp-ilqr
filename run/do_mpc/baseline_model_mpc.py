@@ -75,8 +75,10 @@ def baseline_drone_mpc(model, n_agents, x_baseline, x_dims, v_max, theta_max, ph
 
     mpc.set_param(**setup_mpc)
      
-    #We want the distances between each drone > 0.5
-    mpc.set_nl_cons('collision', -model.aux['collision_constraint'], -0.5, soft_constraint=True) 
+    #We want the pairwise distance > 0.5
+    mpc.set_nl_cons('collision1', -model.aux['collision_avoidance1'], -0.5) 
+    mpc.set_nl_cons('collision2', -model.aux['collision_avoidance2'], -0.5)
+    mpc.set_nl_cons('collision3', -model.aux['collision_avoidance3'], -0.5)
     #in this case we want the collision avoidance cost inccured to be 0, which means their 
     #pairwise distances must be > radius
     mterm = model.aux['total_terminal_cost']
@@ -87,9 +89,15 @@ def baseline_drone_mpc(model, n_agents, x_baseline, x_dims, v_max, theta_max, ph
     max_input = np.array([[theta_max], [phi_max], [tau_max], \
                           [theta_max], [phi_max], [tau_max], \
                           [theta_max], [phi_max], [tau_max]])
-
+    
+    
+    # w_max = 2.0
+    # max_input = np.array([[v_max], [v_max], [v_max], [w_max], [w_max], [w_max],\
+    #                      [v_max], [v_max], [v_max], [w_max], [w_max], [w_max],\
+    #                      [v_max], [v_max], [v_max], [w_max], [w_max], [w_max]])
     mpc.bounds['lower', '_u', 'u'] = -max_input
     mpc.bounds['upper', '_u', 'u'] = max_input
+
     
     
     

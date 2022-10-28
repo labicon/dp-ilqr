@@ -74,9 +74,20 @@ def baseline_drone_model(xf, Q, R, Qf, x_baseline, x_dims):
     #u = theta, phi, tau
     
     #Concantenated states of all agents
-    x = model.set_variable(var_type='_x', var_name='x', shape=(18, 1))
+    # x = model.set_variable(var_type='_x', var_name='x', shape=(18, 1))
     #Concatenated inputs of all agents
-    u = model.set_variable(var_type='_u', var_name='u', shape=(9, 1))
+    # u = model.set_variable(var_type='_u', var_name='u', shape=(9, 1))
+    
+    x = model.set_variable(var_type='_x', var_name='x', shape=(6*3, 1))
+    u = model.set_variable(var_type='_u', var_name='u', shape=(3*3, 1))
+
+
+    # model.set_rhs('x', vertcat(u[0], u[1], u[2], u[3], u[4], u[5],\
+    #                           u[6], u[7], u[8], u[9], u[10], u[11],\
+    #                           u[12], u[13], u[14], u[15], u[16], u[17])) #a simpler model
+
+
+    
     
     # print(f'Shape of x is {x.shape}')
     # print(f'Shape of u is {u.shape}')
@@ -92,12 +103,14 @@ def baseline_drone_model(xf, Q, R, Qf, x_baseline, x_dims):
     
     The inputs are [theta,phi,tau]
     The states are [p_x,p_y,p_z,v_x,v_y,v_z]
-
+    
     """
     g = 9.81
     model.set_rhs('x', vertcat(x[3], x[4], x[5], g*np.tan(u[0]), -g*np.tan(u[1]), u[2]-g,\
                                x[9], x[10], x[11], g*np.tan(u[3]), -g*np.tan(u[4]), u[5]-g,\
                               x[15], x[16], x[17], g*np.tan(u[4]), -g*np.tan(u[5]), u[6]-g))
+    
+
     
 
     total_stage_cost = (x-xf).T@Q@(x-xf) + u.T@R@u 
@@ -114,11 +127,9 @@ def baseline_drone_model(xf, Q, R, Qf, x_baseline, x_dims):
     # prox_cost = sum1(SX(np.fmin(np.zeros(1), distances - radius) ** 2))
     # model.set_expression('proximity_cost',prox_cost) 
     
-    model.set_expression('collision_constraint',distances)
-    
-    #The prox_cost should be handled by a centralized processor since xf only contains the state
-    #a single agent
-    #Set this up in the mpc controller 
+    model.set_expression('collision_avoidance1',distances[0])
+    model.set_expression('collision_avoidance2',distances[1])
+    model.set_expression('collision_avoidance3',distances[2])
 
     model.setup()
 
