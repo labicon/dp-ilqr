@@ -106,9 +106,10 @@ def baseline_drone_model(xf, Q, R, Qf, x_baseline, x_dims):
     
     """
     g = 9.81
-    model.set_rhs('x', vertcat(x[3], x[4], x[5], g*np.tan(u[0]), -g*np.tan(u[1]), u[2]-g,\
-                               x[9], x[10], x[11], g*np.tan(u[3]), -g*np.tan(u[4]), u[5]-g,\
-                              x[15], x[16], x[17], g*np.tan(u[4]), -g*np.tan(u[5]), u[6]-g))
+    #use tan function from Casadi:
+    model.set_rhs('x', vertcat(x[3], x[4], x[5], g*tan(u[0]), -g*tan(u[1]), u[2]-g,
+                               x[9], x[10], x[11], g*tan(u[3]), -g*tan(u[4]), u[5]-g,
+                              x[15], x[16], x[17], g*tan(u[4]), -g*tan(u[5]), u[6]-g))
     
 
     
@@ -119,11 +120,11 @@ def baseline_drone_model(xf, Q, R, Qf, x_baseline, x_dims):
     model.set_expression('total_stage_cost',total_stage_cost)
     model.set_expression('total_terminal_cost',total_terminal_cost)
     
-    radius = 0.5
-    #x_baseline is concatenated states of all agents
-    distances = util.compute_pairwise_distance_Sym(x_baseline,x_dims,n_d=3) 
     
-    distances = SX(distances)
+    #x_baseline is concatenated states of all agents
+    distances = SX(util.compute_pairwise_distance_Sym(x_baseline,x_dims,n_d=3))
+
+    # radius = 0.5
     # prox_cost = sum1(SX(np.fmin(np.zeros(1), distances - radius) ** 2))
     # model.set_expression('proximity_cost',prox_cost) 
     

@@ -4,6 +4,7 @@ import numpy as np
 from casadi import *
 import do_mpc
 import util
+import decentralized as dec
 
 # import sys
 
@@ -134,14 +135,14 @@ def run_sim():
     n_states = 18
     n_inputs = 9
 
-    theta_max = np.pi/6
-    phi_max = np.pi/6
+    theta_max = np.pi/7
+    phi_max = np.pi/7
     tau_max = 5
     v_max = 5
     
     # Q = np.eye(n_states)
     Q = np.diag([5,5,5,1,1,1,5,5,5,1,1,1,5,5,5,1,1,1])
-    Qf = np.eye(n_states)*1e3
+    Qf = np.eye(n_states)*1e2
     R = np.eye(n_inputs)*0.1
 
     n_dims = [3,3,3]
@@ -160,29 +161,35 @@ def run_sim():
     results = []
 
     with concurrent.futures.ProcessPoolExecutor(100) as executor:
-
-        for k in range(episode):
-            f = executor.submit(setup_baseline,x_baseline1, x_baseline_f, v_max, theta_max, phi_max, tau_max,\
-                        x_dims,  Q, R, Qf, n_agents, n_inputs, n_dims)
-          
-            results.append(f)
-
-  
-            #update positions of each drone:
-            states_list[k+1] = f.result()[1][:].flatten() #collecting all the states of all agents
             
-            # print("Lagrange Multiplier: ", la_mul)
-            # print("Length of Lagrange Multiplier: ", len(la_mul[0]))
-        # ---------------------------------------------------------
-            #position update:
-            x_baseline1  = states_list[k+1].reshape(-1,1) 
+            for k in range(episode):
+       
+                f = executor.submit(setup_baseline,x_baseline1, x_baseline_f, v_max, theta_max, phi_max, tau_max,\
+                            x_dims,  Q, R, Qf, n_agents, n_inputs, n_dims)
+
+                results.append(f)
+
+                #update positions of each drone:
+                states_list[k+1] = f.result()[1][:].flatten() #collecting all the states of all agents
+            
+                # print("Lagrange Multiplier: ", la_mul)
+                # print("Length of Lagrange Multiplier: ", len(la_mul[0]))
+            # ---------------------------------------------------------
+                #position update:
+                x_baseline1  = states_list[k+1].reshape(-1,1) 
+                    
+                if dec.compute_pairwise_distance(x_baseline1,x_dims).any() < 0.1:
+                    print("simulation converged to goal!")
+                    break
+            
             #velocity update via finite-diff:
- 
+     
         
     time_finish = time.perf_counter()
     print("Total time: ", time_finish - time_start)
     print(f'initial positions of all drones are {x_baseline_init}')
     print(f'final positions of all drones are {x_baseline_f}')
+    print(f'final position error is {np.linalg.norm(x_baseline1-x_baseline_f)} [m]')
     np.save('drone_sim_data', states_list)
     
     

@@ -65,7 +65,7 @@ def baseline_drone_mpc(model, n_agents, x_baseline, x_dims, v_max, theta_max, ph
         'n_horizon': 5,
         'n_robust': 1,
         'open_loop': 0,
-        't_step': 0.1,
+        't_step': 0.05,
         'state_discretization': 'collocation',
         'collocation_type': 'radau',
         'collocation_deg': 2,
