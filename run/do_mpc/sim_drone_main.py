@@ -149,7 +149,7 @@ def run_sim():
     n_dims = [3,3,3]
     x_dims = [6,6,6]
 
-    episode= 20 
+    episode= 15
     x_baseline_init, x_baseline_f = util.paper_setup_3_quads()
 
     x_baseline1 = x_baseline_init #concatenated states of all agents
