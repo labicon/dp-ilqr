@@ -76,9 +76,9 @@ def baseline_drone_mpc(model, n_agents, x_baseline, x_dims, v_max, theta_max, ph
     mpc.set_param(**setup_mpc)
      
     #We want the pairwise distance > 0.5
-    mpc.set_nl_cons('collision1', -model.aux['collision_avoidance1'], -0.5) 
-    mpc.set_nl_cons('collision2', -model.aux['collision_avoidance2'], -0.5)
-    mpc.set_nl_cons('collision3', -model.aux['collision_avoidance3'], -0.5)
+    mpc.set_nl_cons('collision1', -model.aux['collision_avoidance1'], -0.25) 
+    mpc.set_nl_cons('collision2', -model.aux['collision_avoidance2'], -0.25)
+    mpc.set_nl_cons('collision3', -model.aux['collision_avoidance3'], -0.25)
     #in this case we want the collision avoidance cost inccured to be 0, which means their 
     #pairwise distances must be > radius
     mterm = model.aux['total_terminal_cost']
@@ -113,6 +113,10 @@ def baseline_drone_mpc(model, n_agents, x_baseline, x_dims, v_max, theta_max, ph
     mpc.set_rterm(u=np.array([[1],[1],[1],\
                              [1],[1],[1],\
                              [1],[1],[1]])) 
+    
+    # mpc.set_rterm(u=np.array([[1],[1],[1],[1],[1],[1],\
+    #                          [1],[1],[1],[1],[1],[1],\
+    #                          [1],[1],[1],[1],[1],[1]])) 
     
     mpc.setup()
     

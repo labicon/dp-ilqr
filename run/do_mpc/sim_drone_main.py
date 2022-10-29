@@ -143,12 +143,13 @@ def run_sim():
     # Q = np.eye(n_states)
     Q = np.diag([5,5,5,1,1,1,5,5,5,1,1,1,5,5,5,1,1,1])
     Qf = np.eye(n_states)*1e2
-    R = np.eye(n_inputs)*0.1
+    # Qf = np.eye(n_states)
+    R = np.eye(n_inputs)
 
     n_dims = [3,3,3]
     x_dims = [6,6,6]
 
-    episode= 20
+    episode= 20 
     x_baseline_init, x_baseline_f = util.paper_setup_3_quads()
 
     x_baseline1 = x_baseline_init #concatenated states of all agents
@@ -182,8 +183,6 @@ def run_sim():
                     print("simulation converged to goal!")
                     break
             
-            #velocity update via finite-diff:
-     
         
     time_finish = time.perf_counter()
     print("Total time: ", time_finish - time_start)

@@ -74,12 +74,12 @@ def baseline_drone_model(xf, Q, R, Qf, x_baseline, x_dims):
     #u = theta, phi, tau
     
     #Concantenated states of all agents
-    # x = model.set_variable(var_type='_x', var_name='x', shape=(18, 1))
+    x = model.set_variable(var_type='_x', var_name='x', shape=(18, 1))
     #Concatenated inputs of all agents
-    # u = model.set_variable(var_type='_u', var_name='u', shape=(9, 1))
+    u = model.set_variable(var_type='_u', var_name='u', shape=(9, 1))
     
-    x = model.set_variable(var_type='_x', var_name='x', shape=(6*3, 1))
-    u = model.set_variable(var_type='_u', var_name='u', shape=(3*3, 1))
+    # x = model.set_variable(var_type='_x', var_name='x', shape=(18, 1))
+    # u = model.set_variable(var_type='_u', var_name='u', shape=(18, 1))
 
 
     # model.set_rhs('x', vertcat(u[0], u[1], u[2], u[3], u[4], u[5],\
@@ -122,7 +122,8 @@ def baseline_drone_model(xf, Q, R, Qf, x_baseline, x_dims):
     
     
     #x_baseline is concatenated states of all agents
-    distances = SX(util.compute_pairwise_distance_Sym(x_baseline,x_dims,n_d=3))
+    distances = SX(util.compute_pairwise_distance_Sym(x_baseline,x_dims,n_d=3))**2 
+    #distance squared
 
     # radius = 0.5
     # prox_cost = sum1(SX(np.fmin(np.zeros(1), distances - radius) ** 2))
