@@ -146,12 +146,12 @@ def run_sim():
     Q = np.diag([5,5,5,0,0,0,5,5,5,0,0,0,5,5,5,0,0,0])
     Qf = np.eye(n_states)*1e2
     # Qf = np.eye(n_states)
-    R = np.eye(n_inputs)*0.01
+    R = np.eye(n_inputs)*0.1
 
     n_dims = [3,3,3]
     x_dims = [6,6,6]
 
-    episode= 35
+    episode= 20
     x_baseline_init, x_baseline_f = util.paper_setup_3_quads()
 
     x_baseline1 = x_baseline_init #concatenated states of all agents

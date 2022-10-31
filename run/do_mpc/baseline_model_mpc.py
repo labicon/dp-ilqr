@@ -62,7 +62,7 @@ def baseline_drone_mpc(model, n_agents, x_baseline, x_dims, v_max, theta_max, ph
     mpc = do_mpc.controller.MPC(model)
 
     setup_mpc = {
-        'n_horizon': 5,
+        'n_horizon': 15,
         'n_robust': 1,
         'open_loop': 0,
         't_step': 0.05,
@@ -121,9 +121,9 @@ def baseline_drone_mpc(model, n_agents, x_baseline, x_dims, v_max, theta_max, ph
     mpc.bounds['lower','_x', 'x'] = -max_state_lower
     mpc.bounds['upper','_x', 'x'] = max_state_upper
 
-    mpc.set_rterm(u=np.array([[1],[1],[1],\
-                             [1],[1],[1],\
-                             [1],[1],[1]])) 
+    mpc.set_rterm(u=np.array([[0],[0],[0],\
+                             [0],[0],[0],\
+                             [0],[0],[0]])) 
     
     # mpc.set_rterm(u=np.array([[1],[1],[1],[1],[1],[1],\
     #                          [1],[1],[1],[1],[1],[1],\
