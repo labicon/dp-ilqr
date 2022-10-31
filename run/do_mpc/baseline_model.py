@@ -107,14 +107,15 @@ def baseline_drone_model(xf, Q, R, Qf, x_baseline, x_dims):
     """
     g = 9.81
     #use tan function from Casadi:
+    eps = 1e-6
     model.set_rhs('x', vertcat(x[3], x[4], x[5], g*tan(u[0]), -g*tan(u[1]), u[2]-g,
                                x[9], x[10], x[11], g*tan(u[3]), -g*tan(u[4]), u[5]-g,
                               x[15], x[16], x[17], g*tan(u[4]), -g*tan(u[5]), u[6]-g))
     
 
     
-
-    total_stage_cost = (x-xf).T@Q@(x-xf) + u.T@R@u 
+    u_ref = np.array([0, 0, g+eps, 0, 0, g+eps, 0, 0, g+eps])
+    total_stage_cost = (x-xf).T@Q@(x-xf) + (u - u_ref).T@R@(u - u_ref) 
     total_terminal_cost = (x-xf).T@Qf@(x-xf)
     
     model.set_expression('total_stage_cost',total_stage_cost)
@@ -122,8 +123,8 @@ def baseline_drone_model(xf, Q, R, Qf, x_baseline, x_dims):
     
     
     #x_baseline is concatenated states of all agents
-    distances = SX(util.compute_pairwise_distance_Sym(x_baseline,x_dims,n_d=3))**2 
-    #distance squared
+    distances = SX(util.compute_pairwise_distance_Sym(x_baseline,x_dims,n_d=3)) 
+
 
     # radius = 0.5
     # prox_cost = sum1(SX(np.fmin(np.zeros(1), distances - radius) ** 2))

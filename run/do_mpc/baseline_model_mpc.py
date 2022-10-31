@@ -76,9 +76,9 @@ def baseline_drone_mpc(model, n_agents, x_baseline, x_dims, v_max, theta_max, ph
     mpc.set_param(**setup_mpc)
      
     #We want the pairwise distance > 0.5
-    mpc.set_nl_cons('collision1', -model.aux['collision_avoidance1'], -0.25) 
-    mpc.set_nl_cons('collision2', -model.aux['collision_avoidance2'], -0.25)
-    mpc.set_nl_cons('collision3', -model.aux['collision_avoidance3'], -0.25)
+    mpc.set_nl_cons('collision1', -model.aux['collision_avoidance1'], -0.5) 
+    mpc.set_nl_cons('collision2', -model.aux['collision_avoidance2'], -0.5)
+    mpc.set_nl_cons('collision3', -model.aux['collision_avoidance3'], -0.5)
     #in this case we want the collision avoidance cost inccured to be 0, which means their 
     #pairwise distances must be > radius
     mterm = model.aux['total_terminal_cost']
@@ -90,29 +90,40 @@ def baseline_drone_mpc(model, n_agents, x_baseline, x_dims, v_max, theta_max, ph
                           [theta_max], [phi_max], [tau_max], \
                           [theta_max], [phi_max], [tau_max]])
     
+    min_input = np.array([[theta_max], [phi_max], [-9.81], \
+                          [theta_max], [phi_max], [-9.81], \
+                          [theta_max], [phi_max], [-9.81]])
+    
+    #Note: final error is much smaller when inputs are not constrained?!
+    
+    # mpc.bounds['lower', '_u', 'u'] = -min_input
+    # mpc.bounds['upper', '_u', 'u'] = max_input
+    
     
     # w_max = 2.0
     # max_input = np.array([[v_max], [v_max], [v_max], [w_max], [w_max], [w_max],\
     #                      [v_max], [v_max], [v_max], [w_max], [w_max], [w_max],\
     #                      [v_max], [v_max], [v_max], [w_max], [w_max], [w_max]])
-    mpc.bounds['lower', '_u', 'u'] = -max_input
-    mpc.bounds['upper', '_u', 'u'] = max_input
+    # mpc.bounds['lower', '_u', 'u'] = -max_input
+    # mpc.bounds['upper', '_u', 'u'] = max_input
 
     
+    max_state_upper = np.array([[5], [5], [3], [v_max],[v_max], [v_max],\
+                          [5], [5], [3], [v_max],[v_max], [v_max],\
+                          [5], [5], [3], [v_max],[v_max], [v_max]])
     
+    max_state_lower = np.array([[5], [5], [-0.5], [v_max],[v_max], [v_max],\
+                          [5], [5], [-0.5], [v_max],[v_max], [v_max],\
+                          [5], [5], [-0.5], [v_max],[v_max], [v_max]])
     
-    # max_state = np.array([[6.5], [6.5], [6.5], [v_max],[v_max], [v_max],\
-    #                       [6.5], [6.5], [6.5], [v_max],[v_max], [v_max],\
-    #                       [6.5], [6.5], [6.5], [v_max],[v_max], [v_max]])
-    
-    #v_max refers to the max velocity in each direction
-    #constraints on x,y,z position is set as 6.5 because the actual flying arena has a limited space
-    # mpc.bounds['lower','_x', 'x'] = -max_state
-    # mpc.bounds['upper','_x', 'x'] = max_state
+    # v_max refers to the max velocity in each direction
+    # constraints on x,y,z position is set as 6.5 because the actual flying arena has a limited space
+    mpc.bounds['lower','_x', 'x'] = -max_state_lower
+    mpc.bounds['upper','_x', 'x'] = max_state_upper
 
-    mpc.set_rterm(u=np.array([[0],[0],[0],\
-                             [0],[0],[0],\
-                             [0],[0],[0]])) 
+    mpc.set_rterm(u=np.array([[1],[1],[1],\
+                             [1],[1],[1],\
+                             [1],[1],[1]])) 
     
     # mpc.set_rterm(u=np.array([[1],[1],[1],[1],[1],[1],\
     #                          [1],[1],[1],[1],[1],[1],\

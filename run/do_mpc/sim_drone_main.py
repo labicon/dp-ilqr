@@ -13,7 +13,6 @@ from baseline_model_mpc import *
 from baseline_model_simulator import *
 
 
-
 #1-drone MPC:
 # def setup_baseline(x_baseline, x_baseline_f, v_max, theta_max, phi_max, tau_max,\
 #                     x_dims, Q, R, Qf, n_agents, n_inputs, n_dims):
@@ -101,7 +100,7 @@ from baseline_model_simulator import *
 
 
 #**********************************************
-#Below is for centralized set-up for 3 drones:
+#Below is centralized set-up for 3 drones:
 
 def setup_baseline(x_baseline, x_baseline_f, v_max, theta_max, phi_max, tau_max,\
                     x_dims, Q, R, Qf, n_agents, n_inputs, n_dims):
@@ -117,8 +116,11 @@ def setup_baseline(x_baseline, x_baseline_f, v_max, theta_max, phi_max, tau_max,
         
     simulator_baseline.x0['x'] = x_baseline
     mpc_baseline.x0 = x_baseline
-
-    u_init_baseline = np.full((n_inputs,1), 0.0)
+    
+    # u_init_baseline = np.full((n_inputs,1), 0)
+    # u_init_baseline = np.random.rand(n_inputs,1)*0.01
+    
+    u_init_baseline = np.array([0,0,9.81,0,0,9.81,0,0,9.81]) #hover condition
     mpc_baseline.u0 = u_init_baseline
     simulator_baseline.u0 = u_init_baseline
     mpc_baseline.set_initial_guess()
@@ -135,21 +137,21 @@ def run_sim():
     n_states = 18
     n_inputs = 9
 
-    theta_max = np.pi/7
-    phi_max = np.pi/7
-    tau_max = 5
-    v_max = 5
+    theta_max = np.pi/6
+    phi_max = np.pi/6
+    tau_max = 15
+    v_max = 3
     
     # Q = np.eye(n_states)
-    Q = np.diag([5,5,5,1,1,1,5,5,5,1,1,1,5,5,5,1,1,1])
+    Q = np.diag([5,5,5,0,0,0,5,5,5,0,0,0,5,5,5,0,0,0])
     Qf = np.eye(n_states)*1e2
     # Qf = np.eye(n_states)
-    R = np.eye(n_inputs)
+    R = np.eye(n_inputs)*0.01
 
     n_dims = [3,3,3]
     x_dims = [6,6,6]
 
-    episode= 15
+    episode= 35
     x_baseline_init, x_baseline_f = util.paper_setup_3_quads()
 
     x_baseline1 = x_baseline_init #concatenated states of all agents
@@ -179,7 +181,7 @@ def run_sim():
                 #position update:
                 x_baseline1  = states_list[k+1].reshape(-1,1) 
                     
-                if dec.compute_pairwise_distance(x_baseline1,x_dims).any() < 0.1:
+                if dec.compute_pairwise_distance(x_baseline1,x_dims).all() < 0.1:
                     print("simulation converged to goal!")
                     break
             
@@ -188,7 +190,7 @@ def run_sim():
     print("Total time: ", time_finish - time_start)
     print(f'initial positions of all drones are {x_baseline_init}')
     print(f'final positions of all drones are {x_baseline_f}')
-    print(f'final position error is {np.linalg.norm(x_baseline1-x_baseline_f)} [m]')
+    print(f'sum of final position error of all drones is {np.linalg.norm(x_baseline1-x_baseline_f)} [m]')
     np.save('drone_sim_data', states_list)
     
     
