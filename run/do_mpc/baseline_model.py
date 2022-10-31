@@ -139,7 +139,7 @@ def baseline_drone_model(xf, Q, R, Qf, x_baseline, x_dims):
     return model
 
 
-
+#TODO: other dynamics systems (unicycle, car, etc)
 
 
 

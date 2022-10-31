@@ -143,10 +143,10 @@ def run_sim():
     v_max = 3
     
     # Q = np.eye(n_states)
-    Q = np.diag([5,5,5,0,0,0,5,5,5,0,0,0,5,5,5,0,0,0])
-    Qf = np.eye(n_states)*1e2
+    Q = np.diag([1,1,1,5,5,5,1,1,1,5,5,5,1,1,1,5,5,5])
+    Qf = np.eye(n_states)*1e3
     # Qf = np.eye(n_states)
-    R = np.eye(n_inputs)*0.1
+    R = np.diag([0, 1, 1, 0, 1, 1, 0, 1, 1])
 
     n_dims = [3,3,3]
     x_dims = [6,6,6]
