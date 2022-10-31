@@ -140,7 +140,7 @@ def run_sim():
     theta_max = np.pi/6
     phi_max = np.pi/6
     tau_max = 15
-    v_max = 3
+    v_max = 10
     
     # Q = np.eye(n_states)
     Q = np.diag([1,1,1,5,5,5,1,1,1,5,5,5,1,1,1,5,5,5])
@@ -151,7 +151,7 @@ def run_sim():
     n_dims = [3,3,3]
     x_dims = [6,6,6]
 
-    episode= 20
+    episode= 50
     x_baseline_init, x_baseline_f = util.paper_setup_3_quads()
 
     x_baseline1 = x_baseline_init #concatenated states of all agents

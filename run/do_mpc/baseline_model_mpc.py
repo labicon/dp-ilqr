@@ -90,34 +90,25 @@ def baseline_drone_mpc(model, n_agents, x_baseline, x_dims, v_max, theta_max, ph
                           [theta_max], [phi_max], [tau_max], \
                           [theta_max], [phi_max], [tau_max]])
     
-    min_input = np.array([[theta_max], [phi_max], [-9.81], \
-                          [theta_max], [phi_max], [-9.81], \
-                          [theta_max], [phi_max], [-9.81]])
+    min_input = np.array([[theta_max], [phi_max], [0], \
+                          [theta_max], [phi_max], [0], \
+                          [theta_max], [phi_max], [0]])
     
     #Note: final error is much smaller when inputs are not constrained?!
     
-    # mpc.bounds['lower', '_u', 'u'] = -min_input
-    # mpc.bounds['upper', '_u', 'u'] = max_input
+    mpc.bounds['lower', '_u', 'u'] = -min_input
+    mpc.bounds['upper', '_u', 'u'] = max_input
     
+    max_state_upper = np.array([[5], [5], [6], [v_max],[v_max], [v_max],\
+                          [5], [5], [6], [v_max],[v_max], [v_max],\
+                          [5], [5], [6], [v_max],[v_max], [v_max]])
     
-    # w_max = 2.0
-    # max_input = np.array([[v_max], [v_max], [v_max], [w_max], [w_max], [w_max],\
-    #                      [v_max], [v_max], [v_max], [w_max], [w_max], [w_max],\
-    #                      [v_max], [v_max], [v_max], [w_max], [w_max], [w_max]])
-    # mpc.bounds['lower', '_u', 'u'] = -max_input
-    # mpc.bounds['upper', '_u', 'u'] = max_input
-
-    
-    max_state_upper = np.array([[5], [5], [3], [v_max],[v_max], [v_max],\
-                          [5], [5], [3], [v_max],[v_max], [v_max],\
-                          [5], [5], [3], [v_max],[v_max], [v_max]])
-    
-    max_state_lower = np.array([[5], [5], [-0.5], [v_max],[v_max], [v_max],\
-                          [5], [5], [-0.5], [v_max],[v_max], [v_max],\
-                          [5], [5], [-0.5], [v_max],[v_max], [v_max]])
+    max_state_lower = np.array([[5], [5], [0], [v_max],[v_max], [v_max],\
+                          [5], [5], [0], [v_max],[v_max], [v_max],\
+                          [5], [5], [0], [v_max],[v_max], [v_max]])
     
     # v_max refers to the max velocity in each direction
-    # constraints on x,y,z position is set as 6.5 because the actual flying arena has a limited space
+
     mpc.bounds['lower','_x', 'x'] = -max_state_lower
     mpc.bounds['upper','_x', 'x'] = max_state_upper
 
