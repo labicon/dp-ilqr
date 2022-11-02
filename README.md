@@ -77,7 +77,7 @@ environment with all of the necessary dependencies. To do this, execute the foll
 
     python -m venv env
     source env/bin/activate
-    pip install requirements.txt
+    pip install -r requirements.txt
 
 
 ### Organization
