@@ -199,43 +199,43 @@ def baseline_drone_mpc_4(model, n_agents, x_baseline, x_dims, v_max, theta_max, 
 
 #**********************************
 #Below is for decentralized set-up:
-def baseline_drone_mpc(model, n_agents, x_baseline, x_dims, v_max, theta_max, phi_max, tau_max):
-    """ 
-    model->concatenated states of all agents
-    initiate multiple controllers, each corresponds to a single model?
+# def baseline_drone_mpc(model, n_agents, x_baseline, x_dims, v_max, theta_max, phi_max, tau_max):
+#     """ 
+#     model->concatenated states of all agents
+#     initiate multiple controllers, each corresponds to a single model?
    
-    """
+#     """
     
     
-    mpc = do_mpc.controller.MPC(model)
+#     mpc = do_mpc.controller.MPC(model)
 
     
-    setup_mpc = {
-        'n_horizon': 10,
-        'n_robust': 3,
-        'open_loop': 0,
-        't_step': 0.05,
-        'state_discretization': 'collocation',
-        'collocation_type': 'radau',
-        'collocation_deg': 2,
-        'collocation_ni': 2,
-        'store_full_solution': True
-    }
+#     setup_mpc = {
+#         'n_horizon': 10,
+#         'n_robust': 3,
+#         'open_loop': 0,
+#         't_step': 0.05,
+#         'state_discretization': 'collocation',
+#         'collocation_type': 'radau',
+#         'collocation_deg': 2,
+#         'collocation_ni': 2,
+#         'store_full_solution': True
+#     }
 
-    mpc.set_param(**setup_mpc)
+#     mpc.set_param(**setup_mpc)
      
-    for j in range(model.aud['distance_pairs']): 
-        mpc.set_nl_cons(f'collision{j}', -model.aux[f'collision_avoidance{j}'], -0.4) 
+#     for j in range(model.aud['distance_pairs']): 
+#         mpc.set_nl_cons(f'collision{j}', -model.aux[f'collision_avoidance{j}'], -0.4) 
 
    
 
     
     
-    mpc.setup()
+#     mpc.setup()
     
 
 
-    return mpc
+#     return mpc
 
 
     
