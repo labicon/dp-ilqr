@@ -39,7 +39,7 @@ def paper_setup_1_quad():
     return x0, xf
 
 
-def compute_pairwise_distance_Sym(X, x_dims, n_d=2):
+def compute_pairwise_distance_Sym(X, x_dims, n_d=3):
     """Compute the distance between each pair of agents"""
     assert len(set(x_dims)) == 1
 
@@ -47,12 +47,22 @@ def compute_pairwise_distance_Sym(X, x_dims, n_d=2):
     n_states = x_dims[0]
 
     if n_agents == 1:
-        raise ValueError("Can't compute pairwise distance for one agent.")
-
+        raise ValueError("Can't compute pairwise distance for one agent.")  
+    
     pair_inds = np.array(list(itertools.combinations(range(n_agents), 2)))
+    
     X_agent = reshape(X,(n_agents, n_states))
-    dX = X_agent[:n_d, pair_inds[:, 0]] - X_agent[:n_d, pair_inds[:, 1]]
-    return np.linalg.norm(dX, axis=0).T
-
+    distances = []
+    
+    if n_agents == 2:
+        dX=X_agent[0,0:3]-X_agent[1,0:3]
+        distances.append(sqrt(dX[0]**2+dX[1]**2+dX[2]**2))
+        
+    else:
+        dX = X_agent[:n_d, pair_inds[:, 0]] - X_agent[:n_d, pair_inds[:, 1]]
+        for j in range(dX.shape[1]):
+            distances.append(sqrt(dX[0,j]**2+dX[1,j]**2+dX[2,j]**2))
+            
+    return distances #this is a list of symbolic pariwise distances
 
 

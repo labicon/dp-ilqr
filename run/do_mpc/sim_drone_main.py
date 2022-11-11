@@ -102,12 +102,111 @@ from baseline_model_simulator import *
 #**********************************************
 #Below is centralized set-up for 3 drones:
 
-def setup_baseline(x_baseline, x_baseline_f, v_max, theta_max, phi_max, tau_max,\
-                    x_dims, Q, R, Qf, n_agents, n_inputs, n_dims):
-    model_baseline = baseline_drone_model(x_baseline_f, Q, R, Qf, x_baseline, x_dims)  
+# def setup_baseline_3(x_baseline, x_baseline_f, v_max, theta_max, phi_max, tau_max,\
+#                     x_dims, Q, R, Qf, n_agents, n_inputs, n_dims):
+#     model_baseline = baseline_drone_model_3(x_baseline_f, Q, R, Qf, x_baseline, x_dims)  
 
     
-    mpc_baseline = baseline_drone_mpc(model_baseline,n_agents,x_baseline,\
+#     mpc_baseline = baseline_drone_mpc_3(model_baseline,n_agents,x_baseline,\
+#                                       x_dims, v_max, theta_max, phi_max,tau_max)
+
+    
+#     simulator_baseline = baseline_drone_simulator(model_baseline) 
+
+        
+#     simulator_baseline.x0['x'] = x_baseline
+#     mpc_baseline.x0 = x_baseline
+    
+#     # u_init_baseline = np.full((n_inputs,1), 0)
+#     # u_init_baseline = np.random.rand(n_inputs,1)*0.01
+    
+#     u_init_baseline = np.array([0,0,9.81,0,0,9.81,0,0,9.81]) #hover condition
+#     mpc_baseline.u0 = u_init_baseline
+#     simulator_baseline.u0 = u_init_baseline
+#     mpc_baseline.set_initial_guess()
+    
+#     u0_baseline = mpc_baseline.make_step(x_baseline)
+#     x_baseline_next = simulator_baseline.make_step(u0_baseline)
+#     # print(mpc_baseline.data._lam_g_num)
+#     return u0_baseline, x_baseline_next, mpc_baseline.data._lam_g_num
+    
+
+# def run_sim():
+    
+#     n_agents = 3
+#     n_states = 18
+#     n_inputs = 9
+
+#     theta_max = np.pi/6
+#     phi_max = np.pi/6
+#     tau_max = 15
+#     v_max = 10
+    
+#     # Q = np.eye(n_states)
+#     Q = np.diag([1,1,1,5,5,5,1,1,1,5,5,5,1,1,1,5,5,5])
+#     Qf = np.eye(n_states)*1e3
+#     # Qf = np.eye(n_states)
+#     R = np.diag([0, 1, 1, 0, 1, 1, 0, 1, 1])
+
+#     n_dims = [3,3,3]
+#     x_dims = [6,6,6]
+
+#     episode= 100
+#     x_baseline_init, x_baseline_f = util.paper_setup_3_quads()
+
+#     x_baseline1 = x_baseline_init #concatenated states of all agents
+
+#     states_list = np.zeros((episode+1,6*n_agents)) #states of each drone
+#     states_list[0] = x_baseline1.flatten()
+
+#     time_start = time.perf_counter()
+    
+#     results = []
+
+#     with concurrent.futures.ProcessPoolExecutor(100) as executor:
+            
+#             for k in range(episode):
+       
+#                 f = executor.submit(setup_baseline_3,x_baseline1, x_baseline_f, v_max, theta_max, phi_max, tau_max,\
+#                             x_dims,  Q, R, Qf, n_agents, n_inputs, n_dims)
+
+#                 results.append(f)
+
+#                 #update positions of each drone:
+#                 states_list[k+1] = f.result()[1][:].flatten() #collecting all the states of all agents
+            
+#                 # print("Lagrange Multiplier: ", la_mul)
+#                 # print("Length of Lagrange Multiplier: ", len(la_mul[0]))
+#             # ---------------------------------------------------------
+#                 #position update:
+#                 x_baseline1  = states_list[k+1].reshape(-1,1) 
+                    
+#                 if np.linalg.norm(x_baseline1-x_baseline_f).all() < 0.1:
+#                     print("exiting early: simulation converged to goal!")
+#                     break
+            
+        
+#     time_finish = time.perf_counter()
+#     print("Total time: ", time_finish - time_start)
+#     print(f'initial positions of all drones are {x_baseline_init}')
+#     print(f'final positions of all drones are {x_baseline_f}')
+#     print(f'sum of final position error of all drones is {np.linalg.norm(x_baseline1-x_baseline_f)} [m]')
+#     np.save('drone_sim_data', states_list)
+    
+    
+
+# if __name__ == '__main__':
+#     run_sim()
+
+#*******************************************************
+#Below is centralized set-up for 4 drones:
+
+def setup_baseline_4(x_baseline, x_baseline_f, v_max, theta_max, phi_max, tau_max,\
+                    x_dims, Q, R, Qf, n_agents, n_inputs):
+    model_baseline = baseline_drone_model_4(x_baseline_f, Q, R, Qf, x_baseline, x_dims)  
+
+    
+    mpc_baseline = baseline_drone_mpc_4(model_baseline,n_agents,x_baseline,\
                                       x_dims, v_max, theta_max, phi_max,tau_max)
 
     
@@ -120,7 +219,10 @@ def setup_baseline(x_baseline, x_baseline_f, v_max, theta_max, phi_max, tau_max,
     # u_init_baseline = np.full((n_inputs,1), 0)
     # u_init_baseline = np.random.rand(n_inputs,1)*0.01
     
-    u_init_baseline = np.array([0,0,9.81,0,0,9.81,0,0,9.81]) #hover condition
+    u_init_baseline = np.array([0,0,9.81,\
+                                0,0,9.81,\
+                                0,0,9.81,\
+                                0,0,9.81]) #hover condition
     mpc_baseline.u0 = u_init_baseline
     simulator_baseline.u0 = u_init_baseline
     mpc_baseline.set_initial_guess()
@@ -133,30 +235,36 @@ def setup_baseline(x_baseline, x_baseline_f, v_max, theta_max, phi_max, tau_max,
 
 def run_sim():
     
-    n_agents = 3
-    n_states = 18
-    n_inputs = 9
+    n_agents = 4
+    n_states = 24
+    n_inputs = 12
 
     theta_max = np.pi/6
     phi_max = np.pi/6
-    tau_max = 15
+    tau_max = 20
     v_max = 10
     
     # Q = np.eye(n_states)
-    Q = np.diag([1,1,1,5,5,5,1,1,1,5,5,5,1,1,1,5,5,5])
+    Q = np.diag([1,1,1,5,5,5,\
+                 1,1,1,5,5,5,\
+                 1,1,1,5,5,5,\
+                 1,1,1,5,5,5])
+    
     Qf = np.eye(n_states)*1e3
     # Qf = np.eye(n_states)
-    R = np.diag([0, 1, 1, 0, 1, 1, 0, 1, 1])
+    R = np.diag([0, 1, 1, 
+                 0, 1, 1, 
+                 0, 1, 1,
+                 0, 1, 1])
 
-    n_dims = [3,3,3]
-    x_dims = [6,6,6]
+    x_dims = [6,6,6,6]
 
-    episode= 50
-    x_baseline_init, x_baseline_f = util.paper_setup_3_quads()
+    episode= 100
+    x_baseline_init, x_baseline_f = util.paper_setup_4_quads()
 
     x_baseline1 = x_baseline_init #concatenated states of all agents
 
-    states_list = np.zeros((episode+1,6*n_agents)) #states of each drone
+    states_list = np.zeros((episode+1,n_states)) #states of each drone
     states_list[0] = x_baseline1.flatten()
 
     time_start = time.perf_counter()
@@ -167,8 +275,8 @@ def run_sim():
             
             for k in range(episode):
        
-                f = executor.submit(setup_baseline,x_baseline1, x_baseline_f, v_max, theta_max, phi_max, tau_max,\
-                            x_dims,  Q, R, Qf, n_agents, n_inputs, n_dims)
+                f = executor.submit(setup_baseline_4,x_baseline1, x_baseline_f, v_max, theta_max, phi_max, tau_max,\
+                            x_dims,  Q, R, Qf, n_agents, n_inputs)
 
                 results.append(f)
 
@@ -181,8 +289,8 @@ def run_sim():
                 #position update:
                 x_baseline1  = states_list[k+1].reshape(-1,1) 
                     
-                if dec.compute_pairwise_distance(x_baseline1,x_dims).all() < 0.1:
-                    print("simulation converged to goal!")
+                if np.linalg.norm(x_baseline1-x_baseline_f).all() < 0.1:
+                    print("exiting early: simulation converged to goal!")
                     break
             
         
@@ -191,13 +299,12 @@ def run_sim():
     print(f'initial positions of all drones are {x_baseline_init}')
     print(f'final positions of all drones are {x_baseline_f}')
     print(f'sum of final position error of all drones is {np.linalg.norm(x_baseline1-x_baseline_f)} [m]')
-    np.save('drone_sim_data', states_list)
+    np.save('4_drone_sim_data', states_list)
     
     
 
 if __name__ == '__main__':
     run_sim()
-
 
     
     
