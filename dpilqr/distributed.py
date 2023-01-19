@@ -101,7 +101,7 @@ def solve_rhc(
     N,
     *args,
     centralized=True,
-    n_d=2,
+    n_d=3,
     step_size=1,
     J_converge=None,
     dist_converge=None,
@@ -141,8 +141,8 @@ def solve_rhc(
     xi = x0.reshape(1, -1)
     X = xi.copy()
     # U = np.zeros((N, n_u))
-    U = np.random.rand(N, n_u) * 0.01
-    # U = np.tile([g, 0, 0], (N, n_agents))
+    # U = np.random.rand(N, n_u) * 0.01
+    U = np.tile([0, 0, g], (N, n_agents))
     centralized_solver = ilqrSolver(problem, N)
 
     t = 0
