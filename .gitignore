@@ -1,6 +1,9 @@
-**/.ipynb_checkpoints/
+*.ipynb_checkpoints/
 *.pyc
-*.lock
+*__pycache__/
+*.egg-info/
+*.gif
+*.png
 notebooks/
 logs/
 env/

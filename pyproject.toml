@@ -1,30 +1,40 @@
-[tool.poetry]
-name = "Distributed Potential-iLQR"
+[project]
+name = "dpilqr"
 version = "0.1.0"
 description = "Implementation of Distributed Potential iLQR for scalable cooperative multi-agent navigation."
-authors = ["Zach Williams <zjwilliams20@gmail.com>"]
-license = {file = "LICENSE.txt"}
+authors = [
+    {name="Zach Williams", email="zjwilliams20@gmail.com"}
+]
+license = {file="LICENSE.txt"}
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 
-[tool.poetry.dependencies]
-python = "~3.10"
-numpy = "^1.22.4"
-scipy = "^1.8.1"
-matplotlib = "^3.5.2"
-ipympl = "^0.9.1"
-jupyter = "^1.0.0"
-sympy = "^1.10.1"
-Cython = "^0.29.32"
+dependencies = [
+    "numpy",
+    "scipy",
+    "matplotlib",
+    "sympy",
+    "cython",
+]
 
-[tool.poetry.dev-dependencies]
-seaborn = "^0.11.2"
-jupyterlab = "^3.4.3"
-jupyterlab-git = "^0.37.1"
-jupyterlab-horizon-theme = "^3.0.1"
-networkx = "^2.8.4"
-ipdb = "^0.13.9"
+[project.optional-dependencies]
+dev = [
+    "ipympl",
+    "seaborn",
+    "jupyterlab",
+    "jupyterlab-git",
+    "jupyterlab-horizon-theme",
+    "networkx",
+    "ipdb",
+    "pip-tools",
+]
 
 [build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
+requires = ["setuptools", "setuptools-scm", "cython"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["dpilqr"]
+
+[project.urls]
+homepage = "https://github.com/labicon/distributed-potential-ilqr"
