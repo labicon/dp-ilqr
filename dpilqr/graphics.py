@@ -6,7 +6,6 @@ from operator import mul
 
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
-import networkx as nx
 import numpy as np
 
 from dpilqr.util import split_agents, compute_pairwise_distance
@@ -69,6 +68,8 @@ def nchoosek(n, k):
 
 def plot_interaction_graph(graph):
     """Visualize the interaction graph using networkx"""
+
+    import networkx as nx
 
     plt.clf()
 
