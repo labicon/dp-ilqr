@@ -1,6 +1,7 @@
 # *Distributed Potential-iterative Linear Quadratic Regulator (DP-iLQR)*
 
- [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+ [![License:
+ MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ## Overview
 Repository containing code for a distributed implementation of [Potential
@@ -23,9 +24,36 @@ robotics include:
 
 ![5 Unicycles Agents](media/5_unicycles.gif)
 
-The above is one example of what this looks like using 5 unicycle models. Note that while
-the dynamics of this scenario are homogeneous, this library currently supports simulation of
-non-homogeneous models via zero-padding the states.
+The above is one example of what this looks like using 5 unicycle models. Note that
+while the dynamics of this scenario are homogeneous, this library currently supports
+simulation of non-homogeneous models via zero-padding the states
+
+## Installation
+
+1. After cloning the repo, one must first install all necessary dependencies (ideally
+   into an environment). Then, one can run the following with the environment activated:
+
+        pip install -e .
+
+   This will install an editable version of the package into the local environment. To
+   ensure it worked, navigate to any directory and run:
+
+	    python -c "import dpilqr; print(dpilqr.util.repopath)"
+
+   This should print out the top level of the repository.
+2. Additionally, you must compile the C++ extensions using Cython by running:
+	
+	    python setup.py build_ext --inplace
+
+   This should create a `bbdynamicswrap.cpp` as well as a `*.so` file that `dpilqr` will
+   automatically include in the package namespace.
+
+## Organization
+- [dpilqr](dpilqr) contains the project source code
+- [run/examples.py](run/examples.py) provides several examples that exercise many
+  aspects of the library.
+- [run/analysis.py](run/analysis.py) contains scripts that run monte-carlo simulations
+  to compare Potential-iLQR from DP-iLQR across several parameters.
 
 ## Features
 * Simulation and integration of state space models by defining a ordinary differential
@@ -56,40 +84,9 @@ non-homogeneous models via zero-padding the states.
   ![Interaction Graph Example](media/graphs-5-agents.gif)
 
 
-## Running the Code
-To run the code, we assume that you have [dpilqr](dpilqr/) on 
-your `PYTHONPATH` environment variable. On unix, this can be accomplished by:
-
-    export PYTHONPATH=${PYTHONPATH}:/absolute/path/to/distrubuted-potential-ilqr/
-
-Additionally, you must compile the C++ extensions using Cython by running:
-
-    python setup.py build_ext --inplace
-
-This should create a `bbdynamicswrap.cpp` as well as a `*.so` file that
-`dpilqr` will automatically include in the package namespace.
-
-### Environment
-There are a few different python packages that this project relies on listed out in the
-next section. One can use the [requirements.txt](requirements.txt) to spin up an
-environment with all of the necessary dependencies. To do this, execute the following
-(from the top of the repo) (in unix):
-
-    python -m venv env
-    source env/bin/activate
-    pip install -r requirements.txt
-
-
-### Organization
-- [dpilqr](dpilqr) contains the project source code
-- [run/examples.py](run/examples.py) provides several examples that exercise many
-  aspects of the library.
-- [run/analysis.py](run/analysis.py) contains scripts that run monte-carlo simulations
-  to compare Potential-iLQR from DP-iLQR across several parameters.
-
-
 ## Credit
-The following two repositories have been instrumental from both an algorithms
-and software architecture perspective in the development of this project:
+The following two repositories have been instrumental from both an algorithms and
+software architecture perspective in the development of this project:
 - [HJReachability/ilqgames](https://github.com/HJReachability/ilqgames)
 - [anassinator/ilqr](https://github.com/anassinator/ilqr)
+
