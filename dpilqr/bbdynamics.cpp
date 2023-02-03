@@ -147,6 +147,86 @@ static void linearize_double_int_4d(double dt, double A[], double B[])
     euler_method_discretization(dt, A, B, 4, 2);
 }
 
+static void f_double_int_6d(double x[], double u[], double x_dot[])
+{
+    /* x: [px, py, pz, vx, vy, vz]
+       u: [ax, ay, az]
+    */
+    x_dot[0] = x[3];
+    x_dot[1] = x[4];
+    x_dot[2] = x[5];
+    x_dot[3] = u[0];
+    x_dot[4] = u[1];
+    x_dot[5] = u[2];
+}
+
+static void linearize_double_int_6d(double dt, double A[], double B[])
+{
+    A[0] = 0;
+    A[1] = 0;
+    A[2] = 0;
+    A[3] = 1;
+    A[4] = 0;
+    A[5] = 0;
+
+    A[6] = 0;
+    A[7] = 0;
+    A[8] = 0;
+    A[9] = 0;
+    A[10] = 1;
+    A[11] = 0;
+
+    A[12] = 0;
+    A[13] = 0;
+    A[14] = 0;
+    A[15] = 0;
+    A[16] = 0;
+    A[17] = 1;
+
+    A[18] = 0;
+    A[19] = 0;
+    A[20] = 0;
+    A[21] = 0;
+    A[22] = 0;
+    A[23] = 0;
+
+    A[24] = 0;
+    A[25] = 0;
+    A[26] = 0;
+    A[27] = 0;
+    A[28] = 0;
+    A[29] = 0;
+
+    A[30] = 0;
+    A[31] = 0;
+    A[32] = 0;
+    A[33] = 0;
+    A[34] = 0;
+    A[35] = 0;
+
+    B[0] = 0;
+    B[1] = 0;
+    B[2] = 0;
+    B[3] = 0;
+    B[4] = 0;
+    B[5] = 0;
+    B[6] = 0;
+    B[7] = 0;
+    B[8] = 0;
+
+    B[9] = 1;
+    B[10] = 0;
+    B[11] = 0;
+    B[12] = 0;
+    B[13] = 1;
+    B[14] = 0;
+    B[15] = 0;
+    B[16] = 0;
+    B[17] = 1;
+
+    euler_method_discretization(dt, A, B, 6, 3);
+}
+
 static void f_car_3d(double x[], double u[], double x_dot[])
 {
     /* x: [px, py, theta]

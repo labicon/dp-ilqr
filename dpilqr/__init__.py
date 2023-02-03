@@ -18,6 +18,7 @@ from .dynamics import (
     BikeDynamics5D,
     CarDynamics3D,
     DoubleIntDynamics4D,
+    DoubleIntDynamics6D,
     DynamicalModel,
     HumanDynamics6D,
     MultiDynamicalModel,

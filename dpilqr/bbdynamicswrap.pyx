@@ -7,6 +7,7 @@ import numpy as np
 
 class Model(Enum):
     DoubleInt4D = 0
+    DoubleInt6D = auto()
     Car3D = auto()
     Unicycle4D = auto()
     Quadcopter6D = auto()
@@ -24,6 +25,9 @@ cdef extern from "bbdynamics.cpp":
 
     void f_double_int_4d(double x[], double u[], double x_dot[])
     void linearize_double_int_4d(double dt, double A[], double B[])
+
+    void f_double_int_6d(double x[], double u[], double x_dot[])
+    void linearize_double_int_6d(double dt, double A[], double B[])
 
     void f_car_3d(double x[], double u[], double x_dot[])
     void linearize_car_3d(double x[], double u[], double dt, double A[], double B[])
@@ -63,6 +67,8 @@ def f(x, u, model):
     cdef f_func f
     if model is Model.DoubleInt4D:
         f = f_double_int_4d
+    elif model is Model.DoubleInt6D:
+        f = f_double_int_6d
     elif model is Model.Car3D:
         f = f_car_3d
     elif model is Model.Unicycle4D:
@@ -92,6 +98,8 @@ def integrate(x, u, double dt, model):
     cdef f_func f;
     if model is Model.DoubleInt4D:
         f = f_double_int_4d
+    elif model is Model.DoubleInt6D:
+        f = f_double_int_6d
     elif model is Model.Car3D:
         f = f_car_3d
     elif model is Model.Unicycle4D:
@@ -130,6 +138,8 @@ def linearize(x, u, double dt, model):
 
     if model is Model.DoubleInt4D:
         linearize_double_int_4d(dt, &A_view[0], &B_view[0])
+    elif model is Model.DoubleInt6D:
+        linearize_double_int_6d(dt, &A_view[0], &B_view[0])
     elif model is Model.Car3D:
         linearize_car_3d(&x_view[0], &u_view[0], dt, &A_view[0], &B_view[0])
     elif model is Model.Unicycle4D:

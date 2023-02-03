@@ -152,9 +152,6 @@ def random_multiagent_simulation():
         random=True,
     )
 
-    x_dims = [n_states] * n_agents
-    u_dims = [n_controls] * n_agents
-
     dpilqr.eyeball_scenario(x0, xf, n_agents, n_states)
     plt.show()
 
@@ -202,12 +199,71 @@ def random_multiagent_simulation():
     dpilqr.make_trajectory_gif(f"{n_agents}-unicycles.gif", X, xf, x_dims, radius)
 
 
+def _3d_integrators():
+    n_states = 6
+    n_controls = 3
+    n_agents = 4
+    x_dims = [n_states] * n_agents
+    u_dims = [n_controls] * n_agents
+    n_dims = [3] * n_agents
+
+    n_d = n_dims[0]
+
+    # x0, xf = scenarios.paper_setup_5_quads()
+    x0, xf = scenarios.four_quads_exchange()
+
+    dpilqr.eyeball_scenario(x0, xf, n_agents, n_states)
+    plt.show()
+
+    dt = 0.05
+    N = 80
+
+    tol = 1e-6
+    ids = [100 + i for i in range(n_agents)]
+
+    model = dpilqr.DoubleIntDynamics6D
+    dynamics = dpilqr.MultiDynamicalModel([model(dt, id_) for id_ in ids])
+
+    Q = np.eye(6)
+    R = np.eye(3)
+    Qf = 1e3 * np.eye(n_states)
+    radius = 0.4
+
+    goal_costs = [
+        dpilqr.ReferenceCost(xf_i, Q.copy(), R.copy(), Qf.copy(), id_)
+        for xf_i, id_ in zip(dpilqr.split_agents_gen(xf, x_dims), ids)
+    ]
+    prox_cost = dpilqr.ProximityCost(x_dims, radius, n_dims)
+    goal_costs = [
+        dpilqr.ReferenceCost(xf_i, Q.copy(), R.copy(), Qf.copy(), id_)
+        for xf_i, id_ in zip(split_agents(xf.T, x_dims), ids)
+    ]
+    prox_cost = dpilqr.ProximityCost(x_dims, radius, n_dims)
+    game_cost = dpilqr.GameCost(goal_costs, prox_cost)
+
+    problem = dpilqr.ilqrProblem(dynamics, game_cost)
+    solver = dpilqr.ilqrSolver(problem, N)
+
+    X, _, J = solver.solve(x0, tol=tol, t_kill=None)
+
+    plt.clf()
+    plot_solve(X, J, xf.T, x_dims, True, n_d)
+
+    plt.figure()
+    dpilqr.plot_pairwise_distances(X, x_dims, n_dims, radius)
+
+    plt.show()
+
+    dpilqr.make_trajectory_gif(f"{n_agents}-quads.gif", X, xf, x_dims, radius)
+
+
 def main():
 
     # single_unicycle()
     # single_quad6d()
     # two_quads_one_human()
-    random_multiagent_simulation()
+    # random_multiagent_simulation()
+    _3d_integrators()
 
 
 if __name__ == "__main__":

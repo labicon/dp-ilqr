@@ -208,6 +208,12 @@ class DoubleIntDynamics4D(CppModel):
         self.model = Model.DoubleInt4D
 
 
+class DoubleIntDynamics6D(CppModel):
+    def __init__(self, dt, *args, **kwargs):
+        super().__init__(6, 3, dt, *args, **kwargs)
+        self.model = Model.DoubleInt6D
+
+
 class CarDynamics3D(CppModel):
     def __init__(self, dt, *args, **kwargs):
         super().__init__(3, 2, dt, *args, **kwargs)

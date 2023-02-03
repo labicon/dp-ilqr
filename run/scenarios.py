@@ -78,3 +78,19 @@ def two_quads_one_human_setup():
                    -1.5, 0, 2, 0, 0, 0,
                    0.0, 2, 1.5, 0, 0, 0]]).T
     return x0, xf
+
+
+def four_quads_exchange():
+    x0 = np.array([[0.0, 0, 1, 0, 0, 0,
+                    1.0, 0, 1, 0, 0, 0,
+                    2.0, 0, 1, 0, 0, 0,
+                    3.0, 0, 1, 0, 0, 0
+                    ]]).T
+    xf = np.array([[3.0, 1, 1, 0, 0, 0,
+                    0.0, 1, 1, 0, 0, 0,
+                    1.0, 1, 1, 0, 0, 0,
+                    2.0, 1, 1, 0, 0, 0,
+                    ]]).T
+    x0[pos_mask([6]*4, 3)] += 0.1*np.random.randn(12, 1)
+    xf[pos_mask([6]*4, 3)] += 0.1*np.random.randn(12, 1)
+    return x0, xf
