@@ -50,9 +50,9 @@ simulation of non-homogeneous models via zero-padding the states
 
 ## Organization
 - [dpilqr](dpilqr) contains the project source code
-- [run/examples.py](run/examples.py) provides several examples that exercise many
+- [scripts/examples.py](run/examples.py) provides several examples that exercise many
   aspects of the library.
-- [run/analysis.py](run/analysis.py) contains scripts that run monte-carlo simulations
+- [scripts/analysis.py](run/analysis.py) contains scripts that run monte-carlo simulations
   to compare Potential-iLQR from DP-iLQR across several parameters.
 
 ## Features
