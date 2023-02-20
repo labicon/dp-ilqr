@@ -9,14 +9,12 @@ import sys
 import time
 from time import perf_counter as pc
 
-import dpilqr as dec
 import matplotlib.pyplot as plt
 import numpy as np
-import rospy
-import tf
-from dpilqr import plot_solve, split_agents
 
-import pycrazyswarm as crazy
+import dpilqr as dec
+from dpilqr import plot_solve, split_agents
+import crazyflie_py as crazy
 
 plt.ion()
 
@@ -28,20 +26,20 @@ csv_filename = "experiment_data/" + datetimeString + "-data.csv"
 LOG_DATA = False
 
 TAKEOFF_Z = 1.0
-TAKEOFF_DURATION = 3.0
+TAKEOFF_DURATION = 1.0
 
 # Used to tune aggresiveness of low-level controller
-GOTO_DURATION = 4.0
+GOTO_DURATION = 1.0
 
 # Defining takeoff and experiment start position
-start_pos_list = [[0.5, 1.0, 1], [3.0, 2.5, 1], [1.5, 1.0, 1]]
-goal_pos_list = [[2.5, 1.5, 1], [0.5, 1.5, 1], [1.5, 2.2, 1]]
+start_pos_list = [[0.5, 1.0, 1.0], [3.0, 2.5, 1.0], [1.5, 1.0, 1.0]]
+goal_pos_list = [[2.5, 1.5, 1.0], [0.5, 1.5, 1.0], [1.5, 2.2, 1.0]]
 
 
 def go_home_callback(swarm, timeHelper, start_pos_list):
     """Tell all quadcopters to go to their starting positions when program exits"""
     print("Program exit: telling quads to go home...")
-    swarm.allcfs.goToAbsolute(start_pos_list,duration = GOTO_DURATION)
+    swarm.allcfs.goToAbsolute(start_pos_list, yaw=0.0, duration=GOTO_DURATION)
     timeHelper.sleep(4.0)
     swarm.allcfs.land(targetHeight=0.05, duration=3.0)
     timeHelper.sleep(4.0)
@@ -50,7 +48,7 @@ def go_home_callback(swarm, timeHelper, start_pos_list):
 """
 The states of the quadcopter are: px, py ,pz, vx, vy, vz
 """
-def perform_experiment(centralized=False, sim=False):
+def perform_experiment(listener, centralized=False, sim=False):
 
     fig1 = plt.figure()
     fig2 = plt.figure()
@@ -59,9 +57,9 @@ def perform_experiment(centralized=False, sim=False):
         # Wait for button press for take off
         input("##### Press Enter to Take Off #####")
     
-        allcfs.takeoff(targetHeight=TAKEOFF_Z, duration=1.0+TAKEOFF_Z)
+        swarm.allcfs.takeoff(targetHeight=TAKEOFF_Z, duration=1.0+TAKEOFF_Z)
         timeHelper.sleep(TAKEOFF_DURATION)
-        allcfs.goToAbsolute(start_pos_list)
+        swarm.allcfs.goToAbsolute(start_pos_list)
     
         # Wait for button press to begin experiment
         input("##### Press Enter to Begin Experiment #####")
@@ -120,8 +118,8 @@ def perform_experiment(centralized=False, sim=False):
                 centralized_solver, xi, U, ids, verbose=False
             )
         else:
-            X, U, J, _ = dec.solve_decentralized(
-                prob, X, U, d_prox, t_kill, pool=None, verbose=False
+            X, U, J, _ = dec.solve_distributed(
+                prob, X, U, d_prox, pool=None, verbose=False, t_kill=t_kill
                 )
    
         tf = pc()
@@ -138,11 +136,13 @@ def perform_experiment(centralized=False, sim=False):
         # x, y, z coordinates from the solved trajectory X.
         xd = X[step_size].reshape(n_agents, n_states)[:, :3]
         if not sim:
-            swarm.allcfs.goToAbsolute(xd, duration = 1.5)
+            swarm.allcfs.goToAbsolute(xd, duration=1.5)
             # Position update from VICON
-            pos_cfs = [cf.position() for cf in swarm.allcfs.crazyflies]
+            pos_cfs = swarm.allcfs.position
+            print(pos_cfs.shape)
             # Velocity update from VICON
-            vel_cfs = [cf.velocity() for cf in swarm.allcfs.crazyflies] 
+            # vel_cfs = [cf.velocity() for cf in swarm.allcfs.crazyflies]
+            vel_cfs = np.zeros_like(pos_cfs)
         else:
             xi = X[step_size]
 
@@ -176,11 +176,11 @@ def perform_experiment(centralized=False, sim=False):
             timestampString = str(time.time())
             csvwriter.writerow([timestampString] + pos_cfs + vel_cfs)
 
-        rate.sleep()
+        # rate.sleep()
     
     if not sim:
         input("##### Press Enter to Go Back to Origin #####")
-        swarm.allcfs.goToAbsolute(start_pos_list,duration = GOTO_DURATION*3)
+        swarm.allcfs.goToAbsolute(start_pos_list, duration=GOTO_DURATION*3)
         timeHelper.sleep(4.0)
 
         swarm.allcfs.land(targetHeight=0.05, duration=GOTO_DURATION)
@@ -195,9 +195,8 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     swarm = crazy.Crazyswarm()
-    listener = tf.TransformListener()
-    rate = rospy.Rate(2)
-
+    # rate = rospy.Rate(2)
+   
     timeHelper = swarm.timeHelper
     allcfs = swarm.allcfs
 
@@ -214,11 +213,11 @@ if __name__ == '__main__':
     if LOG_DATA:
         num_cfs = len(swarm.allcfs.crazyflies)
         print("### Logging data to file: " + csv_filename)
-        csvfile = open(csv_filename, 'w')
-        csvwriter = csv.writer(csvfile, delimiter=',')
+        with open(csv_filename, 'w') as csvfile:
+            csvwriter = csv.writer(csvfile, delimiter=',')
 
-        csvwriter.writerow(['# CFs', str(num_cfs)])
-        csvwriter.writerow(
+            csvwriter.writerow(['# CFs', str(num_cfs)])
+            csvwriter.writerow(
                 ["Timestamp [s]"] 
                 + num_cfs*["x_d", "y_d", "z_d", " x", "y", "z", "qw", "qx", "qy", "qz"]
                 )
