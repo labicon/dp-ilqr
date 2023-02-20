@@ -37,4 +37,4 @@ build-backend = "setuptools.build_meta"
 packages = ["dpilqr"]
 
 [project.urls]
-homepage = "https://github.com/labicon/distributed-potential-ilqr"
+homepage = "https://github.com/labicon/dp-ilqr"
