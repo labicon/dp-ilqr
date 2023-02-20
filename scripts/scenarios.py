@@ -94,3 +94,32 @@ def four_quads_exchange():
     x0[pos_mask([6]*4, 3)] += 0.1*np.random.randn(12, 1)
     xf[pos_mask([6]*4, 3)] += 0.1*np.random.randn(12, 1)
     return x0, xf
+
+def four_quads_exchange_2():
+    """
+    1_________2
+
+        
+
+    3_________4
+
+
+    """
+    
+    
+    x0 = np.array([[-2.5, 2.5, 1.0, 0, 0, 0,
+                    2.5, 2.5, 1.0, 0, 0, 0,
+                    -2.5, -2.5, 1.0, 0, 0, 0,
+                    2.5, -2.5, 1.0, 0, 0, 0,       
+                    ]]).T
+    
+    xf = np.array([[2.5, -2.5, 1.0, 0, 0, 0,
+                    -2.5, -2.5, 1.0, 0, 0, 0,
+                    2.5, 2.5, 1.0, 0, 0, 0,
+                    -2.5, 2.5, 1.0, 0, 0,
+                    ]]).T
+    
+    # x0[pos_mask([6]*4, 3)] += 0.1*np.random.randn(12, 1)
+    # xf[pos_mask([6]*4, 3)] += 0.1*np.random.randn(12, 1)
+    
+    return x0, xf
