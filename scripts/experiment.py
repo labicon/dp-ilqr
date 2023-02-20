@@ -29,7 +29,7 @@ TAKEOFF_Z = 1.0
 TAKEOFF_DURATION = 1.0
 
 # Used to tune aggresiveness of low-level controller
-GOTO_DURATION = 1.0
+GOTO_DURATION = 0.1
 
 # Defining takeoff and experiment start position
 start_pos_list = [[0.5, 1.0, 1.0], [3.0, 2.5, 1.0], [1.5, 1.0, 1.0]]
@@ -41,7 +41,7 @@ def go_home_callback(swarm, timeHelper, start_pos_list):
     print("Program exit: telling quads to go home...")
     swarm.allcfs.goToAbsolute(start_pos_list, yaw=0.0, duration=GOTO_DURATION)
     timeHelper.sleep(4.0)
-    swarm.allcfs.land(targetHeight=0.05, duration=3.0)
+    swarm.allcfs.land(targetHeight=0.05, duration=GOTO_DURATION)
     timeHelper.sleep(4.0)
 
 
@@ -78,7 +78,7 @@ def perform_experiment(listener, centralized=False, sim=False):
     N = 40
 
     ids = [100 + i for i in range(n_agents)]
-    model = dec.QuadcopterDynamics6D
+    model = dec.DoubleIntDynamics6D
     dynamics = dec.MultiDynamicalModel([model(dt, id_) for id_ in ids])
     Q = 1.0 * np.diag([10, 10, 10, 1, 1, 1])
     Qf = 1000.0 * np.eye(Q.shape[0])
@@ -103,11 +103,11 @@ def perform_experiment(listener, centralized=False, sim=False):
     
     X_full = np.zeros((0, n_states*n_agents))
     U_full = np.zeros((0, n_controls*n_agents))
-    X = np.tile(xi,(N+1, 1))
+    X = np.tile(xi, (N+1, 1))
     
-    t_kill = N*dt
+    t_kill = N * dt
     
-    while not np.all(dec.distance_to_goal(xi,x_goal,n_agents,n_states,3) <= d_converge):
+    while not np.all(dec.distance_to_goal(xi, x_goal, n_agents, n_states, 3) <= d_converge):
         t0 = pc()
         # How to feed state back into decentralization?
         #  1. Only decentralize at the current state.
@@ -131,18 +131,16 @@ def perform_experiment(listener, centralized=False, sim=False):
 
         # Seed the next iteration with the last state.
         X = np.r_[X[step_size:], np.tile(X[-1], (step_size, 1))]
-        U = np.r_[U[step_size:], np.zeros((step_size, n_controls*n_agents))]
+        U = np.r_[U[step_size:], np.tile(U[-1], (step_size, 1))]
 
         # x, y, z coordinates from the solved trajectory X.
         xd = X[step_size].reshape(n_agents, n_states)[:, :3]
         if not sim:
-            swarm.allcfs.goToAbsolute(xd, duration=1.5)
-            # Position update from VICON
+            swarm.allcfs.goToAbsolute(xd, duration=GOTO_DURATION)
+            # Position update from VICON.
             pos_cfs = swarm.allcfs.position
-            print(pos_cfs.shape)
-            # Velocity update from VICON
-            # vel_cfs = [cf.velocity() for cf in swarm.allcfs.crazyflies]
             vel_cfs = np.zeros_like(pos_cfs)
+            xi = np.c_[pos_cfs, vel_cfs].ravel()
         else:
             xi = X[step_size]
 
@@ -164,23 +162,24 @@ def perform_experiment(listener, centralized=False, sim=False):
 
         fig1.canvas.draw()
         fig2.canvas.draw()
-        plt.pause(1)
+        plt.pause(0.01)
 
         # # Replace the currently predicted states with the actual ones.
         # X[0, pos_mask(x_dims, 3)] = xi[pos_mask(x_dims, 3)]
         # # TODO: see if this velocity makes sense here.
         # X[0, ~pos_mask(x_dims, 3)] = xi[~pos_mask(x_dims, 3)]
-        X = np.tile(xi, (N+1,1))
+        # X = np.tile(xi, (N+1,1))
 
         if LOG_DATA:
             timestampString = str(time.time())
             csvwriter.writerow([timestampString] + pos_cfs + vel_cfs)
 
+        print(f"Distance left: {dec.distance_to_goal(xi,x_goal,n_agents,n_states,3)}\n{d_converge}")
         # rate.sleep()
     
     if not sim:
         input("##### Press Enter to Go Back to Origin #####")
-        swarm.allcfs.goToAbsolute(start_pos_list, duration=GOTO_DURATION*3)
+        swarm.allcfs.goToAbsolute(start_pos_list, duration=GOTO_DURATION)
         timeHelper.sleep(4.0)
 
         swarm.allcfs.land(targetHeight=0.05, duration=GOTO_DURATION)
