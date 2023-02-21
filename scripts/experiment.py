@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-
+import rclpy
 import argparse
 import atexit
 import csv
@@ -29,7 +29,7 @@ TAKEOFF_Z = 1.0
 TAKEOFF_DURATION = 1.0
 
 # Used to tune aggresiveness of low-level controller
-GOTO_DURATION = 0.1
+GOTO_DURATION = 2.0
 
 # Defining takeoff and experiment start position
 start_pos_list = [[0.5, 1.0, 1.0], [3.0, 2.5, 1.0], [1.5, 1.0, 1.0]]
@@ -44,6 +44,14 @@ def go_home_callback(swarm, timeHelper, start_pos_list):
     swarm.allcfs.land(targetHeight=0.05, duration=GOTO_DURATION)
     timeHelper.sleep(4.0)
 
+def vicon_measurement(swarm):
+    
+    # Position update from VICON.
+    pos_cfs = swarm.allcfs.position
+    vel_cfs = np.zeros_like(pos_cfs)
+    xi = np.c_[pos_cfs, vel_cfs].ravel()
+    
+    return xi
 
 """
 The states of the quadcopter are: px, py ,pz, vx, vy, vz
@@ -71,7 +79,7 @@ def perform_experiment(listener, centralized=False, sim=False):
     x_dims = [n_states] * n_agents
     # u_dims = [n_controls] * n_agents
     
-    x = np.hstack([start_pos_list,np.zeros((n_agents,3))]).flatten() 
+    # x = np.hstack([start_pos_list,np.zeros((n_agents,3))]).flatten() 
     x_goal = np.hstack([goal_pos_list,np.zeros((n_agents,3))]).flatten()
 
     dt = 0.1
@@ -84,7 +92,7 @@ def perform_experiment(listener, centralized=False, sim=False):
     Qf = 1000.0 * np.eye(Q.shape[0])
     R = 1.0 * np.diag([0, 1, 1])
 
-    d_converge = 0.05
+    d_converge = 0.1
     d_prox = 0.2
     
     goal_costs = [dec.ReferenceCost(x_goal_i, Q.copy(), R.copy(), Qf.copy(), id_) 
@@ -94,8 +102,7 @@ def perform_experiment(listener, centralized=False, sim=False):
 
     prob = dec.ilqrProblem(dynamics, game_cost)
     centralized_solver = dec.ilqrSolver(prob, N)
-    
-    xi = x.reshape(1, -1)
+
     U = np.zeros((N, n_controls*n_agents))
     ids = prob.ids.copy()
 
@@ -103,21 +110,24 @@ def perform_experiment(listener, centralized=False, sim=False):
     
     X_full = np.zeros((0, n_states*n_agents))
     U_full = np.zeros((0, n_controls*n_agents))
-    X = np.tile(xi, (N+1, 1))
+    
     
     t_kill = N * dt
-    
+    xi = vicon_measurement(swarm)
     while not np.all(dec.distance_to_goal(xi, x_goal, n_agents, n_states, 3) <= d_converge):
         t0 = pc()
         # How to feed state back into decentralization?
         #  1. Only decentralize at the current state.
         #  2. Offset the predicted trajectory by the current state.
         # Go with 2. and monitor the difference between the algorithm and VICON.
+        # xi = vicon_measurement(swarm)
+        # print(f'initial measured state is {xi}')
         if centralized:
             X, U, J, _ = dec.solve_centralized(
                 centralized_solver, xi, U, ids, verbose=False
             )
         else:
+            X = xi.copy().reshape(1,-1)
             X, U, J, _ = dec.solve_distributed(
                 prob, X, U, d_prox, pool=None, verbose=False, t_kill=t_kill
                 )
@@ -138,9 +148,12 @@ def perform_experiment(listener, centralized=False, sim=False):
         if not sim:
             swarm.allcfs.goToAbsolute(xd, duration=GOTO_DURATION)
             # Position update from VICON.
-            pos_cfs = swarm.allcfs.position
-            vel_cfs = np.zeros_like(pos_cfs)
-            xi = np.c_[pos_cfs, vel_cfs].ravel()
+            while not np.allclose(xi[dec.pos_mask(x_dims,3)],xd.flatten(),atol=d_converge):
+                print(f'current state mismatch is {(xi[dec.pos_mask(x_dims,3)]-xd.flatten())}')
+                xi = vicon_measurement(swarm)
+                rclpy.spin_once(swarm.allcfs)
+                time.sleep(0.5)
+                
         else:
             xi = X[step_size]
 
