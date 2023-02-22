@@ -29,7 +29,7 @@ TAKEOFF_Z = 1.0
 TAKEOFF_DURATION = 1.0
 
 # Used to tune aggresiveness of low-level controller
-GOTO_DURATION = 2.0
+GOTO_DURATION = 1.5
 
 # Defining takeoff and experiment start position
 start_pos_list = [[0.5, 1.0, 1.0], [3.0, 2.5, 1.0], [1.5, 1.0, 1.0]]
@@ -106,14 +106,14 @@ def perform_experiment(listener, centralized=False, sim=False):
     U = np.zeros((N, n_controls*n_agents))
     ids = prob.ids.copy()
 
-    step_size = 1
+    step_size = 5
     
     X_full = np.zeros((0, n_states*n_agents))
     U_full = np.zeros((0, n_controls*n_agents))
     
-    
     t_kill = N * dt
     xi = vicon_measurement(swarm)
+    
     while not np.all(dec.distance_to_goal(xi, x_goal, n_agents, n_states, 3) <= d_converge):
         t0 = pc()
         # How to feed state back into decentralization?
@@ -148,14 +148,16 @@ def perform_experiment(listener, centralized=False, sim=False):
         if not sim:
             swarm.allcfs.goToAbsolute(xd, duration=GOTO_DURATION)
             # Position update from VICON.
-            while not np.allclose(xi[dec.pos_mask(x_dims,3)],xd.flatten(),atol=d_converge):
-                print(f'current state mismatch is {(xi[dec.pos_mask(x_dims,3)]-xd.flatten())}')
-                xi = vicon_measurement(swarm)
-                rclpy.spin_once(swarm.allcfs)
-                time.sleep(0.5)
+            # while not np.allclose(xi[dec.pos_mask(x_dims,3)],xd.flatten(),atol=d_converge):
+            print(f'current state mismatch is {(xi[dec.pos_mask(x_dims,3)]-xd.flatten())}')
+            xi = vicon_measurement(swarm)
+            rclpy.spin_once(swarm.allcfs)
+            # time.sleep(0.1)
+            timeHelper.sleepForRate(1/GOTO_DURATION)
                 
         else:
             xi = X[step_size]
+            timeHelper.sleepForRate(1/GOTO_DURATION)
 
         state_error = np.abs(X[0] - xi)
         print(f"CF states: \n{xi.reshape(n_agents, n_states)}\n")
@@ -207,7 +209,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     swarm = crazy.Crazyswarm()
-    # rate = rospy.Rate(2)
+    # rate = rospy.Rate(2) this does not exist in ROS2
    
     timeHelper = swarm.timeHelper
     allcfs = swarm.allcfs
@@ -235,3 +237,4 @@ if __name__ == '__main__':
                 )
 
     perform_experiment(args.centralized, args.sim)
+    
