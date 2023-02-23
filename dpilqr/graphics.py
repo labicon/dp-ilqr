@@ -90,7 +90,7 @@ def plot_interaction_graph(graph):
     plt.draw()
 
 
-def plot_solve(X, J, x_goal, x_dims=None, color_agents=False, n_d=2):
+def plot_solve(X, J, x_goal, x_dims=None, color_agents=False, n_d=2, ax=None):
     """Plot the resultant trajectory on plt.gcf()"""
 
     if n_d not in (2, 3):
@@ -99,10 +99,11 @@ def plot_solve(X, J, x_goal, x_dims=None, color_agents=False, n_d=2):
     if not x_dims:
         x_dims = [X.shape[1]]
 
-    if n_d == 2:
-        ax = plt.gca()
-    else:
-        ax = plt.gcf().add_subplot(projection="3d")
+    if not ax:
+        if n_d == 2:
+            ax = plt.gca()
+        else:
+            ax = plt.gcf().add_subplot(projection="3d")
 
     N = X.shape[0]
     n = np.arange(N)
