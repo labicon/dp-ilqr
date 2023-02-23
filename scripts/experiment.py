@@ -1,39 +1,24 @@
 #!/usr/bin/env python
-import rclpy
 import argparse
 import atexit
-import csv
 import datetime
+from pathlib import Path
 import signal
 import sys
-import time
 from time import perf_counter as pc
 
 import matplotlib.pyplot as plt
 import numpy as np
+import rclpy
 
+from crazyflie_py.crazyflie import CrazyflieServer, TimeHelper
 import dpilqr as dec
 from dpilqr import plot_solve, split_agents
-import crazyflie_py as crazy
 
 plt.ion()
 
-# Assemble filename for logged data
-datetimeString = datetime.datetime.now().strftime("%m%d%y-%H:%M:%S")
-csv_filename = "experiment_data/" + datetimeString + "-data.csv"
-
-# Enable or disable data logging
-LOG_DATA = False
-
 TAKEOFF_Z = 1.0
 TAKEOFF_DURATION = 1.0
-
-# Used to tune aggresiveness of low-level controller
-GOTO_DURATION = 1.0
-
-# Allow a little extra time for the quads to arrive at their goals since
-# GOTO_DURATION isn't guaranteed.
-N_MAX_SLEEPS = 1
 
 # Defining takeoff and experiment start position
 # start_pos_list = [[0.5, 1.0, 1.0], [3.0, 2.5, 1.0], [1.5, 1.0, 1.0]]
@@ -43,194 +28,235 @@ start_pos_list = [[0.0, 0.0, 1.0], [1.0, 0.0, 1.0], [2.0, 0.0, 1.0], [3.0, 0.0, 
 goal_pos_list = [[3.0, 1.0, 1.0], [0.0, 1.0, 1.0], [1.0, 1.0, 1.0], [2.0, 1.0, 1.0]]
 
 
-def go_home_callback(swarm, timeHelper, start_pos_list):
-    """Tell all quadcopters to go to their starting positions when program exits"""
-    print("Program exit: telling quads to go home...")
-    goToAbsolute(swarm.allcfs, start_pos_list, yaw=0.0, duration=GOTO_DURATION)
-    timeHelper.sleep(5.0)
-    swarm.allcfs.land(targetHeight=0.05, duration=GOTO_DURATION)
-    timeHelper.sleep(1.0)
+class CrazyflieServerCustom(CrazyflieServer):
+    """Adds a few additional useful functions to CrazyflieServer"""
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # self.setParam("colAv/enable", 1)
 
-def goToAbsolute(cfs, goals, yaw=0.0, duration=2.0):
-    """Send goTo's to all crazyflies at once"""
-    for pos, cf in zip(goals, cfs.crazyflies):
-        # cf.goTo(pos, yaw, duration)
-        cf.cmdPosition(pos, yaw)
+    def goToAbsolute(self, goals, yaw=0.0, duration=2.0):
+        """Send goTo's to all crazyflies at once"""
+        for pos, cf in zip(goals, self.crazyflies):
+            cf.goTo(pos, yaw, duration)
+            # cf.cmdPosition(pos, yaw)
 
-def goToBlock(cfs, goals, timeHelper, *args, **kwargs):
-    # Define the distance at which we have 'arrived'.
-    D_ARRIVE = 0.1
-    # Recommended rate for using cmdPosition for streaming setpoints.
-    CMD_HZ = 10.0
-    xf = goals.ravel()
-    xi = cfs.position
-    while np.linalg.norm(xi, xf) >= D_ARRIVE:
-        goToAbsolute(cfs, goals, *args, **kwargs)
-        timeHelper.sleepForRate(1 / CMD_HZ)
-        xi = cfs.position
-
-
-def vicon_measurement(swarm):
-    """Position update from VICON."""
-    pos_cfs = swarm.allcfs.position
-    vel_cfs = np.zeros_like(pos_cfs)
-    return np.c_[pos_cfs, vel_cfs].ravel()
-
-
-def perform_experiment(centralized=False, sim=False):
-
-    fig = plt.figure(figsize=(12, 4), layout="constrained")
-    
-    if not sim:
-        # Wait for button press for take off
-        input("##### Press Enter to Take Off #####")
-    
-        swarm.allcfs.takeoff(targetHeight=TAKEOFF_Z, duration=1.0+TAKEOFF_Z)
-        timeHelper.sleep(TAKEOFF_DURATION)
-        swarm.allcfs.goToAbsolute(start_pos_list)
-    
-        # Wait for button press to begin experiment
-        input("##### Press Enter to Begin Experiment #####")
-
-    n_states = 6
-    n_controls = 3
-    n_agents = 4
-    x_dims = [n_states] * n_agents
-    # u_dims = [n_controls] * n_agents
-    n_dims = [3] * n_agents
-
-    # x = np.hstack([start_pos_list,np.zeros((n_agents,3))]).flatten() 
-    x_goal = np.hstack([goal_pos_list,np.zeros((n_agents,3))]).flatten()
-
-    dt = 0.1
-    N = 40
-
-    ids = [100 + i for i in range(n_agents)]
-    model = dec.DoubleIntDynamics6D
-    dynamics = dec.MultiDynamicalModel([model(dt, id_) for id_ in ids])
-    # Q = np.eye(n_states)
-    Q = 1.0 * np.diag([10, 10, 10, 1, 1, 1])
-    Qf = 1000.0 * np.eye(n_states)
-    R = np.eye(3)
-
-    d_converge = 0.2
-    d_prox = 0.6
-    
-    goal_costs = [dec.ReferenceCost(x_goal_i, Q.copy(), R.copy(), Qf.copy(), id_) 
-                for x_goal_i, id_ in zip(split_agents(x_goal.T, x_dims), ids)]
-    prox_cost = dec.ProximityCost(x_dims, d_prox, n_dims)
-    game_cost = dec.GameCost(goal_costs, prox_cost)
-
-    prob = dec.ilqrProblem(dynamics, game_cost)
-    centralized_solver = dec.ilqrSolver(prob, N)
-
-    U = np.zeros((N, n_controls*n_agents))
-    ids = prob.ids.copy()
-
-    step_size = 20
-    
-    X_alg = np.zeros((0, n_states*n_agents))
-    U_alg = np.zeros((0, n_controls*n_agents))
-    X_meas = np.zeros_like(X_alg)
-    
-    t_kill = N * dt
-    X_meas = vicon_measurement(swarm).reshape(1, -1)
-    
-    while not np.all(dec.distance_to_goal(X_meas[-1], x_goal, n_agents, n_states, 3) <= d_converge):
-        # How to feed state back into decentralization?
-        #  1. Only decentralize at the current state.
-        #  2. Offset the predicted trajectory by the current state.
-        # Go with 2. and monitor the difference between the algorithm and VICON.
-        X_meas = np.r_[X_meas, vicon_measurement(swarm)[np.newaxis]]
-        xi = X_meas[-1]
-
-        t0 = pc()
-        if centralized:
-            X, U, J, _ = dec.solve_centralized(
-                centralized_solver, xi, U, ids, verbose=False, t_kill=t_kill,
-            )
-        else:
-            X, U, J, _ = dec.solve_distributed(
-                prob, xi[np.newaxis], U, d_prox, pool=None, verbose=False, t_kill=t_kill,
-                )
-   
-        tf = pc()
-        print(f"Solve time: {tf-t0}")
+    def goToBlock(self, goals, time_helper, *args, **kwargs):
+        """goToAbsolute, but block until we get there
         
-        # Record which steps were taken for plotting.
-        X_alg = np.r_[X_alg, X[np.newaxis, step_size]]
-        U_alg = np.r_[U_alg, U[np.newaxis, step_size]]
+        NOTE: this doesn't seem to work all the time. While the docs talk about
+        using this as a streaming setpoint, sometimes the crazyflies just don't
+        move after continuously setting this parameter for some reason.
+        """
+        # Define the distance at which we have 'arrived'.
+        D_ARRIVE = 0.1
+        # Recommended rate for using cmdPosition for streaming setpoints.
+        CMD_HZ = 10.0
 
-        # state_error = np.abs(X[0] - xi)
-        # print(f"CF states: \n{xi.reshape(n_agents, n_states)}\n")
-        # print(f"Predicted state error: {state_error}")
+        xd = np.array(goals)
+        while np.any(np.linalg.norm(self.position.reshape(-1, 3) - xd, axis=1) >= D_ARRIVE):
+            print("Block error: ", np.linalg.norm(self.position - xd, axis=1))
+            self.goToAbsolute(goals, *args, **kwargs)
+            time_helper.sleepForRate(CMD_HZ)
 
-        # Seed the next iteration with the last state.
-        # X = np.r_[X[step_size:], np.tile(X[-1], (step_size, 1))]
-        # U = np.r_[U[step_size:], np.tile(U[-1], (step_size, 1))]
+
+class ExperimentRunner:
+
+    # The distance at which we've defined arrival and/or convergence.
+    D_CONVERGE = 0.2
     
-        # x, y, z coordinates from the solved trajectory X.
-        xd = X[step_size].reshape(n_agents, n_states)[:, :3]
+    # The proximity radius in penalizing for collisions.
+    D_PROX = 0.6
+
+    # Used to tune aggresiveness of high-level controller.
+    GOTO_DURATION = 1.0
+
+    # Allow a little extra time for the quads to arrive at their goals since
+    # self.GOTO_DURATION isn't guaranteed.
+    N_MAX_SLEEPS = 1
+
+    # This needs to be tuned to allow the waypoints to be sufficiently ahead of
+    # the current position to keep things moving.
+    STEP_SIZE = 5
+
+    def __init__(self, cf_server, time_helper, dim_info, *args, **kwargs):
+        self.server = cf_server
+        self.time_helper = time_helper
+
+        self.n_states, self.n_controls, self.n_agents, self.n_d = dim_info
+        self.fig = plt.figure(figsize=(12, 4), layout="constrained")
+
+        self.x_dims = [n_states] * n_agents
+        self.u_dims = [n_controls] * n_agents
+        self.n_dims = [n_d] * n_agents
+
+        # Assemble filename for logged data
+        datetime_str = datetime.datetime.now().strftime("%m%d%y-%H.%M.%S")
+        results_path = Path(__file__).parent / "experiment-data"
+        if not results_path.is_dir():
+            results_path.mkdir()
+        self.output_fname = results_path / f"{datetime_str}-results.npz"
+
+        self._setup_problem(*args, **kwargs)
+
+    @property
+    def t_kill(self):
+        return self.N * self.dt
+
+    @property
+    def GOTO_RATE(self):
+        return 1 / self.GOTO_DURATION
+    
+    def has_arrived(self, xi):
+        return np.all(self.distance_remaining(xi) <= self.D_CONVERGE)
+    
+    def distance_remaining(self, xi):
+        return dec.distance_to_goal(xi, self.x_goal, self.n_agents, self.n_states, self.n_d)
+
+    def _setup_problem(self, dt=0.1, N=40, d_prox=0.6):
+        """Setup necessary dp-ilqr bits to run this experiment"""
+
+        self.dt = dt
+        self.N = N
+        self.d_prox = d_prox
+
+        # x = np.hstack([start_pos_list,np.zeros((n_agents,3))]).flatten() 
+        self.x_goal = np.hstack([goal_pos_list, np.zeros((n_agents,3))]).flatten()
+
+        ids = [100 + i for i in range(n_agents)]
+        model = dec.DoubleIntDynamics6D
+        dynamics = dec.MultiDynamicalModel([model(dt, id_) for id_ in ids])
+
+        # Q = np.eye(n_states)
+        Q = 1.0 * np.diag([10, 10, 10, 1, 1, 1])
+        Qf = 1000.0 * np.eye(n_states)
+        R = np.eye(3)
+
+        goal_costs = [dec.ReferenceCost(x_goal_i, Q.copy(), R.copy(), Qf.copy(), id_) 
+                    for x_goal_i, id_ in zip(split_agents(self.x_goal.T, self.x_dims), ids)]
+        prox_cost = dec.ProximityCost(self.x_dims, d_prox, self.n_dims)
+        game_cost = dec.GameCost(goal_costs, prox_cost)
+
+        self.prob = dec.ilqrProblem(dynamics, game_cost)
+        self.centralized_solver = dec.ilqrSolver(self.prob, N)
+
+    def run(self, centralized=False, sim=False):
+
         if not sim:
-            goToAbsolute(swarm.allcfs, xd, duration=GOTO_DURATION)
-            # Position update from VICON.
-            xi = vicon_measurement(swarm)
+            # Wait for button press for take off
+            input("##### Press Enter to Take Off #####")
 
-            for _ in range(N_MAX_SLEEPS):
-                if np.allclose(xi[dec.pos_mask(x_dims,3)], xd.flatten(), atol=d_converge):
-                    break
-                # print(f'current state mismatch is {(xi[dec.pos_mask(x_dims,3)] - xd.flatten())}')
-                xi = vicon_measurement(swarm)
-                timeHelper.sleep(0.01)
-            X_meas = np.r_[X_meas, xi[np.newaxis]]
-                
-        else:
-            xi = X[step_size]
+            self.server.takeoff(targetHeight=TAKEOFF_Z, duration=1.0+TAKEOFF_Z)
+            self.time_helper.sleep(TAKEOFF_DURATION)
+            self.server.goToAbsolute(start_pos_list)
+            # self.server.goToBlock(start_pos_list, self.time_helper)
+
+            # Wait for button press to begin experiment
+            input("##### Press Enter to Begin Experiment #####")
+
+        U = np.zeros((self.N, n_controls*n_agents))
+        ids = self.prob.ids.copy()
         
-        # Ensure the algorithm runs and updates are sent at a consistent
-        # interval >= max solve time.
-        timeHelper.sleepForRate(1/GOTO_DURATION)
+        X_alg = np.zeros((0, n_states*n_agents))
+        U_alg = np.zeros((0, n_controls*n_agents))
+        X_meas = self._vicon_measurement()[np.newaxis]
+        
+        while not self.has_arrived(X_meas[-1]):
+            X_meas = np.r_[X_meas, self._vicon_measurement()[np.newaxis]]
+            xi = X_meas[-1]
 
-        fig.clf()
-        ax = fig.add_subplot(1, 3, 1, projection="3d")
-        plot_solve(X_alg, J, x_goal, x_dims, n_d=3, ax=ax)
+            t0 = pc()
+            if centralized:
+                X, U, J, _ = dec.solve_centralized(
+                    self.centralized_solver, xi, U, ids, verbose=False, t_kill=self.t_kill,
+                )
+            else:
+                X, U, J, _ = dec.solve_distributed(
+                    self.prob, xi[np.newaxis], U, self.d_prox, pool=None, verbose=False, t_kill=self.t_kill,
+                    )
+    
+            tf = pc()
+            print(f"Solve time: {tf-t0}")
+            
+            # Record which steps were taken for plotting.
+            X_alg = np.r_[X_alg, X[np.newaxis, self.STEP_SIZE]]
+            U_alg = np.r_[U_alg, U[np.newaxis, self.STEP_SIZE]]
+
+            # x, y, z coordinates from the solved trajectory X.
+            xd = X[self.STEP_SIZE].reshape(n_agents, n_states)[:, :self.n_d]
+            if not sim:
+                self.server.goToAbsolute(xd, duration=self.GOTO_DURATION)
+                # self.server.goToBlock(xd, self.time_helper, duration=self.GOTO_DURATION)
+                xi = self._vicon_measurement()
+
+                for _ in range(self.N_MAX_SLEEPS):
+                    if np.allclose(
+                        xi[dec.pos_mask(self.x_dims, self.n_d)], xd.flatten(), 
+                        atol=self.D_CONVERGE
+                    ):
+                        break
+
+                    xi = self._vicon_measurement()
+                    self.time_helper.sleep(0.01)
+                X_meas = np.r_[X_meas, xi[np.newaxis]]
+                    
+            else:
+                xi = X[self.STEP_SIZE]
+            
+            # Ensure the algorithm runs and updates are sent at a consistent
+            # interval >= max solve time.
+            self.time_helper.sleepForRate(self.GOTO_RATE)
+
+            # Try to understand how far we've come.
+            self._visualize_progress(X, X_alg, X_meas, J)
+
+            print(f"Distance left: {self.distance_remaining(xi)}")
+
+        self._save_results(X_alg, X_meas)
+
+        if not sim:
+            input("##### Press Enter to Go Back to Origin #####")
+            go_home_callback(self.server, self.time_helper, start_pos_list)
+
+
+    def _vicon_measurement(self):
+        """Position update from VICON."""
+        pos_cfs = self.server.position
+        vel_cfs = np.zeros_like(pos_cfs)
+        return np.c_[pos_cfs, vel_cfs].ravel()
+    
+    def _visualize_progress(self, X, X_alg, X_meas, J):
+        self.fig.clf()
+        ax = self.fig.add_subplot(1, 3, 1, projection="3d")
+        plot_solve(X_alg, J, self.x_goal, self.x_dims, n_d=self.n_d, ax=ax)
         ax.set_title("Path Taken")
         ax.set_zlim(0, 2)
 
-        ax = fig.add_subplot(1, 3, 2, projection="3d")
-        plot_solve(X, J, x_goal, x_dims, n_d=3, ax=ax)
+        ax = self.fig.add_subplot(1, 3, 2, projection="3d")
+        plot_solve(X, J, self.x_goal, self.x_dims, n_d=self.n_d, ax=ax)
         ax.set_title("Path Planned")
         ax.set_zlim(0, 2)
 
-        ax = fig.add_subplot(1, 3, 3, projection="3d")
-        plot_solve(X_meas, J, x_goal, x_dims, n_d=3, ax=ax)
+        ax = self.fig.add_subplot(1, 3, 3, projection="3d")
+        plot_solve(X_meas, J, self.x_goal, self.x_dims, n_d=self.n_d, ax=ax)
         ax.set_title("Measured Path")
         ax.set_zlim(0, 2)
 
-        fig.canvas.draw()
+        self.fig.canvas.draw()
         plt.pause(0.01)
 
-        # # Replace the currently predicted states with the actual ones.
-        # X[0, pos_mask(x_dims, 3)] = xi[pos_mask(x_dims, 3)]
-        # # TODO: see if this velocity makes sense here.
-        # X[0, ~pos_mask(x_dims, 3)] = xi[~pos_mask(x_dims, 3)]
-        # X = np.tile(xi, (N+1,1))
+    def _save_results(self, X_alg, X_meas):
+        np.savez(self.output_fname, X_alg=X_alg, X_meas=X_meas)
 
-        if LOG_DATA:
-            timestampString = str(time.time())
-            csvwriter.writerow([timestampString] + xi)
 
-        print(f"Distance left: {dec.distance_to_goal(xi,x_goal,n_agents,n_states,3)}\n{d_converge}")
-        # rate.sleep()
-    
-    if not sim:
-        input("##### Press Enter to Go Back to Origin #####")
-        goToAbsolute(swarm.allcfs, start_pos_list, duration=GOTO_DURATION)
-        timeHelper.sleep(4.0)
-
-        swarm.allcfs.land(targetHeight=0.05, duration=GOTO_DURATION)
-        timeHelper.sleep(4.0)
+def go_home_callback(cf_server, timeHelper, start_pos_list):
+    """Tell all quadcopters to go to their starting positions when program exits"""
+    print("Program exit: telling quads to go home...")
+    GO_HOME_DURATION = 5.0
+    cf_server.goToAbsolute(start_pos_list, yaw=0.0, duration=GO_HOME_DURATION)
+    timeHelper.sleep(GO_HOME_DURATION)
+    cf_server.land(targetHeight=0.05, duration=GO_HOME_DURATION)
+    timeHelper.sleep(1.0)
 
 
 if __name__ == '__main__':
@@ -240,33 +266,24 @@ if __name__ == '__main__':
     parser.add_argument("-s", "--sim", action="store_true", default=False)
     args = parser.parse_args()
 
-    swarm = crazy.Crazyswarm()
-    # rate = rospy.Rate(2) this does not exist in ROS2
-   
-    timeHelper = swarm.timeHelper
-    allcfs = swarm.allcfs
+    n_states = 6
+    n_controls = 3
+    n_agents = 4
+    n_d = 3
+    dim_info = (n_states, n_controls, n_agents, n_d)
 
-    # TODO: succeed without collision avoidance.
-    # swarm.allcfs.setParam("colAv/enable", 1) 
+    # cf_server = crazy.Crazyswarm().allcfs
+    rclpy.init()
+    cf_server = CrazyflieServerCustom()
+    time_helper = TimeHelper(cf_server)
+    runner = ExperimentRunner(cf_server, time_helper, dim_info)
 
     # Exit on CTRL+C. 
     signal.signal(signal.SIGINT, lambda *_: sys.exit(-1))
 
     # Tell the quads to go home when we're done.
     if not args.sim:
-        atexit.register(go_home_callback, swarm, timeHelper, start_pos_list)
+        atexit.register(go_home_callback, cf_server, time_helper, start_pos_list)
 
-    if LOG_DATA:
-        num_cfs = len(swarm.allcfs.crazyflies)
-        print("### Logging data to file: " + csv_filename)
-        with open(csv_filename, 'w') as csvfile:
-            csvwriter = csv.writer(csvfile, delimiter=',')
-
-            csvwriter.writerow(['# CFs', str(num_cfs)])
-            csvwriter.writerow(
-                ["Timestamp [s]"] 
-                + num_cfs*["x_d", "y_d", "z_d", " x", "y", "z", "qw", "qx", "qy", "qz"]
-                )
-
-    perform_experiment(args.centralized, args.sim)
-    
+    # Fingers crossed...
+    runner.run(args.centralized, args.sim)
