@@ -5,7 +5,7 @@ import datetime
 from pathlib import Path
 import signal
 import sys
-from time import perf_counter as pc
+from time import perf_counter as pc, strftime
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -18,14 +18,33 @@ from dpilqr import plot_solve, split_agents
 plt.ion()
 
 TAKEOFF_Z = 1.0
-TAKEOFF_DURATION = 1.0
+TAKEOFF_DURATION = 3.0
+
+# Location of repository.
+repopath = Path("/home/iconlab/Documents/zjw4/cswarm2/src/crazyswarm2/")
 
 # Defining takeoff and experiment start position
+# ==============================================
+# --- 3 DRONE SCENARIO ---
 # start_pos_list = [[0.5, 1.0, 1.0], [3.0, 2.5, 1.0], [1.5, 1.0, 1.0]]
 # goal_pos_list = [[2.5, 1.5, 1.0], [0.5, 1.5, 1.0], [1.5, 2.2, 1.0]]
 
-start_pos_list = [[0.0, 0.0, 1.0], [1.0, 0.0, 1.0], [2.0, 0.0, 1.0], [3.0, 0.0, 1.0]]
-goal_pos_list = [[3.0, 1.0, 1.0], [0.0, 1.0, 1.0], [1.0, 1.0, 1.0], [2.0, 1.0, 1.0]]
+# --- 4 DRONE EXCHANGE ---
+# Trial1:
+start_pos_list = [[-1.0, 0.0, 0.9], [0.0, 0.0, 1.3], [1.0, 0.0, 0.8], [2.0, 0.0, 1.0]]
+goal_pos_list = [[2.0, 1.5, 1.4], [-1.0, 1.0, 1.0], [0.0, 1.0, 1.1], [1.0, 1.0, 1.0]]
+
+# Trial2:
+# start_pos_list = [[-2.1, 0.15, 0.9], [-1.0, 0.1, 1.3], [0.2, 0.0, 0.8], [1.35, 0.0, 1.0]]
+# goal_pos_list = [[1.0, 1.5, 1.4], [-2.0, 1.0, 1.0], [-1.0, 1.0, 1.1], [0.0, 1.0, 1.0]]
+
+# Trial3:
+# start_pos_list = [[-1.85, 0.5, 0.9], [-1.4, -0.1, 1.3], [0.8, 0.0, 0.8], [1.5, 0.0, 1.0]]
+# goal_pos_list = [[1.0, 1.5, 1.4], [-2.0, 1.0, 1.0], [-1.0, 1.0, 1.1], [0.0, 1.0, 1.0]]
+
+# --- 5 DRONE SCENARIO ---
+# start_pos_list = [[0.0, -1.0, 0.95],[0.0, 0.0, 1.0] ,[-1.5, 0.0, 0.95] ,[0.7, 0.7, 1.05], [1.5, 0.3, 1.0]]
+# goal_pos_list = [[-1.4, 0.0, 1.1], [-1.0, -1.0, 1.0], [0.0, -1.0, 1.0], [1.5, 0.4, 1.0], [1.0, 1.0, 1.0]]
 
 
 class CrazyflieServerCustom(CrazyflieServer):
@@ -36,7 +55,13 @@ class CrazyflieServerCustom(CrazyflieServer):
         # self.setParam("colAv/enable", 1)
 
     def goToAbsolute(self, goals, yaw=0.0, duration=2.0):
-        """Send goTo's to all crazyflies at once"""
+        """Send goTo's to all crazyflies at once
+        
+        NOTE: cmdPosition usually results in strange behavior and shouldn't be 
+        trusted. There aren't much docs on how to go back and forth between
+        high <---> low level motion commands either.
+        
+        """
         for pos, cf in zip(goals, self.crazyflies):
             cf.goTo(pos, yaw, duration)
             # cf.cmdPosition(pos, yaw)
@@ -69,7 +94,7 @@ class ExperimentRunner:
     D_PROX = 0.6
 
     # Used to tune aggresiveness of high-level controller.
-    GOTO_DURATION = 1.0
+    GOTO_DURATION = 4.5
 
     # Allow a little extra time for the quads to arrive at their goals since
     # self.GOTO_DURATION isn't guaranteed.
@@ -79,8 +104,12 @@ class ExperimentRunner:
     # the current position to keep things moving.
     STEP_SIZE = 5
 
+    N_RANGE = (10, 80)
+    b = 5.8
+
     def __init__(self, cf_server, time_helper, dim_info, *args, **kwargs):
         self.server = cf_server
+        
         self.time_helper = time_helper
 
         self.n_states, self.n_controls, self.n_agents, self.n_d = dim_info
@@ -91,11 +120,11 @@ class ExperimentRunner:
         self.n_dims = [n_d] * n_agents
 
         # Assemble filename for logged data
-        datetime_str = datetime.datetime.now().strftime("%m%d%y-%H.%M.%S")
-        results_path = Path(__file__).parent / "experiment-data"
+        timestamp = strftime('%Y-%m-%d_%H.%M.%S')
+        results_path = repopath / "crazyflie" / "scripts" / "experiment-data"
         if not results_path.is_dir():
             results_path.mkdir()
-        self.output_fname = results_path / f"{datetime_str}-results.npz"
+        self.output_fname = str(results_path / f"{timestamp}-results.npz")
 
         self._setup_problem(*args, **kwargs)
 
@@ -160,6 +189,7 @@ class ExperimentRunner:
         X_alg = np.zeros((0, n_states*n_agents))
         U_alg = np.zeros((0, n_controls*n_agents))
         X_meas = self._vicon_measurement()[np.newaxis]
+        d_init_max = self.distance_remaining(X_meas[0]).max()
         
         while not self.has_arrived(X_meas[-1]):
             X_meas = np.r_[X_meas, self._vicon_measurement()[np.newaxis]]
@@ -210,14 +240,21 @@ class ExperimentRunner:
             # Try to understand how far we've come.
             self._visualize_progress(X, X_alg, X_meas, J)
 
-            print(f"Distance left: {self.distance_remaining(xi)}")
+            d_left = self.distance_remaining(xi)
+            print(f"Distance left: {d_left}")
 
-        self._save_results(X_alg, X_meas)
+            # Tune the aggressiveness based on proximity to the goal.
+            m = (self.N_RANGE[1] - self.N_RANGE[0]) / (d_init_max - self.D_CONVERGE)
+            N_lin = int(self.b +  m * d_left.max())
+            N_i = min(max(N_lin, self.N_RANGE[0]), self.N_RANGE[1])
+            print("Current horizon: ", N_i)
+
+            # Update (overwrite) current results.
+            self._save_results(X_alg, X_meas, U_alg)
 
         if not sim:
             input("##### Press Enter to Go Back to Origin #####")
             go_home_callback(self.server, self.time_helper, start_pos_list)
-
 
     def _vicon_measurement(self):
         """Position update from VICON."""
@@ -245,8 +282,8 @@ class ExperimentRunner:
         self.fig.canvas.draw()
         plt.pause(0.01)
 
-    def _save_results(self, X_alg, X_meas):
-        np.savez(self.output_fname, X_alg=X_alg, X_meas=X_meas)
+    def _save_results(self, X_alg, X_meas, U_alg):
+        np.savez(self.output_fname, X_alg=X_alg, U_alg=U_alg, X_meas=X_meas)
 
 
 def go_home_callback(cf_server, timeHelper, start_pos_list):
@@ -269,14 +306,18 @@ if __name__ == '__main__':
     n_states = 6
     n_controls = 3
     n_agents = 4
+    # n_agents = 5
     n_d = 3
     dim_info = (n_states, n_controls, n_agents, n_d)
+
+    dt = 0.1
+    N = 20
 
     # cf_server = crazy.Crazyswarm().allcfs
     rclpy.init()
     cf_server = CrazyflieServerCustom()
     time_helper = TimeHelper(cf_server)
-    runner = ExperimentRunner(cf_server, time_helper, dim_info)
+    runner = ExperimentRunner(cf_server, time_helper, dim_info, dt=dt, N=N)
 
     # Exit on CTRL+C. 
     signal.signal(signal.SIGINT, lambda *_: sys.exit(-1))
