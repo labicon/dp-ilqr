@@ -202,7 +202,7 @@ def random_multiagent_simulation():
 def _3d_integrators():
     n_states = 6
     n_controls = 3
-    n_agents = 4
+    n_agents = 5
     x_dims = [n_states] * n_agents
     u_dims = [n_controls] * n_agents
     n_dims = [3] * n_agents
@@ -210,17 +210,16 @@ def _3d_integrators():
     n_d = n_dims[0]
 
     # x0, xf = scenarios.paper_setup_5_quads()
-    x0, xf = scenarios.four_quads_passthrough()
-    print(x0)
-    print(xf)
+    # x0, xf = scenarios.four_quads_passthrough()
+    x0, xf = scenarios.five_quads_figure1()
 
     dpilqr.eyeball_scenario(x0, xf, n_agents, n_states)
     plt.show()
 
     dt = 0.05
-    N = 40
+    N = 60
 
-    tol = 1e-6
+    tol = 1e-3
     ids = [100 + i for i in range(n_agents)]
 
     model = dpilqr.DoubleIntDynamics6D
@@ -229,7 +228,7 @@ def _3d_integrators():
     Q = np.eye(6)
     R = np.eye(3)
     Qf = 1e3 * np.eye(n_states)
-    radius = 0.5
+    radius = 0.6
 
     goal_costs = [
         dpilqr.ReferenceCost(xf_i, Q.copy(), R.copy(), Qf.copy(), id_)
@@ -250,6 +249,7 @@ def _3d_integrators():
 
     plt.clf()
     plot_solve(X, J, xf.T, x_dims, True, n_d)
+    plt.gca().set_zlim([0, 2])
 
     plt.figure()
     dpilqr.plot_pairwise_distances(X, x_dims, n_dims, radius)
