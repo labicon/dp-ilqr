@@ -22,7 +22,7 @@ from .util import split_graph, compute_pairwise_distance
 g = 9.81
 
 
-def solve_distributed(problem, X, U, radius, pool=None, verbose=True, **kwargs):
+def solve_distributed(problem, X, U, radius, ignore_ids=None, pool=None, verbose=True, **kwargs):
     """Solve the problem via division into subproblems"""
 
     x_dims = problem.game_cost.x_dims
@@ -34,6 +34,9 @@ def solve_distributed(problem, X, U, radius, pool=None, verbose=True, **kwargs):
     n_agents = len(x_dims)
     ids = problem.ids
     solve_info = {}
+
+    if ignore_ids and any(id_ not in ids for id_ in ignore_ids):
+        raise ValueError(f"Some of {ignore_ids} not in {ids}.")
 
     # Compute interaction graph based on relative distances.
     graph = define_inter_graph_threshold(X, radius, x_dims, ids)
@@ -53,6 +56,11 @@ def solve_distributed(problem, X, U, radius, pool=None, verbose=True, **kwargs):
         for i, (subproblem, x0i, Ui, id_) in enumerate(
             zip(problem.split(graph), x0_split, U_split, ids)
         ):
+            if id_ in ignore_ids:
+                if verbose:
+                    solve_info[id_] = (0.0, [id_])
+                    print(f"Ignoring subproblem {id_}...")
+                continue
 
             t0 = pc()
             Xi_agent, Ui_agent, id_ = solve_subproblem(

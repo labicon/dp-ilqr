@@ -21,6 +21,7 @@ from .dynamics import (
     DoubleIntDynamics6D,
     DynamicalModel,
     HumanDynamics6D,
+    HumanDynamicsLin6D,
     MultiDynamicalModel,
     QuadcopterDynamics6D,
     QuadcopterDynamics12D,

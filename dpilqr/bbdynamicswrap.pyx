@@ -12,6 +12,7 @@ class Model(Enum):
     Unicycle4D = auto()
     Quadcopter6D = auto()
     Human6D = auto()
+    HumanLin6D = auto()
     Quadcopter12D = auto()
 
 
@@ -37,6 +38,9 @@ cdef extern from "bbdynamics.cpp":
 
     void f_human_6d(double x[], double u[], double x_dot[])
     void linearize_human_6d(double x[], double u[], double dt, double A[], double B[])
+
+    void f_human_lin_6d(double x[], double u[], double x_dot[])
+    void linearize_human_lin_6d(double dt, double A[], double B[])
 
     void f_quad_6d(double x[], double u[], double x_dot[])
     void linearize_quad_6d(double x[], double u[], double dt, double A[], double B[])
@@ -75,6 +79,8 @@ def f(x, u, model):
         f = f_unicycle_4d
     elif model is Model.Human6D:
         f = f_human_6d
+    elif model is Model.HumanLin6D:
+        f = f_human_lin_6d
     elif model is Model.Quadcopter6D:
         f = f_quad_6d
     elif model is Model.Quadcopter12D:
@@ -106,6 +112,8 @@ def integrate(x, u, double dt, model):
         f = f_unicycle_4d
     elif model is Model.Human6D:
         f = f_human_6d
+    elif model is Model.HumanLin6D:
+        f = f_human_lin_6d
     elif model is Model.Quadcopter6D:
         f = f_quad_6d
     elif model is Model.Quadcopter12D:
@@ -146,6 +154,8 @@ def linearize(x, u, double dt, model):
         linearize_unicycle_4d(&x_view[0], &u_view[0], dt, &A_view[0], &B_view[0])
     elif model is Model.Human6D:
         linearize_human_6d(&x_view[0], &u_view[0], dt, &A_view[0], &B_view[0])
+    elif model is Model.HumanLin6D:
+        linearize_human_lin_6d(dt, &A_view[0], &B_view[0])
     elif model is Model.Quadcopter6D:
         linearize_quad_6d(&x_view[0], &u_view[0], dt, &A_view[0], &B_view[0])
     elif model is Model.Quadcopter12D:

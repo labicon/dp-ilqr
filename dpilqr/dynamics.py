@@ -244,6 +244,12 @@ class HumanDynamics6D(CppModel):
         self.model = Model.Human6D
 
 
+class HumanDynamicsLin6D(CppModel):
+    def __init__(self, dt, *args, **kwargs):
+        super().__init__(6, 3, dt, *args, **kwargs)
+        self.model = Model.HumanLin6D
+
+
 # TODO: Consider making a CPP model for these two:
 class BikeDynamics5D(SymbolicModel):
     def __init__(self, dt, *args, **kwargs):

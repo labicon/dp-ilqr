@@ -195,6 +195,7 @@ class ilqrSolver:
             if not accept:
 
                 # DBG: bail out since regularization doesn't seem to help.
+                break
                 if verbose:
                     print("Failed line search, giving up.")
                 break

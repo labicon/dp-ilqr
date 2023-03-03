@@ -318,7 +318,6 @@ static void f_human_6d(double x[], double u[], double x_dot[])
     /* x: = [px, py , pz, v, 0, 0]
             u: = [theta a]
 
-
     */
 
     x_dot[0] = x[3] * cos(u[0]);
@@ -389,6 +388,30 @@ void linearize_human_6d(double x[], double u[], double dt, double A[], double B[
     B[17] = 0;
 
     euler_method_discretization(dt, A, B, 6, 3);
+}
+
+static void f_human_lin_6d(double x[], double u[], double x_dot[])
+{
+    /* x: [px, py, pz, vx, vy, vz]
+       u: [ax, ay, az]
+
+       NOTE: 2D Double integrator with constant heigh.
+    */
+    x_dot[0] = x[3];
+    x_dot[1] = x[4];
+    x_dot[2] = 0.0;
+    x_dot[3] = u[0];
+    x_dot[4] = u[1];
+    x_dot[5] = 0.0;
+}
+
+static void linearize_human_lin_6d(double dt, double A[], double B[])
+{
+    linearize_double_int_6d(dt, A, B);
+
+    // Turn off changes along z.
+    A[17] = 0;
+    B[17] = 0;
 }
 
 static void f_quad_6d(double x[], double u[], double x_dot[])

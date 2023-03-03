@@ -107,6 +107,7 @@ def plot_solve(X, J, x_goal, x_dims=None, color_agents=False, n_d=2, ax=None):
 
     N = X.shape[0]
     n = np.arange(N)
+    cm = plt.cm.Set2
 
     X_split = split_agents(X, x_dims)
     x_goal_split = split_agents(x_goal.reshape(1, -1), x_dims)
@@ -115,22 +116,27 @@ def plot_solve(X, J, x_goal, x_dims=None, color_agents=False, n_d=2, ax=None):
         c = n
         if n_d == 2:
             if color_agents:
-                c = plt.cm.tab10.colors[i]
-                ax.plot(Xi[:, 0], Xi[:, 1], c=c, lw=5, zorder=1)
+                c = cm.colors[i]
+                ax.plot(Xi[:, 0], Xi[:, 1], c=c, lw=5)
             else:
                 ax.scatter(Xi[:, 0], Xi[:, 1], c=c)
-            ax.scatter(Xi[0, 0], Xi[0, 1], 80, "g", "x", label="$x_0$")
+            ax.scatter(Xi[0, 0], Xi[0, 1], 80, "g", "d", label="$x_0$")
             ax.scatter(xg[0, 0], xg[0, 1], 80, "r", "x", label="$x_f$")
         else:
             if color_agents:
-                c = [plt.cm.tab10.colors[i]] * Xi.shape[0]
-            ax.scatter(Xi[:, 0], Xi[:, 1], Xi[:, 2], c=c)
+                # c = [cm.colors[i]] * Xi.shape[0]
+                c = cm.colors[i]
+            ax.plot(Xi[:, 0], Xi[:, 1], Xi[:, 2], c=c, lw=4)
             ax.scatter(
-                Xi[0, 0], Xi[0, 1], Xi[0, 2], s=80, c="g", marker="x", label="$x_0$"
-            )
+                Xi[0, 0], Xi[0, 1], Xi[0, 2], 
+                s=50, c="w", marker="d", edgecolors="k", label="$x_0$")
             ax.scatter(
-                xg[0, 0], xg[0, 1], xg[0, 2], s=80, c="r", marker="x", label="$x_f$"
-            )
+                xg[0, 0], xg[0, 1], xg[0, 2], 
+                s=50, c="k", marker="x", label="$x_f$")
+            ax.scatter(
+                Xi[-1, 0], Xi[-1, 1], Xi[-1,2], 
+                s=50, color=c, marker="o", edgecolors="k")
+            
 
     plt.margins(0.1)
     plt.title(f"Final Cost: {J:.3g}")

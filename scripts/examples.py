@@ -83,7 +83,7 @@ def two_quads_one_human():
     N = 50
     radius = 0.3
 
-    x0, xf = scenarios.two_quads_one_human_setup()
+    x0, xf = scenarios.q2h1_passthrough_setup()
 
     Q = np.diag([1, 1, 1, 5, 5, 5])
     R = np.diag([1, 1, 1])
@@ -259,14 +259,86 @@ def _3d_integrators():
     # dpilqr.make_trajectory_gif(f"{n_agents}-quads.gif", X, xf, x_dims, radius)
 
 
+def nquads_mhumans():
+    
+    n = 2
+    m = 2
+    n_agents = n + m
+    n_states = 6
+    n_controls = 3
+
+    x_dims = [n_states] * n_agents
+    n_dims = [3, 3, 2, 2]
+    # n_dims = [3, 3, 3, 3]
+
+    dt = 0.05
+    N = 60
+    radius = 1.0
+
+    x0, xf = scenarios.q3h2_qcross()
+    x0, xf = scenarios.q2h2_hcross()
+
+    Q = np.eye(6)
+    R = 0.1*np.eye(3)
+    Qf = 1e4 * np.eye(n_states)
+
+    Q_human = Q.copy()
+    R_human = R.copy()
+    Qf_human = Qf.copy()
+    # Q_human = np.diag([1, 1, 0, 0, 0, 0])
+    # R_human = np.diag([1, 1, 1])
+    # Qf_human = 1e3 * np.eye(Q.shape[0])
+
+    Qs = [Q] * n + [Q_human] * m
+    Rs = [R] * n + [R_human] * m
+    Qfs = [Qf] * n + [Qf_human] * m
+
+    models = [dpilqr.QuadcopterDynamics6D] * n + [dpilqr.HumanDynamicsLin6D] * m
+    # models = [dpilqr.QuadcopterDynamics6D] * n + [dpilqr.QuadcopterDynamics6D] * m
+    ids = [100 + i for i in range(n_agents)]
+    dynamics = dpilqr.MultiDynamicalModel(
+        [model(dt, id_) for id_, model in zip(ids, models)]
+    )
+
+    goal_costs = [
+        dpilqr.ReferenceCost(xf_i, Qi, Ri, Qfi, id_)
+        for xf_i, id_, x_dim, Qi, Ri, Qfi in zip(
+            dpilqr.split_agents_gen(xf, x_dims), ids, x_dims, Qs, Rs, Qfs
+        )
+    ]
+    prox_cost = dpilqr.ProximityCost(x_dims, radius, n_dims)
+    game_cost = dpilqr.GameCost(goal_costs, prox_cost)
+
+    h_ids = ids[-2:]
+    problem = dpilqr.ilqrProblem(dynamics, game_cost)
+    solver = dpilqr.ilqrSolver(problem, N)
+
+    # U0 = np.zeros((N, n_controls*n_agents))
+    U0 = problem.selfish_warmstart(x0, N)
+    # X, _, J = solver.solve(x0, U0)
+    X, _, J, solve_info = dpilqr.solve_distributed(problem, x0.T, U0, radius, h_ids, pool=None, verbose=True)
+    igraph = {k: v[1] for k, v in solve_info.items()}
+    dpilqr.plot_interaction_graph(igraph)
+
+    plt.figure()
+    plot_solve(X, J, xf, x_dims, True, 3)
+    plt.gca().set_zlim([0, 2])
+
+    plt.figure()
+    dpilqr.plot_pairwise_distances(X, x_dims, n_dims, radius)
+
+    plt.show()
+
+
+
 def main():
 
     # single_unicycle()
     # single_quad6d()
     # two_quads_one_human()
     # random_multiagent_simulation()
-    _3d_integrators()
-
+    # _3d_integrators()
+    nquads_mhumans()
 
 if __name__ == "__main__":
     main()

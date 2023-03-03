@@ -68,7 +68,7 @@ class ilqrProblem:
 
         print("=" * 80 + "\nComputing warmstart...")
         # Split out the full problem into separate problems for each agent.
-        x0 = x0.reshape(1, -1)
+        x0 = x0.reshape(-1, 1)
         selfish_graph = {id_: [id_] for id_ in self.ids}
         subproblems = self.split(selfish_graph)
 
