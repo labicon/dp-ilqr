@@ -1,11 +1,10 @@
 #!/usr/bin/env python
 import argparse
 import atexit
-import datetime
 from pathlib import Path
 import signal
 import sys
-from time import perf_counter as pc, strftime
+from time import perf_counter as pc, strftime, time
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -31,8 +30,8 @@ repopath = Path("/home/iconlab/Documents/zjw4/cswarm2/src/crazyswarm2/")
 
 # --- 4 DRONE EXCHANGE ---
 # Trial1:
-start_pos_list = [[-1.0, 0.0, 0.9], [0.0, 0.0, 1.3], [1.0, 0.0, 0.8], [2.0, 0.0, 1.0]]
-goal_pos_list = [[2.0, 1.5, 1.4], [-1.0, 1.0, 1.0], [0.0, 1.0, 1.1], [1.0, 1.0, 1.0]]
+# start_pos_list = [[-1.0, 0.0, 0.9], [0.0, 0.0, 1.3], [1.0, 0.0, 0.8], [2.0, 0.0, 1.0]]
+# goal_pos_list = [[2.0, 1.5, 1.4], [-1.0, 1.0, 1.0], [0.0, 1.0, 1.1], [1.0, 1.0, 1.0]]
 
 # Trial2:
 # start_pos_list = [[-2.1, 0.15, 0.9], [-1.0, 0.1, 1.3], [0.2, 0.0, 0.8], [1.35, 0.0, 1.0]]
@@ -45,6 +44,10 @@ goal_pos_list = [[2.0, 1.5, 1.4], [-1.0, 1.0, 1.0], [0.0, 1.0, 1.1], [1.0, 1.0, 
 # --- 5 DRONE SCENARIO ---
 # start_pos_list = [[0.0, -1.0, 0.95],[0.0, 0.0, 1.0] ,[-1.5, 0.0, 0.95] ,[0.7, 0.7, 1.05], [1.5, 0.3, 1.0]]
 # goal_pos_list = [[-1.4, 0.0, 1.1], [-1.0, -1.0, 1.0], [0.0, -1.0, 1.0], [1.5, 0.4, 1.0], [1.0, 1.0, 1.0]]
+
+# --- 2 DRONES + 2 HUMANS SCENARIO ---
+start_pos_list = [[1.0, 0.4, 0.5], [0.1, -1.2, 0.8], [-1.0, 0.2, 1], [0.2, 1.0, 1]]
+goal_pos_list = [[-1, 1.2, 1], [0.3, 1.05, 1], [0.5, 0, -1], [0, 1.2, 1.2]]
 
 
 class CrazyflieServerCustom(CrazyflieServer):
@@ -91,10 +94,11 @@ class ExperimentRunner:
     D_CONVERGE = 0.2
     
     # The proximity radius in penalizing for collisions.
-    D_PROX = 0.6
+    D_PROX = 2.0
 
     # Used to tune aggresiveness of high-level controller.
-    GOTO_DURATION = 4.5
+    # GOTO_DURATION = 4.5
+    GOTO_DURATION = 2.0
 
     # Allow a little extra time for the quads to arrive at their goals since
     # self.GOTO_DURATION isn't guaranteed.
@@ -102,15 +106,17 @@ class ExperimentRunner:
 
     # This needs to be tuned to allow the waypoints to be sufficiently ahead of
     # the current position to keep things moving.
-    STEP_SIZE = 5
+    STEP_SIZE = 5 
 
-    N_RANGE = (10, 80)
+    N_RANGE = (10, 60)
     b = 5.8
 
     def __init__(self, cf_server, time_helper, dim_info, *args, **kwargs):
         self.server = cf_server
         
+        self.t0 = None
         self.time_helper = time_helper
+        self.N = 10
 
         self.n_states, self.n_controls, self.n_agents, self.n_d = dim_info
         self.fig = plt.figure(figsize=(12, 4), layout="constrained")
@@ -126,6 +132,9 @@ class ExperimentRunner:
             results_path.mkdir()
         self.output_fname = str(results_path / f"{timestamp}-results.npz")
 
+        self.id_ign = None
+        self.x0 = None
+        self.x_goal = None
         self._setup_problem(*args, **kwargs)
 
     @property
@@ -142,24 +151,28 @@ class ExperimentRunner:
     def distance_remaining(self, xi):
         return dec.distance_to_goal(xi, self.x_goal, self.n_agents, self.n_states, self.n_d)
 
-    def _setup_problem(self, dt=0.1, N=40, d_prox=0.6):
+    def _setup_problem(self, dt=0.1, d_prox=0.6):
         """Setup necessary dp-ilqr bits to run this experiment"""
 
         self.dt = dt
-        self.N = N
+        self.N = self.N_RANGE[1]
         self.d_prox = d_prox
 
-        # x = np.hstack([start_pos_list,np.zeros((n_agents,3))]).flatten() 
+        # v0 = np.zeros((n_agents, 3))
+        v0 = np.array([[0.0, 0.5, 0.0], [0.5, 0, 0], [0, 0, 0], [0, 0, 0]])
+        self.x0 = np.hstack([start_pos_list, v0]).flatten() 
         self.x_goal = np.hstack([goal_pos_list, np.zeros((n_agents,3))]).flatten()
 
         ids = [100 + i for i in range(n_agents)]
-        model = dec.DoubleIntDynamics6D
-        dynamics = dec.MultiDynamicalModel([model(dt, id_) for id_ in ids])
+        # models = [dec.DoubleIntDynamics6D] * n_agents
+        models = [dec.DoubleIntDynamics6D] * 2 + [dec.HumanDynamicsLin6D] * 2
+        dynamics = dec.MultiDynamicalModel([model(dt, id_) for id_, model in zip(ids, models)])
 
-        # Q = np.eye(n_states)
-        Q = 1.0 * np.diag([10, 10, 10, 1, 1, 1])
-        Qf = 1000.0 * np.eye(n_states)
-        R = np.eye(3)
+        Q = np.eye(n_states)
+        # Q = 1.0 * np.diag([10, 10, 10, 1, 1, 1])
+        Qf = 1e4 * np.eye(n_states)
+        # R = np.eye(3)
+        R = 0.1 * np.eye(3)
 
         goal_costs = [dec.ReferenceCost(x_goal_i, Q.copy(), R.copy(), Qf.copy(), id_) 
                     for x_goal_i, id_ in zip(split_agents(self.x_goal.T, self.x_dims), ids)]
@@ -167,7 +180,8 @@ class ExperimentRunner:
         game_cost = dec.GameCost(goal_costs, prox_cost)
 
         self.prob = dec.ilqrProblem(dynamics, game_cost)
-        self.centralized_solver = dec.ilqrSolver(self.prob, N)
+        self.centralized_solver = dec.ilqrSolver(self.prob, self.N)
+        self.id_ign = ids[-2:]
 
     def run(self, centralized=False, sim=False):
 
@@ -183,34 +197,41 @@ class ExperimentRunner:
             # Wait for button press to begin experiment
             input("##### Press Enter to Begin Experiment #####")
 
-        U = np.zeros((self.N, n_controls*n_agents))
+        self.time_helper.sleep(5)
+        U0 = self.prob.selfish_warmstart(self.x0, self.N)
+        # U0 = np.zeros((self.N, n_controls*n_agents))
         ids = self.prob.ids.copy()
         
         X_alg = np.zeros((0, n_states*n_agents))
         U_alg = np.zeros((0, n_controls*n_agents))
         X_meas = self._vicon_measurement()[np.newaxis]
         d_init_max = self.distance_remaining(X_meas[0]).max()
+        t0 = time()
+        t_meas = np.zeros((0,))
         
         while not self.has_arrived(X_meas[-1]):
             X_meas = np.r_[X_meas, self._vicon_measurement()[np.newaxis]]
+            t_meas = np.r_[t_meas, time() - t0]
             xi = X_meas[-1]
 
             t0 = pc()
             if centralized:
-                X, U, J, _ = dec.solve_centralized(
-                    self.centralized_solver, xi, U, ids, verbose=False, t_kill=self.t_kill,
+                print(self.t_kill)
+                X, U0, J, _ = dec.solve_centralized(
+                    self.centralized_solver, xi, U0, ids, verbose=False, t_kill=self.t_kill,
                 )
             else:
-                X, U, J, _ = dec.solve_distributed(
-                    self.prob, xi[np.newaxis], U, self.d_prox, pool=None, verbose=False, t_kill=self.t_kill,
+                X, U0, J, _ = dec.solve_distributed(
+                    self.prob, xi[np.newaxis], U0, self.d_prox, self.id_ign, pool=None, verbose=False, t_kill=self.t_kill,
                     )
     
             tf = pc()
             print(f"Solve time: {tf-t0}")
             
             # Record which steps were taken for plotting.
+            step = min(self.STEP_SIZE, X.shape[0])
             X_alg = np.r_[X_alg, X[np.newaxis, self.STEP_SIZE]]
-            U_alg = np.r_[U_alg, U[np.newaxis, self.STEP_SIZE]]
+            U_alg = np.r_[U_alg, U0[np.newaxis, self.STEP_SIZE]]
 
             # x, y, z coordinates from the solved trajectory X.
             xd = X[self.STEP_SIZE].reshape(n_agents, n_states)[:, :self.n_d]
@@ -229,6 +250,7 @@ class ExperimentRunner:
                     xi = self._vicon_measurement()
                     self.time_helper.sleep(0.01)
                 X_meas = np.r_[X_meas, xi[np.newaxis]]
+                t_meas = np.r_[t_meas, time() - t0]
                     
             else:
                 xi = X[self.STEP_SIZE]
@@ -250,7 +272,7 @@ class ExperimentRunner:
             print("Current horizon: ", N_i)
 
             # Update (overwrite) current results.
-            self._save_results(X_alg, X_meas, U_alg)
+            self._save_results(X_alg, X_meas, t_meas, U_alg)
 
         if not sim:
             input("##### Press Enter to Go Back to Origin #####")
@@ -282,8 +304,8 @@ class ExperimentRunner:
         self.fig.canvas.draw()
         plt.pause(0.01)
 
-    def _save_results(self, X_alg, X_meas, U_alg):
-        np.savez(self.output_fname, X_alg=X_alg, U_alg=U_alg, X_meas=X_meas)
+    def _save_results(self, X_alg, X_meas, t_meas, U_alg):
+        np.savez(self.output_fname, X_alg=X_alg, U_alg=U_alg, X_meas=X_meas, t_meas=t_meas)
 
 
 def go_home_callback(cf_server, timeHelper, start_pos_list):
@@ -310,14 +332,14 @@ if __name__ == '__main__':
     n_d = 3
     dim_info = (n_states, n_controls, n_agents, n_d)
 
-    dt = 0.1
-    N = 20
+    # dt = 0.1
+    dt = 0.05
 
     # cf_server = crazy.Crazyswarm().allcfs
     rclpy.init()
     cf_server = CrazyflieServerCustom()
     time_helper = TimeHelper(cf_server)
-    runner = ExperimentRunner(cf_server, time_helper, dim_info, dt=dt, N=N)
+    runner = ExperimentRunner(cf_server, time_helper, dim_info, dt=dt)
 
     # Exit on CTRL+C. 
     signal.signal(signal.SIGINT, lambda *_: sys.exit(-1))
